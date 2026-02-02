@@ -71,7 +71,16 @@ class Program
             _ = Task.Run(PollForHotkeys);
             Logger.Debug($"Registered global hotkeys: {_config.Hotkeys.ActivationKey} (activate), {_config.Hotkeys.ResetKey} (reset), {_config.Hotkeys.ToggleRefuelKey} (toggle refuel)");
             
-            _ = Task.Run(MonitorMsfsProcess);
+            bool msfsWasRunningAtStartup = IsMsfsRunning();
+            if (msfsWasRunningAtStartup)
+            {
+                _ = Task.Run(MonitorMsfsProcess);
+                Logger.Debug("MSFS was running at startup - will close when MSFS closes");
+            }
+            else
+            {
+                Logger.Debug("Started manually - waiting for MSFS to launch...");
+            }
             
             _simConnect = new SimConnect("SimpleGSXIntegrator", _windowHandle, 0, null, 0);
             Logger.Success("Connected to SimConnect");
@@ -565,6 +574,16 @@ class Program
             _refuelingWasActive = false;
             Logger.Debug("Refueling Completed!");
         }
+    }
+    
+    static bool IsMsfsRunning()
+    {
+        var msfsProcesses = System.Diagnostics.Process.GetProcesses()
+            .Where(p => p.ProcessName.Contains("FlightSimulator", StringComparison.OrdinalIgnoreCase) || 
+                       p.ProcessName.Contains("MSFS", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        
+        return msfsProcesses.Length > 0;
     }
     
     static async Task MonitorMsfsProcess()

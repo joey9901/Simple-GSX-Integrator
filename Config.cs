@@ -97,8 +97,8 @@ public static class HotkeyParser
 
 public static class ConfigManager
 {
-    private const string ConfigDirectory = "config";
-    private const string ConfigFilePath = "config/simplegsx.ini";
+    private static readonly string ConfigDirectory = Path.Combine(AppContext.BaseDirectory, "config");
+    private static readonly string ConfigFilePath = Path.Combine(AppContext.BaseDirectory, "config", "simplegsx.ini");
     private static AppConfig? _config;
 
     public static AppConfig Load()

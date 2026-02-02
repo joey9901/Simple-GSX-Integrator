@@ -194,8 +194,8 @@ public class SimVarMonitor
             PushbackConditionsMet?.Invoke();
         }
         
-        // Deboarding: Beacon switched from ON to OFF with parking brake set
-        if (ParkingBrake && !BeaconLight && _prevBeaconLight && OnGround && stationary)
+        // Deboarding: Beacon OFF, parking brake SET, on ground, stationary
+        if (!BeaconLight && ParkingBrake && OnGround && stationary)
         {
             DeboardingConditionsMet?.Invoke();
         }

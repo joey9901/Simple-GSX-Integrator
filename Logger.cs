@@ -16,7 +16,7 @@ public static class Logger
     
     static Logger()
     {
-        var projectDir = Directory.GetCurrentDirectory();
+        var projectDir = AppContext.BaseDirectory;
         var logsDir = Path.Combine(projectDir, "logs");
         Directory.CreateDirectory(logsDir);
         

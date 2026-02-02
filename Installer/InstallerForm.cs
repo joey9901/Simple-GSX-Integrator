@@ -426,15 +426,6 @@ public class InstallerForm : Form
                 string exeXmlPath = Path.Combine(detectedMsfsPath, ExeXmlFileName);
                 string appExePath = Path.Combine(selectedInstallPath, AppExeName);
 
-                if (File.Exists(exeXmlPath))
-                {
-                    string backupPath = exeXmlPath + ".backup";
-                    if (!File.Exists(backupPath))
-                    {
-                        File.Copy(exeXmlPath, backupPath, true);
-                    }
-                }
-
                 UpdateExeXml(exeXmlPath, appExePath);
                 LogMessage("Auto-launch configured");
             }
