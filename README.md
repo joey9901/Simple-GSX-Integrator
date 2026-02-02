@@ -4,7 +4,7 @@ Automated GSX integration for Microsoft Flight Simulator 2024/2020. This tool au
 
 ## Features
 - **Automatic Service Triggering**
-  - Optional Refueling before Boarding (configurable per aircraft)
+  - Optional Refueling before Boarding (configurable per aircraft, saved in config)
   - Boarding Requested upon manual Key Press
   - Pushback Request when Beacon light is turned ON
   - Deboarding when beacon light turns off at arrival
@@ -40,17 +40,20 @@ The app runs in the background and monitors your aircraft state to trigger appro
 
 ## Configuration
 
-Config files are located in the installation folder under `config/`:
-- `config.json` - General settings and hotkey configuration
-- `aircraft-refuel-config.json` - Per-aircraft refuel preferences
+Config file is located in the installation folder under `config/simplegsx.ini`:
 
-Example hotkey configuration:
+Default hotkey configuration:
 ```ini
 [Hotkeys]
 ActivationKey=ALT+G
 ResetKey=ALT+B
 ToggleRefuelKey=ALT+R
+
+[Aircraft:737-800 PAX BW HD]
+RefuelBeforeBoarding=false
 ```
+
+Refuel before Boarding option is also saved here for every aircraft
 
 ## Uninstallation
 
