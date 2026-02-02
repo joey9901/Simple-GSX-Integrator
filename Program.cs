@@ -17,10 +17,13 @@ class Program
     private static SimVarMonitor? _simVariableMonitor;
     private static GsxCommunicator? _gsxCommunicator;
     private static IntPtr _windowHandle = IntPtr.Zero;
+    private static MainForm? _mainForm;
     
     private static bool _isRunning = true;
     private static bool _systemActivated = false;
     private static bool _hotkeyPolling = true;
+    private static volatile bool _rebindingInProgress = false;
+    private static int _rebindCooldown = 0;
     private static bool _monitoringMsfs = false;
     
     private static AppConfig? _config;
@@ -43,33 +46,50 @@ class Program
     private static bool _pushbackBlockedLogged = false;
     private static bool _boardingCompletedWarningLogged = false;
     private static bool _deboardingCompletedWarningLogged = false;
+    private static bool _refuelingBlockedLogged = false;
     
     private static bool? _prevBeaconOn = null;
     private static bool? _prevParkingBrakeSet = null;
+    private static string? _currentAircraft = null;
+    private static Mutex? _instanceMutex;
     
-    static async Task Main(string[] args)
+    [STAThread]
+    static void Main(string[] args)
     {
+        _instanceMutex = new Mutex(true, "SimpleGSXIntegrator_SingleInstance", out bool createdNew);
+        
+        if (!createdNew)
+        {
+            MessageBox.Show("Simple GSX Integrator is already running!", "Already Running", 
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        
         _config = ConfigManager.Load();
         _activationHotkey = HotkeyParser.Parse(_config.Hotkeys.ActivationKey);
         _resetHotkey = HotkeyParser.Parse(_config.Hotkeys.ResetKey);
         _toggleRefuelHotkey = HotkeyParser.Parse(_config.Hotkeys.ToggleRefuelKey);
         
-        Console.WriteLine("╔════════════════════════════════════════════╗");
-        Console.WriteLine("║       Simple GSX Integrator v1.0           ║");
-        Console.WriteLine("║    Automatic GSX Service Triggering        ║");
-        Console.WriteLine("╚════════════════════════════════════════════╝\n");
+        _mainForm = new MainForm();
+        Logger.MainForm = _mainForm;
+        _mainForm.SetHotkeys(_config.Hotkeys.ActivationKey, _config.Hotkeys.ResetKey, _config.Hotkeys.ToggleRefuelKey);
         
-        Console.WriteLine("Commands:");
-        Console.WriteLine($"  [{_config.Hotkeys.ActivationKey}] - Toggle system ON/OFF");
-        Console.WriteLine($"  [{_config.Hotkeys.ResetKey}] - Reset session (for turnaround flights)");
-        Console.WriteLine($"  [{_config.Hotkeys.ToggleRefuelKey}] - Toggle refuel before boarding for current aircraft\n");
-
+        _ = Task.Run(InitializeAsync);
+        
+        Application.Run(_mainForm);
+    }
+    
+    static async Task InitializeAsync()
+    {
         try
         {
-            _windowHandle = GetConsoleWindow();
+            _windowHandle = _mainForm!.Handle;
             
             _ = Task.Run(PollForHotkeys);
-            Logger.Debug($"Registered global hotkeys: {_config.Hotkeys.ActivationKey} (activate), {_config.Hotkeys.ResetKey} (reset), {_config.Hotkeys.ToggleRefuelKey} (toggle refuel)");
+            Logger.Debug($"Registered global hotkeys: {_config!.Hotkeys.ActivationKey} (activate), {_config!.Hotkeys.ResetKey} (reset), {_config!.Hotkeys.ToggleRefuelKey} (toggle refuel)");
             
             bool msfsWasRunningAtStartup = IsMsfsRunning();
             if (msfsWasRunningAtStartup)
@@ -84,6 +104,7 @@ class Program
             
             _simConnect = new SimConnect("SimpleGSXIntegrator", _windowHandle, 0, null, 0);
             Logger.Success("Connected to SimConnect");
+            _mainForm?.SetSimConnectStatus(true);
             
             _simVariableMonitor = new SimVarMonitor(_simConnect);
             _gsxCommunicator = new GsxCommunicator(_simConnect);
@@ -101,18 +122,16 @@ class Program
             _gsxCommunicator.PushbackStateChanged += OnPushbackStateChanged;
             _gsxCommunicator.BoardingStateChanged += OnBoardingStateChanged;
             _gsxCommunicator.RefuelingStateChanged += OnRefuelingStateChanged;
+            _gsxCommunicator.GsxStarted += () => _mainForm?.SetGsxStatus(true);
+            _gsxCommunicator.GsxStopped += () => _mainForm?.SetGsxStatus(false);
             
-            Logger.Info($"SYSTEM STATUS: {(_systemActivated ? "ACTIVATED" : $"STANDBY - Press {_config.Hotkeys.ActivationKey} to activate")}");
+            Logger.Info($"SYSTEM STATUS: {(_systemActivated ? "ACTIVATED" : $"STANDBY - Press {_config!.Hotkeys.ActivationKey} to activate")}");
+            _mainForm?.SetSystemStatus(_systemActivated);
             
             _simConnect.OnRecvSimobjectData += OnReceiveSimObjectData;
             _simConnect.OnRecvQuit += OnReceiveQuit;
             
-            var messageTask = Task.Run(MessagePump);
-            
-            await HandleUserInput();
-            
-            _isRunning = false;
-            await messageTask;
+            await MessagePump();
         }
         catch (Exception ex)
         {
@@ -126,82 +145,18 @@ class Program
         }
     }
     
-    static async Task HandleUserInput()
-    {
-        while (_isRunning)
-        {
-            if (Console.KeyAvailable)
-            {
-                var key = Console.ReadKey(true).Key;
-                
-                switch (key)
-                {
-                    case ConsoleKey.S:
-                        PrintCurrentState();
-                        break;
-                        
-                    case ConsoleKey.P:
-                        PrintMovementDebug();
-                        break;
-                        
-                    case ConsoleKey.M:
-                        ToggleMovementFlag();
-                        break;
-                }
-            }
-            
-            await Task.Delay(KeyPollingDelayMs);
-        }
-    }
-    
-    static void PrintCurrentState()
-    {
-        Console.WriteLine("\n=== Current State ===");
-        _simVariableMonitor?.PrintState();
-        _gsxCommunicator?.PrintState();
-        Console.WriteLine("====================\n");
-    }
-    
-    static void PrintMovementDebug()
-    {
-        if (_simVariableMonitor == null) return;
-        
-        Console.WriteLine("\n[MOVEMENT DEBUG]");
-        Console.WriteLine($"  Ground Speed: {_simVariableMonitor.GroundSpeed:F1} kts");
-        Console.WriteLine($"  Engines Have Run: {_simVariableMonitor.GetEnginesHaveRun()}");
-        Console.WriteLine($"  Aircraft Has Moved: {_simVariableMonitor.GetAircraftHasMoved()}");
-        Logger.Info($"Movement Debug - Speed: {_simVariableMonitor.GroundSpeed:F1}, EnginesRun: {_simVariableMonitor.GetEnginesHaveRun()}, HasMoved: {_simVariableMonitor.GetAircraftHasMoved()}");
-    }
-    
-    static void ToggleMovementFlag()
-    {
-        if (_simVariableMonitor == null) return;
-        
-        bool currentState = _simVariableMonitor.GetAircraftHasMoved();
-        if (currentState)
-        {
-            _simVariableMonitor.ResetAircraftHasMoved();
-            Logger.Success("Aircraft movement flag CLEARED - boarding/pushback enabled");
-        }
-        else
-        {
-            _simVariableMonitor.SetAircraftHasMoved();
-            Logger.Success("Aircraft movement flag SET - boarding/pushback blocked");
-        }
-    }
-    
-    static void MessagePump()
+    static async Task MessagePump()
     {
         while (_isRunning && _simConnect != null)
         {
             try
             {
                 _simConnect.ReceiveMessage();
-                Thread.Sleep(SimConnectPumpDelayMs);
+                await Task.Delay(SimConnectPumpDelayMs);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Message pump error: {ex.Message}");
+                Logger.Error($"Message pump error: {ex.Message}");
             }
         }
     }
@@ -214,7 +169,6 @@ class Program
     
     static void OnReceiveQuit(SimConnect sender, SIMCONNECT_RECV data)
     {
-        Console.WriteLine("\nSimConnect connection closed by simulator.");
         Logger.Info("SimConnect connection closed by simulator");
         Logger.SessionEnd();
         _isRunning = false;
@@ -230,6 +184,19 @@ class Program
         {
             try
             {
+                if (_rebindingInProgress || _rebindCooldown > 0)
+                {
+                    lastActivationState = false;
+                    lastResetState = false;
+                    lastToggleRefuelState = false;
+                    
+                    if (_rebindCooldown > 0)
+                        _rebindCooldown--;
+                    
+                    await Task.Delay(KeyPollingDelayMs);
+                    continue;
+                }
+                
                 bool activationPressed = _activationHotkey != null && _activationHotkey.KeyCode != 0 
                     && IsHotkeyPressed(_activationHotkey);
                     
@@ -278,6 +245,7 @@ class Program
     static void OnActivationHotkeyPressed()
     {
         _systemActivated = !_systemActivated;
+        _mainForm?.SetSystemStatus(_systemActivated);
         
         if (_systemActivated)
         {
@@ -308,6 +276,7 @@ class Program
         aircraftConfig.RefuelBeforeBoarding = !aircraftConfig.RefuelBeforeBoarding;
         ConfigManager.SaveAircraftConfig(aircraftTitle, aircraftConfig);
         
+        _mainForm?.UpdateRefuelCheckbox(aircraftConfig.RefuelBeforeBoarding);
         Logger.Success($"Refuel before boarding for '{aircraftTitle}': {(aircraftConfig.RefuelBeforeBoarding ? "ENABLED" : "DISABLED")}");
     }
     
@@ -338,7 +307,9 @@ class Program
     {
         if (!string.IsNullOrEmpty(aircraftTitle))
         {
-            ConfigManager.GetAircraftConfig(aircraftTitle);
+            _currentAircraft = aircraftTitle;
+            var config = ConfigManager.GetAircraftConfig(aircraftTitle);
+            _mainForm?.SetCurrentAircraft(aircraftTitle, config.RefuelBeforeBoarding);
         }
     }
     
@@ -361,9 +332,28 @@ class Program
     {
         if (!IsSystemReady()) return;
         
-        if (HasAircraftMoved()) return;
+        if (HasAircraftMoved())
+        {
+            if (!_refuelingBlockedLogged)
+            {
+                Logger.Debug("Refueling blocked - aircraft has moved (flight completed)");
+                _refuelingBlockedLogged = true;
+            }
+            return;
+        }
+        
         if (_refuelingCompleted) return;
         if (_boardingCompleted) return;
+        
+        if (_deboardingCompleted)
+        {
+            if (!_refuelingBlockedLogged)
+            {
+                Logger.Warning($"Refueling blocked until system is reset! (Use [{_config!.Hotkeys.ResetKey}] to reset for turnaround)");
+                _refuelingBlockedLogged = true;
+            }
+            return;
+        }
         
         string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
         if (string.IsNullOrEmpty(aircraftTitle)) return;
@@ -400,7 +390,7 @@ class Program
         {
             if (!_boardingCompletedWarningLogged)
             {
-                Logger.Debug($"Boarding blocked - already completed (use [{_config.Hotkeys.ResetKey}] to reset for turnaround)");
+                Logger.Debug($"Boarding blocked - already completed (use [{_config!.Hotkeys.ResetKey}] to reset for turnaround)");
                 _boardingCompletedWarningLogged = true;
             }
             return;
@@ -410,7 +400,7 @@ class Program
         {
             if (!_deboardingCompletedWarningLogged)
             {
-                Logger.Warning($"Boarding blocked until system is reset! (Use [{_config.Hotkeys.ResetKey}] to reset for turnaround)");
+                Logger.Warning($"Boarding blocked until system is reset! (Use [{_config!.Hotkeys.ResetKey}] to reset for turnaround)");
                 _deboardingCompletedWarningLogged = true;
             }
             return;
@@ -418,6 +408,14 @@ class Program
         
         if (_gsxCommunicator!.DeboardingState == GsxServiceState.Active || 
             _gsxCommunicator.DeboardingState == GsxServiceState.Requested)
+        {
+            return;
+        }
+        
+        if (_gsxCommunicator.DeboardingState == GsxServiceState.Callable && 
+            !_deboardingCompleted && 
+            _simVariableMonitor != null && 
+            _simVariableMonitor.GetEnginesHaveRun())
         {
             return;
         }
@@ -465,7 +463,7 @@ class Program
         {
             if (!_pushbackBlockedLogged)
             {
-                Logger.Debug("Pushback blocked - aircraft has moved (flight completed)");
+                Logger.Debug("Pushback blocked - aircraft has moved");
                 _pushbackBlockedLogged = true;
             }
             return;
@@ -477,7 +475,11 @@ class Program
         if (_gsxCommunicator.PushbackProgress > 0 && _gsxCommunicator.PushbackProgress < 5) return;
         
         if (_gsxCommunicator.BoardingState == GsxServiceState.Active || 
-            _gsxCommunicator.BoardingState == GsxServiceState.Requested) return;
+            _gsxCommunicator.BoardingState == GsxServiceState.Requested)         
+        {
+            Logger.Debug("Pushback blocked - boarding is ongoing");
+            return;
+        }
         
         if (_gsxCommunicator.DeboardingState == GsxServiceState.Active || 
             _gsxCommunicator.DeboardingState == GsxServiceState.Requested)
@@ -488,7 +490,7 @@ class Program
         
         if (!CanTriggerService(_lastPushbackTrigger)) return;
         
-        Logger.Debug("TRIGGER: Pushback conditions met (Beacon ON)!");
+        Logger.Debug("TRIGGER: Pushback conditions met!");
         _lastPushbackTrigger = DateTime.Now;
         
         await Task.Delay(ServiceTriggerDelayMs);
@@ -505,10 +507,15 @@ class Program
     {
         if (!IsSystemReady()) return;
         
+        if (_simVariableMonitor != null && !_simVariableMonitor.GetEnginesHaveRun())
+        {
+            return;
+        }
+        
         if (_gsxCommunicator!.DeboardingState != GsxServiceState.Callable) return;
         if (!CanTriggerService(_lastDeboardingTrigger)) return;
         
-        Logger.Debug("TRIGGER: Deboarding conditions met (Beacon OFF + Parking Brake)!");
+        Logger.Debug("TRIGGER: Deboarding conditions met!");
         _lastDeboardingTrigger = DateTime.Now;
         
         await Task.Delay(ServiceTriggerDelayMs);
@@ -526,12 +533,13 @@ class Program
         _pushbackBlockedLogged = false;
         _boardingCompletedWarningLogged = false;
         _deboardingCompletedWarningLogged = false;
+        _refuelingBlockedLogged = false;
         _simVariableMonitor?.ResetEnginesHaveRun();
         _lastBoardingTrigger = DateTime.MinValue;
         _lastPushbackTrigger = DateTime.MinValue;
         _lastDeboardingTrigger = DateTime.MinValue;
         _lastRefuelingTrigger = DateTime.MinValue;
-        Logger.Debug("Session state reset - system remains active");
+        Logger.Debug("Session state reset.");
     }
     
     static void OnDeboardingStateChanged(GsxServiceState state)
@@ -576,6 +584,98 @@ class Program
         }
     }
     
+    public static void UpdateRefuelSetting(string aircraftTitle, bool enabled)
+    {
+        if (string.IsNullOrEmpty(aircraftTitle)) return;
+        
+        var config = ConfigManager.GetAircraftConfig(aircraftTitle);
+        config.RefuelBeforeBoarding = enabled;
+        ConfigManager.SaveAircraftConfig(aircraftTitle, config);
+    }
+    
+    public static void SetRebindingMode(bool rebinding)
+    {
+        _rebindingInProgress = rebinding;
+        if (!rebinding)
+        {
+            _rebindCooldown = 3;
+        }
+    }
+    
+    public static void UpdateHotkey(string hotkeyType, string hotkeyString)
+    {
+        if (_config == null) return;
+        
+        if (hotkeyType == "Activation")
+        {
+            _config.Hotkeys.ActivationKey = hotkeyString;
+            _activationHotkey = HotkeyParser.Parse(hotkeyString);
+        }
+        else if (hotkeyType == "Reset")
+        {
+            _config.Hotkeys.ResetKey = hotkeyString;
+            _resetHotkey = HotkeyParser.Parse(hotkeyString);
+        }
+        else if (hotkeyType == "ToggleRefuel")
+        {
+            _config.Hotkeys.ToggleRefuelKey = hotkeyString;
+            _toggleRefuelHotkey = HotkeyParser.Parse(hotkeyString);
+        }
+        
+        ConfigManager.Save(_config);
+        Logger.Success($"{hotkeyType} hotkey updated to: {hotkeyString}");
+    }
+    
+    public static void PrintCurrentState()
+    {
+        if (_simVariableMonitor == null || _gsxCommunicator == null)
+        {
+            Logger.Warning("SimConnect not initialized");
+            return;
+        }
+        
+        Logger.Info("=== Current State ===");
+        Logger.Info($"Aircraft: {_simVariableMonitor.AircraftTitle}");
+        Logger.Info($"Beacon: {(_simVariableMonitor.BeaconLight ? "ON" : "OFF")}, Parking Brake: {(_simVariableMonitor.ParkingBrake ? "SET" : "RELEASED")}, On Ground: {_simVariableMonitor.OnGround}");
+        Logger.Info($"Speed: {_simVariableMonitor.GroundSpeed:F1} kts, Engine(s) Running: {_simVariableMonitor.EngineRunning}, Has Moved: {_simVariableMonitor.GetAircraftHasMoved()}");
+        Logger.Info($"GSX Running: {_gsxCommunicator.IsGsxRunning()}, Deboarding: {_gsxCommunicator.DeboardingState}, Boarding: {_gsxCommunicator.BoardingState}");
+        Logger.Info($"Pushback: {_gsxCommunicator.PushbackState}, Refueling: {_gsxCommunicator.RefuelingState}");
+        Logger.Info($"System Active: {_systemActivated}, Deboarding Done: {_deboardingCompleted}, Boarding Done: {_boardingCompleted}");
+        Logger.Info("====================");
+    }
+    
+    public static void PrintMovementDebug()
+    {
+        if (_simVariableMonitor == null)
+        {
+            Logger.Warning("SimConnect not initialized");
+            return;
+        }
+        
+        Logger.Info($"Movement Debug - Speed: {_simVariableMonitor.GroundSpeed:F1} kts, EnginesRun: {_simVariableMonitor.GetEnginesHaveRun()}, HasMoved: {_simVariableMonitor.GetAircraftHasMoved()}");
+    }
+    
+    public static void ToggleMovementFlag()
+    {
+        if (_simVariableMonitor == null)
+        {
+            Logger.Warning("SimConnect not initialized");
+            return;
+        }
+        
+        bool currentState = _simVariableMonitor.GetAircraftHasMoved();
+        if (currentState)
+        {
+            _simVariableMonitor.ResetAircraftHasMoved();
+            Logger.Success("Aircraft movement flag CLEARED - boarding/pushback enabled");
+        }
+        else
+        {
+            _simVariableMonitor.SetAircraftHasMoved();
+            Logger.Success("Aircraft movement flag SET - boarding/pushback blocked");
+        }
+    }
+    
     static bool IsMsfsRunning()
     {
         var msfsProcesses = System.Diagnostics.Process.GetProcesses()
@@ -609,9 +709,6 @@ class Program
     }
     
     // Windows API imports
-    [DllImport("kernel32.dll")]
-    static extern IntPtr GetConsoleWindow();
-    
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
 }

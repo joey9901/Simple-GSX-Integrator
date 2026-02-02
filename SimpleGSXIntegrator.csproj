@@ -1,14 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>x64</Platforms>
+    <UseWindowsForms>true</UseWindowsForms>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <AssemblyName>SimpleGSXIntegrator</AssemblyName>
     <RootNamespace>SimpleGsxIntegrator</RootNamespace>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
     
     <!-- Publish settings for self-contained executable -->
     <PublishSingleFile>false</PublishSingleFile>
@@ -37,6 +39,9 @@
     <None Update="lib\Microsoft.FlightSimulator.SimConnect.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <TargetPath>Microsoft.FlightSimulator.SimConnect.dll</TargetPath>
+    </None>
+    <None Update="logo.ico">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

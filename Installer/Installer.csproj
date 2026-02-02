@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>SimpleGSXIntegrator-Installer</AssemblyName>
     <RootNamespace>SimpleGSXIntegrator.Installer</RootNamespace>
+    <ApplicationIcon>..\logo.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

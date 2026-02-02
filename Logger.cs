@@ -4,6 +4,7 @@ public static class Logger
 {
     private static readonly object _lock = new();
     private static string? _logFilePath;
+    public static MainForm? MainForm { get; set; }
     
     public enum LogLevel
     {
@@ -27,8 +28,6 @@ public static class Logger
         WriteToFile($"Session started at {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
         WriteToFile("=".PadRight(80, '='));
         WriteToFile("");
-        
-        Console.WriteLine($"Logs: {_logFilePath}\n");
     }
     
     public static void SessionEnd()
@@ -80,24 +79,11 @@ public static class Logger
                 _ => "[LOG]"
             };
             
-            var color = level switch
-            {
-                LogLevel.Debug => ConsoleColor.Gray,
-                LogLevel.Info => ConsoleColor.White,
-                LogLevel.Warning => ConsoleColor.Yellow,
-                LogLevel.Error => ConsoleColor.Red,
-                LogLevel.Success => ConsoleColor.Green,
-                _ => ConsoleColor.White
-            };
-            
             var logLine = $"{timestamp} {prefix} {message}";
             
             if (level != LogLevel.Debug)
             {
-                var originalColor = Console.ForegroundColor;
-                Console.ForegroundColor = color;
-                Console.WriteLine(logLine);
-                Console.ForegroundColor = originalColor;
+                MainForm?.AppendLog(logLine);
             }
             
             WriteToFile(logLine);
