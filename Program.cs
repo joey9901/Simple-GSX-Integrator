@@ -573,9 +573,12 @@ class Program
         
         while (_monitoringMsfs && _isRunning)
         {
-            await Task.Delay(2000); // Check every 2 seconds
+            await Task.Delay(5000);
             
-            var msfsProcesses = System.Diagnostics.Process.GetProcessesByName("FlightSimulator");
+            var msfsProcesses = System.Diagnostics.Process.GetProcesses()
+                .Where(p => p.ProcessName.Contains("FlightSimulator", StringComparison.OrdinalIgnoreCase) || 
+                           p.ProcessName.Contains("MSFS", StringComparison.OrdinalIgnoreCase))
+                .ToArray();
             
             if (msfsProcesses.Length == 0)
             {
