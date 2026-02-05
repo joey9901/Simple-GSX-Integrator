@@ -164,6 +164,13 @@ public static class UpdateChecker
             // Create PowerShell script to replace files and restart
             var scriptPath = Path.Combine(tempPath, "update.ps1");
             
+            // For directories, copy contents with \*; for files, copy as-is
+            var copyPath = updateSource;
+            if (Directory.Exists(updateSource))
+            {
+                copyPath = Path.Combine(updateSource, "*");
+            }
+            
             var script = $@"
 # Wait for the main process to exit
 Start-Sleep -Seconds 2
@@ -171,7 +178,7 @@ Start-Sleep -Seconds 2
 Write-Host 'Updating SimpleGSXIntegrator...'
 
 # Copy the update file(s) to install directory
-Copy-Item -Path '{updateSource}' -Destination '{installDir}' -Recurse -Force
+Copy-Item -Path '{copyPath}' -Destination '{installDir}' -Recurse -Force
 
 Write-Host 'Update complete! Restarting...'
 
