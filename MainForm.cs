@@ -20,6 +20,7 @@ public partial class MainForm : Form
     private Panel pnlUpdateAvailable = null!;
     private Label lblUpdateMessage = null!;
     private Button btnDownloadUpdate = null!;
+    private ProgressBar prgUpdateProgress = null!;
     
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
@@ -34,7 +35,7 @@ public partial class MainForm : Form
         
         InitializeComponent();
         this.Text = "Simple GSX Integrator";
-        this.Size = new Size(700, 645);
+        this.ClientSize = new Size(700, 645);
         this.MinimumSize = new Size(700, 645);
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.MaximizeBox = true;
@@ -105,7 +106,14 @@ public partial class MainForm : Form
         btnDownloadUpdate.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 0);
         btnDownloadUpdate.Click += BtnDownloadUpdate_Click;
 
-        pnlUpdateAvailable.Controls.AddRange(new Control[] { lblUpdateMessage, btnDownloadUpdate });
+        prgUpdateProgress = new ProgressBar
+        {
+            Location = new Point(420, 11),
+            Size = new Size(210, 20),
+            Visible = false
+        };
+
+        pnlUpdateAvailable.Controls.AddRange(new Control[] { lblUpdateMessage, btnDownloadUpdate, prgUpdateProgress });
 
         var lblStatusHeader = new Label
         {
@@ -240,17 +248,20 @@ public partial class MainForm : Form
         txtLog = new RichTextBox
         {
             Location = new Point(20, 475),
-            Size = new Size(640, 110),
+            Size = new Size(660, 150),
             ScrollBars = RichTextBoxScrollBars.Vertical,
             ReadOnly = true,
             BackColor = SystemColors.Window,
             Font = new Font("Consolas", 9),
-            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+            WordWrap = true,
+            DetectUrls = false,
+            Multiline = true
         };
 
         var lblDebugHeader = new Label
         {
-            Text = "Debug:",
+            Text = "Debug",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
             Location = new Point(480, 190),
             Size = new Size(180, 25)
@@ -296,10 +307,11 @@ public partial class MainForm : Form
 
         this.ResumeLayout();
         
-        // Apply initial theme
+        txtLog.Width = this.ClientSize.Width - 40; 
+        txtLog.Height = this.ClientSize.Height - txtLog.Top - 20; 
+        
         ApplyTheme();
         
-        // Check for updates asynchronously
         Task.Run(async () => await CheckForUpdatesAsync());
     }
 
@@ -326,10 +338,8 @@ public partial class MainForm : Form
 
     private void ApplyTheme()
     {
-        // Form background
         this.BackColor = Theme.Background;
         
-        // Apply to all controls recursively
         ApplyThemeToControl(this);
     }
 
@@ -340,7 +350,6 @@ public partial class MainForm : Form
             label.ForeColor = Theme.Text;
             label.BackColor = Theme.Background;
             
-            // Preserve status colors
             if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus)
             {
                 // Keep existing status colors
@@ -354,7 +363,6 @@ public partial class MainForm : Form
         else if (control is RichTextBox richTextBox)
         {
             richTextBox.BackColor = Theme.Surface;
-            // Log colors are handled separately in AppendLog
         }
         else if (control is Button button)
         {
@@ -369,7 +377,6 @@ public partial class MainForm : Form
             checkBox.BackColor = Theme.Background;
         }
         
-        // Recursively apply to child controls
         foreach (Control child in control.Controls)
         {
             ApplyThemeToControl(child);
@@ -562,6 +569,9 @@ public partial class MainForm : Form
         txtLog.SelectionColor = textColor;
         txtLog.AppendText(message + Environment.NewLine);
         txtLog.SelectionColor = txtLog.ForeColor;
+        
+        // Force scroll to bottom
+        txtLog.SelectionStart = txtLog.TextLength;
         txtLog.ScrollToCaret();
     }
     
@@ -569,7 +579,9 @@ public partial class MainForm : Form
     {
         try
         {
+            Logger.Debug($"Checking for updates... Current version: {UpdateChecker.GetCurrentVersion()}");
             var updateInfo = await UpdateChecker.CheckForUpdatesAsync();
+            Logger.Debug($"Update check result: {(updateInfo != null ? $"Update available: {updateInfo.LatestVersion}" : "No update available")}");
             
             if (updateInfo != null)
             {
@@ -595,7 +607,6 @@ public partial class MainForm : Form
         lblUpdateMessage.Tag = updateInfo.DownloadUrl;
         pnlUpdateAvailable.Visible = true;
         
-        // Apply theme colors to update panel
         if (Theme.IsDarkMode)
         {
             pnlUpdateAvailable.BackColor = Color.FromArgb(70, 60, 20);
@@ -612,23 +623,64 @@ public partial class MainForm : Form
         Logger.Info($"Update available: v{updateInfo.LatestVersion}");
     }
     
-    private void BtnDownloadUpdate_Click(object? sender, EventArgs e)
+private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
     {
         string? url = lblUpdateMessage.Tag as string;
         if (!string.IsNullOrEmpty(url))
         {
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                btnDownloadUpdate.Enabled = false;
+                btnDownloadUpdate.Visible = false;
+                prgUpdateProgress.Visible = true;
+                prgUpdateProgress.Value = 0;
+                lblUpdateMessage.Text = "Downloading update...";
+                
+                Logger.Info("Starting update download...");
+                
+                var progress = new Progress<int>(percent =>
                 {
-                    FileName = url,
-                    UseShellExecute = true
+                    if (InvokeRequired)
+                    {
+                        Invoke(() => 
+                        {
+                            prgUpdateProgress.Value = percent;
+                            lblUpdateMessage.Text = $"Downloading update... {percent}%";
+                        });
+                    }
+                    else
+                    {
+                        prgUpdateProgress.Value = percent;
+                        lblUpdateMessage.Text = $"Downloading update... {percent}%";
+                    }
                 });
-                Logger.Info("Opening download page...");
+                
+                var zipPath = await UpdateChecker.DownloadUpdateAsync(url, progress);
+                
+                if (zipPath != null)
+                {
+                    lblUpdateMessage.Text = "Installing update...";
+                    Logger.Info("Download complete, installing...");
+                    
+                    await Task.Run(() => UpdateChecker.InstallUpdateAndRestart(zipPath));
+                }
+                else
+                {
+                    lblUpdateMessage.Text = "Download failed!";
+                    Logger.Warning("Update download failed");
+                    
+                    btnDownloadUpdate.Enabled = true;
+                    btnDownloadUpdate.Visible = true;
+                    prgUpdateProgress.Visible = false;
+                }
             }
             catch (Exception ex)
             {
-                Logger.Warning($"Failed to open download link: {ex.Message}");
+                Logger.Warning($"Update failed: {ex.Message}");
+                lblUpdateMessage.Text = "Update failed!";
+                btnDownloadUpdate.Enabled = true;
+                btnDownloadUpdate.Visible = true;
+                prgUpdateProgress.Visible = false;
             }
         }
     }
