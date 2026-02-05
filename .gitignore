@@ -20,3 +20,11 @@ Installer/Payload/*
 *.log
 
 Thumbs.db
+
+publish/
+release/
+*.zip
+/*.exe
+/*.pdb
+
+BuildRelease.ps1

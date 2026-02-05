@@ -16,10 +16,12 @@
     <FileVersion>1.0.0</FileVersion>
     
     <!-- Publish settings for self-contained executable -->
-    <PublishSingleFile>false</PublishSingleFile>
+    <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>false</PublishReadyToRun>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishDir>release\</PublishDir>
   </PropertyGroup>
 
   <ItemGroup>
