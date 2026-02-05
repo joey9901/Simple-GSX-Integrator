@@ -26,5 +26,3 @@ release/
 *.zip
 /*.exe
 /*.pdb
-
-BuildRelease.ps1

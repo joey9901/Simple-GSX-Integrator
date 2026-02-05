@@ -1,12 +1,8 @@
-#!/usr/bin/env pwsh
-# BuildRelease.ps1 - Build and package SimpleGSXIntegrator for release
-
 param(
     [Parameter(Mandatory=$false)]
     [string]$Version
 )
 
-# Get version from project file if not specified
 if (-not $Version) {
     $csprojContent = Get-Content "SimpleGSXIntegrator.csproj"
     $versionLine = $csprojContent | Select-String -Pattern '<Version>(.*)</Version>'
@@ -21,11 +17,9 @@ if (-not $Version) {
 
 Write-Host "`n=== Building SimpleGSXIntegrator v$Version ===" -ForegroundColor Green
 
-# Clean previous builds
 Write-Host "`nCleaning previous builds..." -ForegroundColor Yellow
 Remove-Item -Path ".\release" -Recurse -Force -ErrorAction SilentlyContinue
 
-# Build Release
 Write-Host "`nBuilding Release..." -ForegroundColor Yellow
 dotnet publish SimpleGSXIntegrator.csproj -c Release
 
@@ -34,7 +28,6 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Check if exe was created
 $exePath = ".\release\SimpleGSXIntegrator.exe"
 if (-not (Test-Path $exePath)) {
     Write-Host "ERROR: Executable not found at $exePath" -ForegroundColor Red
@@ -47,19 +40,16 @@ Write-Host "Build complete!" -ForegroundColor Green
 Write-Host "  Executable: $exePath ($exeSize MB)" -ForegroundColor Cyan
 Write-Host ""
 
-# Create update package with all necessary files
 Write-Host "Creating update package..." -ForegroundColor Yellow
 $zipPath = ".\release\SimpleGSXIntegrator-v$Version.zip"
 if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
 }
 
-# Copy required DLLs to release folder temporarily
 Copy-Item "lib\SimConnect.dll" "release\" -Force
 Copy-Item "lib\Microsoft.FlightSimulator.SimConnect.dll" "release\" -Force
 Copy-Item "logo.ico" "release\" -Force
 
-# Package exe and required files
 $filesToPackage = @(
     "release\SimpleGSXIntegrator.exe",
     "release\SimConnect.dll",
