@@ -46,18 +46,16 @@ if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
 }
 
-Copy-Item "lib\SimConnect.dll" "release\" -Force
-Copy-Item "lib\Microsoft.FlightSimulator.SimConnect.dll" "release\" -Force
-Copy-Item "logo.ico" "release\" -Force
+Get-ChildItem "release\*.pdb" -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem "release\*.zip" | Remove-Item -Force -ErrorAction SilentlyContinue
 
-$filesToPackage = @(
-    "release\SimpleGSXIntegrator.exe",
-    "release\SimConnect.dll",
-    "release\Microsoft.FlightSimulator.SimConnect.dll",
-    "release\logo.ico"
-)
+$sourceDir = Resolve-Path "release"
+$destZip = Join-Path $PWD "SimpleGSXIntegrator-v$Version.zip"
 
-Compress-Archive -Path $filesToPackage -DestinationPath $zipPath
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::CreateFromDirectory($sourceDir, $destZip)
+
+Move-Item $destZip "release\" -Force
 $zipSize = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 Write-Host "  Package: $zipPath ($zipSize MB)" -ForegroundColor Cyan
 

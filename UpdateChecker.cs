@@ -86,7 +86,6 @@ public static class UpdateChecker
             }
             Directory.CreateDirectory(tempPath);
             
-            // Determine file extension from URL
             var isZip = downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
             var fileName = isZip ? "update.zip" : "SimpleGSXIntegrator.exe";
             var downloadPath = Path.Combine(tempPath, fileName);
@@ -139,7 +138,6 @@ public static class UpdateChecker
             
             string updateSource;
             
-            // Check if it's a zip file that needs extraction
             if (downloadedFile.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
                 Logger.Info("Extracting zip file...");
@@ -156,20 +154,11 @@ public static class UpdateChecker
             }
             else
             {
-                // It's a direct .exe file
                 Logger.Info("Using direct executable update...");
                 updateSource = downloadedFile;
             }
             
-            // Create PowerShell script to replace files and restart
             var scriptPath = Path.Combine(tempPath, "update.ps1");
-            
-            // For directories, copy contents with \*; for files, copy as-is
-            var copyPath = updateSource;
-            if (Directory.Exists(updateSource))
-            {
-                copyPath = Path.Combine(updateSource, "*");
-            }
             
             var script = $@"
 # Wait for the main process to exit
@@ -177,8 +166,12 @@ Start-Sleep -Seconds 2
 
 Write-Host 'Updating SimpleGSXIntegrator...'
 
-# Copy the update file(s) to install directory
-Copy-Item -Path '{copyPath}' -Destination '{installDir}' -Recurse -Force
+# Use robocopy for faster file copying (especially with many files)
+robocopy '{updateSource}' '{installDir}' /E /R:3 /W:1 /NFL /NDL /NJH /NP
+if ($LASTEXITCODE -ge 8) {{
+    Write-Host 'Error copying files!' -ForegroundColor Red
+    exit 1
+}}
 
 Write-Host 'Update complete! Restarting...'
 
@@ -194,7 +187,6 @@ Remove-Item -Path '{tempPath}' -Recurse -Force -ErrorAction SilentlyContinue
             
             Logger.Info("Launching update script...");
             
-            // Launch the PowerShell script
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -207,7 +199,6 @@ Remove-Item -Path '{tempPath}' -Recurse -Force -ErrorAction SilentlyContinue
             
             Logger.Info("Update script launched. Exiting...");
             
-            // Exit the current application
             Environment.Exit(0);
         }
         catch (Exception ex)
