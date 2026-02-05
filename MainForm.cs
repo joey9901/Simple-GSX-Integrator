@@ -7,6 +7,7 @@ public partial class MainForm : Form
     private Label lblSimConnectStatus = null!;
     private Label lblGsxStatus = null!;
     private Label lblSystemStatus = null!;
+    private Label lblVersion = null!;
     private TextBox txtActivationKey = null!;
     private TextBox txtResetKey = null!;
     private TextBox txtToggleRefuelKey = null!;
@@ -64,6 +65,16 @@ public partial class MainForm : Form
             AutoSize = false
         };
 
+        lblVersion = new Label
+        {
+            Text = $"v{UpdateChecker.GetCurrentVersion()}",
+            Font = new Font("Segoe UI", 11),
+            Location = new Point(20, 55),
+            Size = new Size(100, 20),
+            AutoSize = true,
+            ForeColor = Theme.IsDarkMode ? Color.FromArgb(200, 200, 200) : Color.FromArgb(100, 100, 100)
+        };
+
         chkDarkMode = new CheckBox
         {
             Text = "Dark Mode",
@@ -84,7 +95,7 @@ public partial class MainForm : Form
 
         lblUpdateMessage = new Label
         {
-            Text = "🎉 Update available! v0.0.0",
+            Text = "Update available! v0.0.0",
             Location = new Point(10, 11),
             Size = new Size(400, 20),
             Font = new Font("Segoe UI", 10, FontStyle.Bold),
@@ -294,7 +305,7 @@ public partial class MainForm : Form
 
         this.Controls.AddRange(new Control[]
         {
-            lblTitle, chkDarkMode, pnlUpdateAvailable,
+            lblTitle, lblVersion, chkDarkMode, pnlUpdateAvailable,
             lblStatusHeader, lblSimConnectStatus, lblGsxStatus, lblSystemStatus,
             lblHotkeysHeader, lblActivationKey, txtActivationKey,
             lblResetKey, txtResetKey, lblToggleRefuel, txtToggleRefuelKey,
@@ -351,6 +362,10 @@ public partial class MainForm : Form
             if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus)
             {
                 // Keep existing status colors
+            }
+            else if (label == lblVersion)
+            {
+                label.ForeColor = Theme.IsDarkMode ? Color.FromArgb(200, 200, 200) : Color.FromArgb(100, 100, 100);
             }
         }
         else if (control is TextBox textBox)
@@ -600,7 +615,7 @@ public partial class MainForm : Form
     
     private void ShowUpdateNotification(UpdateInfo updateInfo)
     {
-        lblUpdateMessage.Text = $"🎉 Update available! v{updateInfo.LatestVersion}";
+        lblUpdateMessage.Text = $"Update available! v{updateInfo.LatestVersion}";
         lblUpdateMessage.Tag = updateInfo.DownloadUrl;
         pnlUpdateAvailable.Visible = true;
         
