@@ -274,8 +274,6 @@ public class GsxCommunicator
         
         Logger.Info("Calling GSX Boarding");
         
-        var initialState = BoardingState;
-        
         OpenGsxMenu();
         await Task.Delay(1000);
         
@@ -345,8 +343,6 @@ public class GsxCommunicator
         
         Logger.Info("Calling GSX Pushback");
         
-        var previousState = PushbackState;
-        
         OpenGsxMenu();
         await Task.Delay(3000);
         
@@ -371,7 +367,7 @@ public class GsxCommunicator
             return false;
         }
     }
-    
+
     public async Task CallDeboarding()
     {
         if (DeboardingState != GsxServiceState.Callable)
@@ -391,30 +387,6 @@ public class GsxCommunicator
         await SelectMenuOption(2, 500);
         
         Logger.Info("Deboarding menu sequence sent");
-    }
-    
-    private string GetStateName(int state)
-    {
-        return state switch
-        {
-            0 => "Unknown",
-            1 => "Callable",
-            2 => "Not Available",
-            3 => "Bypassed",
-            4 => "Requested",
-            5 => "Active",
-            6 => "Completed",
-            _ => $"State {state}"
-        };
-    }
-    
-    public void PrintState()
-    {
-        Console.WriteLine($"GSX Running: {_isGsxRunning} | " +
-                         $"Refueling: {RefuelingState} | " +
-                         $"Boarding: {BoardingState} | " +
-                         $"Deboarding: {DeboardingState} | " +
-                         $"Pushback: {PushbackState}");
     }
 }
 

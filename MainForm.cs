@@ -69,8 +69,7 @@ public partial class MainForm : Form
         {
             Text = $"v{UpdateChecker.GetCurrentVersion()}",
             Font = new Font("Segoe UI", 11),
-            Location = new Point(20, 55),
-            Size = new Size(100, 20),
+            Location = new Point(330, 27),
             AutoSize = true,
             ForeColor = Theme.IsDarkMode ? Color.FromArgb(200, 200, 200) : Color.FromArgb(100, 100, 100)
         };

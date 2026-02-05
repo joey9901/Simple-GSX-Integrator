@@ -282,19 +282,13 @@ class Program
     
     static void OnBeaconChanged(bool beaconOn)
     {
-        if (_prevBeaconOn.HasValue && _prevBeaconOn.Value != beaconOn)
-        {
-            Logger.Info($"Beacon light: {(beaconOn ? "ON" : "OFF")}");
-        }
+        Logger.Info($"Beacon light: {(beaconOn ? "ON" : "OFF")}");
         _prevBeaconOn = beaconOn;
     }
     
     static void OnParkingBrakeChanged(bool brakeSet)
     {
-        if (_prevParkingBrakeSet.HasValue && _prevParkingBrakeSet.Value != brakeSet)
-        {
-            Logger.Info($"Parking brake: {(brakeSet ? "SET" : "RELEASED")}");
-        }
+        Logger.Info($"Parking brake: {(brakeSet ? "SET" : "RELEASED")}");
         _prevParkingBrakeSet = brakeSet;
     }
     

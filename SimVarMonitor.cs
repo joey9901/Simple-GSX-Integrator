@@ -19,10 +19,11 @@ public class SimVarMonitor
     private bool _enginesHaveRun = false;
     private bool _aircraftHasMoved = false;
     private const double MovementThreshold = 5.0; // knots
+    private bool _firstDataReceived = false;
     
-    private bool _prevBeaconLight;
-    private bool _prevParkingBrake;
-    private bool _prevEngineRunning;
+    private bool _prevBeaconLight = false;
+    private bool _prevParkingBrake = false;
+    private bool _prevEngineRunning = false;
     private string _prevAircraftTitle = "";
     
     public event Action<bool>? BeaconChanged;
@@ -125,10 +126,6 @@ public class SimVarMonitor
         
         var aircraftState = (AircraftStateStruct)data.dwData[0];
         
-        _prevBeaconLight = BeaconLight;
-        _prevParkingBrake = ParkingBrake;
-        _prevEngineRunning = EngineRunning;
-        
         BeaconLight = aircraftState.BeaconLight != 0;
         ParkingBrake = aircraftState.ParkingBrake != 0;
         EngineRunning = aircraftState.EngineRunning != 0;
@@ -137,6 +134,15 @@ public class SimVarMonitor
         Airspeed = aircraftState.Airspeed;
         ExternalPower = aircraftState.ExternalPower;
         AircraftTitle = aircraftState.AircraftTitle;
+        
+        if (!_firstDataReceived)
+        {
+            _prevBeaconLight = BeaconLight;
+            _prevParkingBrake = ParkingBrake;
+            _prevEngineRunning = EngineRunning;
+            _firstDataReceived = true;
+            Logger.Debug($"Initial aircraft state - Beacon: {BeaconLight}, Parking Brake: {ParkingBrake}, Engines: {EngineRunning}");
+        }
         
         if (!string.IsNullOrEmpty(AircraftTitle) && AircraftTitle != _prevAircraftTitle)
         {
@@ -155,16 +161,19 @@ public class SimVarMonitor
         
         if (BeaconLight != _prevBeaconLight)
         {
+            _prevBeaconLight = BeaconLight;
             BeaconChanged?.Invoke(BeaconLight);
         }
         
         if (ParkingBrake != _prevParkingBrake)
         {
+            _prevParkingBrake = ParkingBrake;
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
         
         if (EngineRunning != _prevEngineRunning)
         {
+            _prevEngineRunning = EngineRunning;
             EngineChanged?.Invoke(EngineRunning);
         }
         
@@ -199,13 +208,6 @@ public class SimVarMonitor
         {
             DeboardingConditionsMet?.Invoke();
         }
-    }
-    
-    public void PrintState()
-    {
-        Console.WriteLine($"Beacon: {BeaconLight} | Parking Brake: {ParkingBrake} | " +
-                         $"Engine: {EngineRunning} | " +
-                         $"Ground: {OnGround} | Speed: {GroundSpeed:F1}kt");
     }
     
     public bool GetEnginesHaveRun() => _enginesHaveRun;
