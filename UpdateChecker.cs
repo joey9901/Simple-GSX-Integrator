@@ -13,7 +13,7 @@ public class UpdateInfo
 
 public static class UpdateChecker
 {
-    private const string UpdateCheckUrl = "https://raw.githubusercontent.com/joey9901/Simple-GSX-Integrator/dev/version.json";
+    private const string UpdateCheckUrl = "https://raw.githubusercontent.com/joey9901/Simple-GSX-Integrator/main/version.json";
     
     public static string GetCurrentVersion()
     {
