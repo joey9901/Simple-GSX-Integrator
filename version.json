@@ -1,5 +1,5 @@
 {
   "latestVersion": "1.2.0",
-  "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.2.0/SimpleGSXIntegrator.exe",
-  "releaseNotes": ""
+  "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.2.0/SimpleGSXIntegrator-v1.2.0.zip",
+  "releaseNotes": "Fix: Auto-update now includes all required files"
 }
