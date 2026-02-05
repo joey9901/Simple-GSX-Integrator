@@ -49,7 +49,7 @@ Write-Host ""
 
 # Create update package with all necessary files
 Write-Host "Creating update package..." -ForegroundColor Yellow
-$zipPath = ".\SimpleGSXIntegrator-v$Version.zip"
+$zipPath = ".\release\SimpleGSXIntegrator-v$Version.zip"
 if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
 }
