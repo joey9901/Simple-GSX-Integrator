@@ -17,6 +17,9 @@ public partial class MainForm : Form
     private Button btnMovementDebug = null!;
     private Button btnToggleMovement = null!;
     private CheckBox chkDarkMode = null!;
+    private Panel pnlUpdateAvailable = null!;
+    private Label lblUpdateMessage = null!;
+    private Button btnDownloadUpdate = null!;
     
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
@@ -31,8 +34,8 @@ public partial class MainForm : Form
         
         InitializeComponent();
         this.Text = "Simple GSX Integrator";
-        this.Size = new Size(700, 600);
-        this.MinimumSize = new Size(700, 600);
+        this.Size = new Size(700, 645);
+        this.MinimumSize = new Size(700, 645);
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.MaximizeBox = true;
         this.StartPosition = FormStartPosition.CenterScreen;
@@ -70,18 +73,52 @@ public partial class MainForm : Form
         };
         chkDarkMode.CheckedChanged += ChkDarkMode_CheckedChanged;
 
+        // Update notification panel (hidden by default)
+        pnlUpdateAvailable = new Panel
+        {
+            Location = new Point(20, 60),
+            Size = new Size(640, 40),
+            BackColor = Color.FromArgb(255, 243, 205),
+            BorderStyle = BorderStyle.FixedSingle,
+            Visible = false
+        };
+
+        lblUpdateMessage = new Label
+        {
+            Text = "🎉 Update available! v0.0.0",
+            Location = new Point(10, 11),
+            Size = new Size(400, 20),
+            Font = new Font("Segoe UI", 10, FontStyle.Bold),
+            ForeColor = Color.FromArgb(133, 100, 4)
+        };
+
+        btnDownloadUpdate = new Button
+        {
+            Text = "Download",
+            Location = new Point(540, 8),
+            Size = new Size(90, 25),
+            BackColor = Color.FromArgb(255, 193, 7),
+            ForeColor = Color.Black,
+            FlatStyle = FlatStyle.Flat,
+            Font = new Font("Segoe UI", 9, FontStyle.Bold)
+        };
+        btnDownloadUpdate.FlatAppearance.BorderColor = Color.FromArgb(200, 150, 0);
+        btnDownloadUpdate.Click += BtnDownloadUpdate_Click;
+
+        pnlUpdateAvailable.Controls.AddRange(new Control[] { lblUpdateMessage, btnDownloadUpdate });
+
         var lblStatusHeader = new Label
         {
             Text = "Status",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 65),
+            Location = new Point(20, 110),
             Size = new Size(200, 25)
         };
 
         lblSimConnectStatus = new Label
         {
             Text = "● SimConnect: Disconnected",
-            Location = new Point(40, 95),
+            Location = new Point(40, 140),
             Size = new Size(300, 20),
             ForeColor = Color.Gray
         };
@@ -89,7 +126,7 @@ public partial class MainForm : Form
         lblGsxStatus = new Label
         {
             Text = "● GSX: Not Detected",
-            Location = new Point(40, 120),
+            Location = new Point(40, 165),
             Size = new Size(300, 20),
             ForeColor = Color.Gray
         };
@@ -97,7 +134,7 @@ public partial class MainForm : Form
         lblSystemStatus = new Label
         {
             Text = "● System: Inactive",
-            Location = new Point(40, 145),
+            Location = new Point(40, 190),
             Size = new Size(300, 20),
             ForeColor = Color.DarkOrange
         };
@@ -106,20 +143,20 @@ public partial class MainForm : Form
         {
             Text = "Hotkeys",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 180),
+            Location = new Point(20, 225),
             Size = new Size(200, 25)
         };
 
         var lblActivationKey = new Label
         {
             Text = "Activation:",
-            Location = new Point(40, 210),
+            Location = new Point(40, 255),
             Size = new Size(100, 20)
         };
 
         txtActivationKey = new TextBox
         {
-            Location = new Point(140, 208),
+            Location = new Point(140, 253),
             Size = new Size(150, 20),
             ReadOnly = true,
             BackColor = SystemColors.Window,
@@ -132,13 +169,13 @@ public partial class MainForm : Form
         var lblResetKey = new Label
         {
             Text = "Reset:",
-            Location = new Point(40, 240),
+            Location = new Point(40, 285),
             Size = new Size(100, 20)
         };
 
         txtResetKey = new TextBox
         {
-            Location = new Point(140, 238),
+            Location = new Point(140, 283),
             Size = new Size(150, 20),
             ReadOnly = true,
             BackColor = SystemColors.Window,
@@ -151,13 +188,13 @@ public partial class MainForm : Form
         var lblToggleRefuel = new Label
         {
             Text = "Toggle Refuel:",
-            Location = new Point(40, 270),
+            Location = new Point(40, 315),
             Size = new Size(100, 20)
         };
 
         txtToggleRefuelKey = new TextBox
         {
-            Location = new Point(140, 268),
+            Location = new Point(140, 313),
             Size = new Size(150, 20),
             ReadOnly = true,
             BackColor = SystemColors.Window,
@@ -171,14 +208,14 @@ public partial class MainForm : Form
         {
             Text = "Current Aircraft",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 310),
+            Location = new Point(20, 355),
             Size = new Size(200, 25)
         };
 
         lblCurrentAircraft = new Label
         {
             Text = "None",
-            Location = new Point(40, 340),
+            Location = new Point(40, 385),
             Size = new Size(400, 20),
             ForeColor = Color.Gray,
             Font = new Font("Segoe UI", 10, FontStyle.Regular)
@@ -187,7 +224,7 @@ public partial class MainForm : Form
         chkRefuelEnabled = new CheckBox
         {
             Text = "Enable automatic refueling for this aircraft",
-            Location = new Point(40, 365),
+            Location = new Point(40, 410),
             Size = new Size(350, 20)
         };
         chkRefuelEnabled.CheckedChanged += ChkRefuelEnabled_CheckedChanged;
@@ -196,13 +233,13 @@ public partial class MainForm : Form
         {
             Text = "Log",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 400),
+            Location = new Point(20, 445),
             Size = new Size(200, 25)
         };
 
         txtLog = new RichTextBox
         {
-            Location = new Point(20, 430),
+            Location = new Point(20, 475),
             Size = new Size(640, 110),
             ScrollBars = RichTextBoxScrollBars.Vertical,
             ReadOnly = true,
@@ -215,14 +252,14 @@ public partial class MainForm : Form
         {
             Text = "Debug:",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(480, 145),
+            Location = new Point(480, 190),
             Size = new Size(180, 25)
         };
 
         btnPrintState = new Button
         {
             Text = "Print State",
-            Location = new Point(480, 180),
+            Location = new Point(480, 225),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -231,7 +268,7 @@ public partial class MainForm : Form
         btnMovementDebug = new Button
         {
             Text = "Print Movement Debug",
-            Location = new Point(480, 220),
+            Location = new Point(480, 265),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -240,7 +277,7 @@ public partial class MainForm : Form
         btnToggleMovement = new Button
         {
             Text = "Toggle HasMoved Flag",
-            Location = new Point(480, 260),
+            Location = new Point(480, 305),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -248,7 +285,7 @@ public partial class MainForm : Form
 
         this.Controls.AddRange(new Control[]
         {
-            lblTitle, chkDarkMode,
+            lblTitle, chkDarkMode, pnlUpdateAvailable,
             lblStatusHeader, lblSimConnectStatus, lblGsxStatus, lblSystemStatus,
             lblHotkeysHeader, lblActivationKey, txtActivationKey,
             lblResetKey, txtResetKey, lblToggleRefuel, txtToggleRefuelKey,
@@ -261,6 +298,9 @@ public partial class MainForm : Form
         
         // Apply initial theme
         ApplyTheme();
+        
+        // Check for updates asynchronously
+        Task.Run(async () => await CheckForUpdatesAsync());
     }
 
     private void ChkRefuelEnabled_CheckedChanged(object? sender, EventArgs e)
@@ -523,5 +563,73 @@ public partial class MainForm : Form
         txtLog.AppendText(message + Environment.NewLine);
         txtLog.SelectionColor = txtLog.ForeColor;
         txtLog.ScrollToCaret();
+    }
+    
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var updateInfo = await UpdateChecker.CheckForUpdatesAsync();
+            
+            if (updateInfo != null)
+            {
+                if (InvokeRequired)
+                {
+                    Invoke(() => ShowUpdateNotification(updateInfo));
+                }
+                else
+                {
+                    ShowUpdateNotification(updateInfo);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"Update check error: {ex.Message}");
+        }
+    }
+    
+    private void ShowUpdateNotification(UpdateInfo updateInfo)
+    {
+        lblUpdateMessage.Text = $"🎉 Update available! v{updateInfo.LatestVersion}";
+        lblUpdateMessage.Tag = updateInfo.DownloadUrl;
+        pnlUpdateAvailable.Visible = true;
+        
+        // Apply theme colors to update panel
+        if (Theme.IsDarkMode)
+        {
+            pnlUpdateAvailable.BackColor = Color.FromArgb(70, 60, 20);
+            lblUpdateMessage.ForeColor = Color.FromArgb(255, 220, 130);
+            btnDownloadUpdate.BackColor = Color.FromArgb(180, 140, 20);
+        }
+        else
+        {
+            pnlUpdateAvailable.BackColor = Color.FromArgb(255, 243, 205);
+            lblUpdateMessage.ForeColor = Color.FromArgb(133, 100, 4);
+            btnDownloadUpdate.BackColor = Color.FromArgb(255, 193, 7);
+        }
+        
+        Logger.Info($"Update available: v{updateInfo.LatestVersion}");
+    }
+    
+    private void BtnDownloadUpdate_Click(object? sender, EventArgs e)
+    {
+        string? url = lblUpdateMessage.Tag as string;
+        if (!string.IsNullOrEmpty(url))
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+                Logger.Info("Opening download page...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"Failed to open download link: {ex.Message}");
+            }
+        }
     }
 }

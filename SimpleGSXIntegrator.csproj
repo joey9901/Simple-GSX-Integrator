@@ -11,6 +11,9 @@
     <AssemblyName>SimpleGSXIntegrator</AssemblyName>
     <RootNamespace>SimpleGsxIntegrator</RootNamespace>
     <ApplicationIcon>logo.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <FileVersion>1.0.0</FileVersion>
     
     <!-- Publish settings for self-contained executable -->
     <PublishSingleFile>false</PublishSingleFile>
