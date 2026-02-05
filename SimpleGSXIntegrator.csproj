@@ -11,11 +11,10 @@
     <AssemblyName>SimpleGSXIntegrator</AssemblyName>
     <RootNamespace>SimpleGsxIntegrator</RootNamespace>
     <ApplicationIcon>logo.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0</AssemblyVersion>
+    <FileVersion>1.2.0</FileVersion>
     
-    <!-- Publish settings for self-contained executable -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

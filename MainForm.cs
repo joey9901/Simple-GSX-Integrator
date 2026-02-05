@@ -29,7 +29,6 @@ public partial class MainForm : Form
 
     public MainForm()
     {
-        // Load dark mode preference from config BEFORE creating UI
         var config = ConfigManager.GetConfig();
         Theme.IsDarkMode = config.UI.DarkMode;
         
@@ -74,7 +73,6 @@ public partial class MainForm : Form
         };
         chkDarkMode.CheckedChanged += ChkDarkMode_CheckedChanged;
 
-        // Update notification panel (hidden by default)
         pnlUpdateAvailable = new Panel
         {
             Location = new Point(20, 60),
@@ -570,7 +568,6 @@ public partial class MainForm : Form
         txtLog.AppendText(message + Environment.NewLine);
         txtLog.SelectionColor = txtLog.ForeColor;
         
-        // Force scroll to bottom
         txtLog.SelectionStart = txtLog.TextLength;
         txtLog.ScrollToCaret();
     }
