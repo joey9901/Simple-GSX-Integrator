@@ -3,7 +3,13 @@ namespace SimpleGsxIntegrator;
 public class AppConfig
 {
     public HotkeyConfig Hotkeys { get; set; } = new HotkeyConfig();
+    public UiConfig UI { get; set; } = new UiConfig();
     public Dictionary<string, AircraftConfig> Aircraft { get; set; } = new Dictionary<string, AircraftConfig>();
+}
+
+public class UiConfig
+{
+    public bool DarkMode { get; set; } = false;
 }
 
 public class HotkeyConfig
@@ -133,6 +139,11 @@ public static class ConfigManager
                             currentSection = "Hotkeys";
                             currentAircraft = null;
                         }
+                        else if (sectionName == "UI")
+                        {
+                            currentSection = "UI";
+                            currentAircraft = null;
+                        }
                         else if (sectionName.StartsWith("Aircraft:"))
                         {
                             currentSection = "Aircraft";
@@ -159,6 +170,11 @@ public static class ConfigManager
                                 config.Hotkeys.ResetKey = value;
                             else if (key == "ToggleRefuelKey")
                                 config.Hotkeys.ToggleRefuelKey = value;
+                        }
+                        else if (currentSection == "UI")
+                        {
+                            if (key == "DarkMode")
+                                config.UI.DarkMode = value.Equals("true", StringComparison.OrdinalIgnoreCase);
                         }
                         else if (currentSection == "Aircraft" && currentAircraft != null)
                         {
@@ -202,6 +218,9 @@ public static class ConfigManager
                 $"ActivationKey={config.Hotkeys.ActivationKey}",
                 $"ResetKey={config.Hotkeys.ResetKey}",
                 $"ToggleRefuelKey={config.Hotkeys.ToggleRefuelKey}",
+                "",
+                "[UI]",
+                $"DarkMode={config.UI.DarkMode.ToString().ToLower()}",
                 ""
             };
             

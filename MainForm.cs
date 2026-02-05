@@ -16,6 +16,7 @@ public partial class MainForm : Form
     private Button btnPrintState = null!;
     private Button btnMovementDebug = null!;
     private Button btnToggleMovement = null!;
+    private CheckBox chkDarkMode = null!;
     
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
@@ -24,11 +25,16 @@ public partial class MainForm : Form
 
     public MainForm()
     {
+        // Load dark mode preference from config BEFORE creating UI
+        var config = ConfigManager.GetConfig();
+        Theme.IsDarkMode = config.UI.DarkMode;
+        
         InitializeComponent();
         this.Text = "Simple GSX Integrator";
         this.Size = new Size(700, 600);
-        this.FormBorderStyle = FormBorderStyle.FixedSingle;
-        this.MaximizeBox = false;
+        this.MinimumSize = new Size(700, 600);
+        this.FormBorderStyle = FormBorderStyle.Sizable;
+        this.MaximizeBox = true;
         this.StartPosition = FormStartPosition.CenterScreen;
         
         try
@@ -54,6 +60,15 @@ public partial class MainForm : Form
             Size = new Size(300, 35),
             AutoSize = false
         };
+
+        chkDarkMode = new CheckBox
+        {
+            Text = "Dark Mode",
+            Location = new Point(560, 25),
+            Size = new Size(100, 25),
+            Checked = Theme.IsDarkMode
+        };
+        chkDarkMode.CheckedChanged += ChkDarkMode_CheckedChanged;
 
         var lblStatusHeader = new Label
         {
@@ -192,7 +207,8 @@ public partial class MainForm : Form
             ScrollBars = RichTextBoxScrollBars.Vertical,
             ReadOnly = true,
             BackColor = SystemColors.Window,
-            Font = new Font("Consolas", 9)
+            Font = new Font("Consolas", 9),
+            Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
         };
 
         var lblDebugHeader = new Label
@@ -232,7 +248,7 @@ public partial class MainForm : Form
 
         this.Controls.AddRange(new Control[]
         {
-            lblTitle,
+            lblTitle, chkDarkMode,
             lblStatusHeader, lblSimConnectStatus, lblGsxStatus, lblSystemStatus,
             lblHotkeysHeader, lblActivationKey, txtActivationKey,
             lblResetKey, txtResetKey, lblToggleRefuel, txtToggleRefuelKey,
@@ -242,6 +258,9 @@ public partial class MainForm : Form
         });
 
         this.ResumeLayout();
+        
+        // Apply initial theme
+        ApplyTheme();
     }
 
     private void ChkRefuelEnabled_CheckedChanged(object? sender, EventArgs e)
@@ -249,6 +268,71 @@ public partial class MainForm : Form
         if (!string.IsNullOrEmpty(lblCurrentAircraft.Text) && lblCurrentAircraft.Text != "None")
         {
             Program.UpdateRefuelSetting(lblCurrentAircraft.Text, chkRefuelEnabled.Checked);
+        }
+    }
+
+    private void ChkDarkMode_CheckedChanged(object? sender, EventArgs e)
+    {
+        Theme.IsDarkMode = chkDarkMode.Checked;
+        ApplyTheme();
+        
+        // Save to config
+        var config = ConfigManager.GetConfig();
+        config.UI.DarkMode = Theme.IsDarkMode;
+        ConfigManager.Save(config);
+        
+        Logger.Info($"Dark mode {(Theme.IsDarkMode ? "enabled" : "disabled")} and saved to config");
+    }
+
+    private void ApplyTheme()
+    {
+        // Form background
+        this.BackColor = Theme.Background;
+        
+        // Apply to all controls recursively
+        ApplyThemeToControl(this);
+    }
+
+    private void ApplyThemeToControl(Control control)
+    {
+        if (control is Label label)
+        {
+            label.ForeColor = Theme.Text;
+            label.BackColor = Theme.Background;
+            
+            // Preserve status colors
+            if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus)
+            {
+                // Keep existing status colors
+            }
+        }
+        else if (control is TextBox textBox)
+        {
+            textBox.BackColor = Theme.Surface;
+            textBox.ForeColor = Theme.Text;
+        }
+        else if (control is RichTextBox richTextBox)
+        {
+            richTextBox.BackColor = Theme.Surface;
+            // Log colors are handled separately in AppendLog
+        }
+        else if (control is Button button)
+        {
+            button.BackColor = Theme.ButtonBackground;
+            button.ForeColor = Theme.ButtonText;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderColor = Theme.Border;
+        }
+        else if (control is CheckBox checkBox)
+        {
+            checkBox.ForeColor = Theme.Text;
+            checkBox.BackColor = Theme.Background;
+        }
+        
+        // Recursively apply to child controls
+        foreach (Control child in control.Controls)
+        {
+            ApplyThemeToControl(child);
         }
     }
 
@@ -377,7 +461,7 @@ public partial class MainForm : Form
     {
         textBox.ReadOnly = true;
         textBox.TabStop = false;
-        textBox.ForeColor = SystemColors.WindowText;
+        textBox.ForeColor = Theme.Text;
         _activeRebindTextBox = null;
         Program.SetRebindingMode(false);
     }
@@ -391,7 +475,7 @@ public partial class MainForm : Form
         }
 
         lblCurrentAircraft.Text = aircraft;
-        lblCurrentAircraft.ForeColor = Color.Black;
+        lblCurrentAircraft.ForeColor = Theme.Text;
         chkRefuelEnabled.Checked = refuelEnabled;
     }
 
@@ -414,19 +498,19 @@ public partial class MainForm : Form
             return;
         }
 
-        Color textColor = SystemColors.WindowText; // Default black
+        Color textColor = Theme.Text; // Use theme text color as default
         
         if (message.Contains("[OK]"))
         {
-            textColor = Color.FromArgb(0, 128, 0); // Green
+            textColor = Theme.IsDarkMode ? Color.FromArgb(0, 200, 0) : Color.FromArgb(0, 128, 0);
         }
         else if (message.Contains("[WARN]"))
         {
-            textColor = Color.FromArgb(255, 140, 0); // Orange
+            textColor = Theme.IsDarkMode ? Color.FromArgb(255, 180, 0) : Color.FromArgb(255, 140, 0);
         }
         else if (message.Contains("[ERROR]"))
         {
-            textColor = Color.Red;
+            textColor = Theme.IsDarkMode ? Color.FromArgb(255, 100, 100) : Color.Red;
         }
         else if (message.Contains("[INFO]"))
         {
