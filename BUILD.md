@@ -6,20 +6,22 @@
 ```powershell
 dotnet publish -c Release -r win-x64 --self-contained true -o "Installer\Payload"
 ```
-or
 
-```powershell
-dotnet build
-```
 ##### 2. Build the installer:
 ```powershell
 cd .\Installer\
 dotnet publish Installer.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
+cd ..
 ```
 
 ##### 3. The installer will be at:
 ```
 Installer\bin\Release\net8.0-windows\win-x64\publish\SimpleGSXIntegrator-Installer.exe
+```
+
+##### 4. Build the Release (.zip found in /release) 
+```powershell
+./BuildRelease.ps1
 ```
 
 ## Project Structure

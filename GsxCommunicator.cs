@@ -8,16 +8,17 @@ public class GsxCommunicator
     private readonly SimConnect? _simConnect;
     private bool _isGsxRunning;
     
-    // Service states
     private GsxServiceState _lastBoardingState = GsxServiceState.Unknown;
     private GsxServiceState _lastDeboardingState = GsxServiceState.Unknown;
     private GsxServiceState _lastPushbackState = GsxServiceState.Unknown;
     private GsxServiceState _lastRefuelingState = GsxServiceState.Unknown;
+    private GsxServiceState _lastCateringState = GsxServiceState.Unknown;
     
     public GsxServiceState BoardingState { get; private set; } = GsxServiceState.Unknown;
     public GsxServiceState DeboardingState { get; private set; } = GsxServiceState.Unknown;
     public GsxServiceState PushbackState { get; private set; } = GsxServiceState.Unknown;
     public GsxServiceState RefuelingState { get; private set; } = GsxServiceState.Unknown;
+    public GsxServiceState CateringState { get; private set; } = GsxServiceState.Unknown;
     public int PushbackProgress { get; private set; } = 0;
     
     public event Action? GsxStarted;
@@ -26,6 +27,7 @@ public class GsxCommunicator
     public event Action<GsxServiceState>? DeboardingStateChanged;
     public event Action<GsxServiceState>? PushbackStateChanged;
     public event Action<GsxServiceState>? RefuelingStateChanged;
+    public event Action<GsxServiceState>? CateringStateChanged;
     
     public GsxCommunicator(SimConnect simConnect)
     {
@@ -98,6 +100,14 @@ public class GsxCommunicator
         _simConnect.AddToDataDefinition(
             DEFINITIONS.GsxVarRead,
             GsxConstants.VarServiceRefueling,
+            null,
+            SIMCONNECT_DATATYPE.FLOAT64,
+            0.0f,
+            SimConnect.SIMCONNECT_UNUSED);
+        
+        _simConnect.AddToDataDefinition(
+            DEFINITIONS.GsxVarRead,
+            GsxConstants.VarServiceCatering,
             null,
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
@@ -230,6 +240,22 @@ public class GsxCommunicator
             _lastRefuelingState = newRefuelingState;
         }
         
+        var newCateringState = (GsxServiceState)(int)gsxData.CateringState;
+        if (newCateringState != _lastCateringState)
+        {
+            CateringState = newCateringState;
+            
+            if (CateringState == GsxServiceState.Active)
+                Logger.Debug($"Catering ACTIVATED.");
+            else if (CateringState == GsxServiceState.Completed)
+                Logger.Success($"Catering COMPLETED");
+            else if (CateringState != GsxServiceState.Bypassed)
+                Logger.Debug($"Catering state: {CateringState}");
+            
+            CateringStateChanged?.Invoke(CateringState);
+            _lastCateringState = newCateringState;
+        }
+        
         PushbackProgress = (int)gsxData.PushbackStatus;
     }
     
@@ -327,6 +353,38 @@ public class GsxCommunicator
         }
     }
     
+    public async Task CallCatering()
+    {
+        if (CateringState != GsxServiceState.Callable)
+        {
+            Logger.Warning($"Catering not available (current state: {CateringState})");
+            return;
+        }
+        
+        Logger.Info("Calling GSX Catering");
+        
+        OpenGsxMenu();
+        await Task.Delay(1000);
+        
+        // Select Catering (option 2)
+        await SelectMenuOption(2, 3000);
+        
+        // Select operator (option 1) - only if not already selected during refueling
+        if (RefuelingState != GsxServiceState.Completed)
+        {
+            await SelectMenuOption(1, 5000);
+        }
+        
+        if (CateringState == GsxServiceState.Active || CateringState == GsxServiceState.Requested)
+        {
+            Logger.Success("Catering Requested!");
+        }
+        else
+        {
+            Logger.Debug($"Catering state did not change (still {CateringState}) - menu likely different");
+        }
+    }
+    
     public async Task<bool> CallPushback()
     {
         if (PushbackState != GsxServiceState.Callable)
@@ -357,7 +415,7 @@ public class GsxCommunicator
         
         if (PushbackState == GsxServiceState.Active || PushbackState == GsxServiceState.Requested)
         {
-            Logger.Info("Pushback menu sequence sent");
+            Logger.Debug("Pushback menu sequence sent");
             Logger.Warning("IMPORTANT: Manually select pushback direction from GSX menu");
             return true;
         }
@@ -386,7 +444,7 @@ public class GsxCommunicator
         
         await SelectMenuOption(2, 500);
         
-        Logger.Info("Deboarding menu sequence sent");
+        Logger.Debug("Deboarding menu sequence sent");
     }
 }
 
@@ -401,6 +459,7 @@ public struct GsxStateStruct
     public double DepartureState; 
     public double PushbackStatus;
     public double RefuelingState;
+    public double CateringState;
 }
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]

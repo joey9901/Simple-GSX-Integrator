@@ -4,17 +4,16 @@ Automated GSX integration for Microsoft Flight Simulator 2024/2020. This tool au
 
 ## Features
 - **Automatic Service Triggering**
-  - Optional Refueling before Boarding (configurable per aircraft, saved in config)
-  - Boarding Requested upon manual Key Press
-  - Pushback Request when Beacon light is turned ON
-  - Deboarding when beacon light turns off at arrival
-- **Hotkey Controls**
+  - Optional Automatic Catering Request before Boarding
+  - Optional Automatic Refueling Request before BoardingquesteAutomatic d upon manual Kequest Automatic when Beacon light is turned OL
+  - Deboarding when bAutomatic eacon ligh Requestt turnB off aL arrival
+-OFF and Parking Brake is SETrols**
   - `ALT+G` - Toggle system ON/OFF (Calls Refueling or Boarding if conditions are met)
-  - `ALT+B` - Reset session (for turnaround flights)
-  - `ALT+R` - Toggle Refuel before Boarding for current aircraft
+  - `ALT+B` - Reset session (for turnSround foggle Refuel before Boarding for current aircraft
 
 ## Limitations
- - Refueling does not work if the selected aircraft does not support GSX Refueling. 
+ - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) will not be fixed
+ - App only calls GSX Services and does not include GSX Aircraft Profiles
 
 ## Installation
 
@@ -32,7 +31,7 @@ The installer will:
 **Important: Keep GSX Menu Hidden**
 1. Launch MSFS - the app starts automatically
 2. Load your flight and aircraft
-3. Press `ALT+G` when ready for Refueling or Boarding
+3. Press `ALT+G` (default key) when ready for Catering, Refueling or Boarding
 4. Fly normally - GSX services trigger automatically based on your actions
 5. Upon arrival - Select GSX gate
 
@@ -42,25 +41,23 @@ The app runs in the background and monitors your aircraft state to trigger appro
 
 Config file is located in the installation folder under `config/simplegsx.ini`:
 
-Default hotkey configuration:
+Default hotkey configuration (can be changed in UI):
 ```ini
 [Hotkeys]
 ActivationKey=ALT+G
 ResetKey=ALT+B
-ToggleRefuelKey=ALT+R
 
 [Aircraft:737-800 PAX BW HD]
 RefuelBeforeBoarding=false
+...
 ```
-
-Refuel before Boarding option is also saved here for every aircraft
 
 ## Uninstallation
 
 Run the installer again and click "Uninstall Existing Installation" on the welcome screen. This will:
 - Remove all installed files
-- Restore your original `exe.xml` file
-- Clean up configuration files
+- Remove Simple GSX Integrator entry from `exe.xml` file
+- Clean up configuration files (if selected)
 
 ## Requirements
 
@@ -70,14 +67,14 @@ Run the installer again and click "Uninstall Existing Installation" on the welco
 
 ## How It Works
 
-The app connects to MSFS via SimConnect and monitors:
-- Beacon light state
-- Parking brake state
-- Engine state
-- Ground speed
-- SimConnect variables
+The app connects to MSFS via SimConnect and monitors variables like:
+- Beacon Light State
+- Parking Brake State
+- Engine State
+- Ground Speed
+- GSX Variables
 
-When specific conditions are met (e.g., beacon turns off after landing), it sends commands to GSX to trigger the appropriate service.
+When specific conditions are met (e.g., Beacon Light turns OFF after landing), it sends commands to GSX to trigger the appropriate service (deboarding).
 
 ## Troubleshooting
 
@@ -90,14 +87,5 @@ When specific conditions are met (e.g., beacon turns off after landing), it send
 - Press `ALT+G` to verify the system is activated
 - Check the console window for status messages
 
-**App won't close:**
-- The app automatically closes when MSFS exits
-- If it doesn't, you can close the console window manually
-
 ## License
-
 MIT License - See LICENSE file for details
-
-## Credits
-
-Built for the flight simulation community. Uses SimConnect SDK from Microsoft Flight Simulator.

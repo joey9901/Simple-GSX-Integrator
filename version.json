@@ -1,5 +1,5 @@
 {
-  "latestVersion": "1.2.1",
-  "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.2.1/SimpleGSXIntegrator-v1.2.1.zip",
-  "releaseNotes": "Fix: Auto-update now includes all required files"
+  "latestVersion": "1.3.0",
+  "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.3.0/SimpleGSXIntegrator-v1.3.0.zip",
+  "releaseNotes": "Added Catering Service Option, Added Configure Aircraft Settings Button, Added Turnaround Settings, Fixed Hotkey Capture Issues, Added GSX Initial State Check, Improved Logging, Removed Toggle Refuel Bind"
 }

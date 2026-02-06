@@ -11,6 +11,7 @@ public static class GsxConstants
     public const string VarServiceDeparture = "L:FSDT_GSX_DEPARTURE_STATE";
     public const string VarPushbackStatus = "L:FSDT_GSX_PUSHBACK_STATUS";
     public const string VarServiceRefueling = "L:FSDT_GSX_REFUELING_STATE";
+    public const string VarServiceCatering = "L:FSDT_GSX_CATERING_STATE";
     
     public const string EventMenu = "EXTERNAL_SYSTEM_TOGGLE";
 }

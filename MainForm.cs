@@ -1,4 +1,5 @@
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator;
 
@@ -10,9 +11,8 @@ public partial class MainForm : Form
     private Label lblVersion = null!;
     private TextBox txtActivationKey = null!;
     private TextBox txtResetKey = null!;
-    private TextBox txtToggleRefuelKey = null!;
     private RichTextBox txtLog = null!;
-    private CheckBox chkRefuelEnabled = null!;
+    private Button btnAircraftConfig = null!;
     private Label lblCurrentAircraft = null!;
     private Button btnPrintState = null!;
     private Button btnMovementDebug = null!;
@@ -25,8 +25,14 @@ public partial class MainForm : Form
     
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
-    private string _originalToggleRefuelKey = "";
     private TextBox? _activeRebindTextBox = null;
+    
+    private const int VK_MENU = 0x12;
+    private const int VK_CONTROL = 0x11;
+    private const int VK_SHIFT = 0x10;
+    
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     public MainForm()
     {
@@ -166,13 +172,13 @@ public partial class MainForm : Form
         var lblActivationKey = new Label
         {
             Text = "Activation:",
-            Location = new Point(40, 255),
+            Location = new Point(40, 265),
             Size = new Size(100, 20)
         };
 
         txtActivationKey = new TextBox
         {
-            Location = new Point(140, 253),
+            Location = new Point(140, 263),
             Size = new Size(150, 20),
             ReadOnly = true,
             BackColor = SystemColors.Window,
@@ -180,18 +186,19 @@ public partial class MainForm : Form
             TabStop = false
         };
         txtActivationKey.Click += (s, e) => OnHotkeyTextBoxClick(txtActivationKey, _originalActivationKey, "Activation");
+        txtActivationKey.PreviewKeyDown += (s, e) => OnHotkeyPreviewKeyDown(e);
         txtActivationKey.KeyDown += (s, e) => OnHotkeyKeyDown(txtActivationKey, e, "Activation");
 
         var lblResetKey = new Label
         {
             Text = "Reset:",
-            Location = new Point(40, 285),
+            Location = new Point(40, 295),
             Size = new Size(100, 20)
         };
 
         txtResetKey = new TextBox
         {
-            Location = new Point(140, 283),
+            Location = new Point(140, 293),
             Size = new Size(150, 20),
             ReadOnly = true,
             BackColor = SystemColors.Window,
@@ -199,63 +206,46 @@ public partial class MainForm : Form
             TabStop = false
         };
         txtResetKey.Click += (s, e) => OnHotkeyTextBoxClick(txtResetKey, _originalResetKey, "Reset");
+        txtResetKey.PreviewKeyDown += (s, e) => OnHotkeyPreviewKeyDown(e);
         txtResetKey.KeyDown += (s, e) => OnHotkeyKeyDown(txtResetKey, e, "Reset");
-
-        var lblToggleRefuel = new Label
-        {
-            Text = "Toggle Refuel:",
-            Location = new Point(40, 315),
-            Size = new Size(100, 20)
-        };
-
-        txtToggleRefuelKey = new TextBox
-        {
-            Location = new Point(140, 313),
-            Size = new Size(150, 20),
-            ReadOnly = true,
-            BackColor = SystemColors.Window,
-            Cursor = Cursors.Hand,
-            TabStop = false
-        };
-        txtToggleRefuelKey.Click += (s, e) => OnHotkeyTextBoxClick(txtToggleRefuelKey, _originalToggleRefuelKey, "ToggleRefuel");
-        txtToggleRefuelKey.KeyDown += (s, e) => OnHotkeyKeyDown(txtToggleRefuelKey, e, "ToggleRefuel");
 
         var lblAircraftHeader = new Label
         {
             Text = "Current Aircraft",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 355),
+            Location = new Point(20, 365),
             Size = new Size(200, 25)
         };
 
         lblCurrentAircraft = new Label
         {
             Text = "None",
-            Location = new Point(40, 385),
-            Size = new Size(400, 20),
+            Location = new Point(40, 395),
+            Size = new Size(600, 20),
             ForeColor = Color.Gray,
             Font = new Font("Segoe UI", 10, FontStyle.Regular)
         };
 
-        chkRefuelEnabled = new CheckBox
+        btnAircraftConfig = new Button
         {
-            Text = "Enable automatic refueling for this aircraft",
-            Location = new Point(40, 410),
-            Size = new Size(350, 20)
+            Text = "Configure Aircraft Settings",
+            Location = new Point(40, 420),
+            Size = new Size(200, 25),
+            Enabled = false
         };
-        chkRefuelEnabled.CheckedChanged += ChkRefuelEnabled_CheckedChanged;
+        btnAircraftConfig.Click += BtnAircraftConfig_Click;
 
         var lblLogHeader = new Label
         {
             Text = "Log",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(20, 445),
+            Location = new Point(20, 455),
             Size = new Size(200, 25)
         };
 
         txtLog = new RichTextBox
         {
-            Location = new Point(20, 475),
+            Location = new Point(20, 485),
             Size = new Size(660, 150),
             ScrollBars = RichTextBoxScrollBars.Vertical,
             ReadOnly = true,
@@ -307,8 +297,8 @@ public partial class MainForm : Form
             lblTitle, lblVersion, chkDarkMode, pnlUpdateAvailable,
             lblStatusHeader, lblSimConnectStatus, lblGsxStatus, lblSystemStatus,
             lblHotkeysHeader, lblActivationKey, txtActivationKey,
-            lblResetKey, txtResetKey, lblToggleRefuel, txtToggleRefuelKey,
-            lblAircraftHeader, lblCurrentAircraft, chkRefuelEnabled,
+            lblResetKey, txtResetKey,
+            lblAircraftHeader, lblCurrentAircraft, btnAircraftConfig,
             lblLogHeader, txtLog,
             lblDebugHeader, btnPrintState, btnMovementDebug, btnToggleMovement
         });
@@ -323,11 +313,12 @@ public partial class MainForm : Form
         Task.Run(async () => await CheckForUpdatesAsync());
     }
 
-    private void ChkRefuelEnabled_CheckedChanged(object? sender, EventArgs e)
+    private void BtnAircraftConfig_Click(object? sender, EventArgs e)
     {
         if (!string.IsNullOrEmpty(lblCurrentAircraft.Text) && lblCurrentAircraft.Text != "None")
         {
-            Program.UpdateRefuelSetting(lblCurrentAircraft.Text, chkRefuelEnabled.Checked);
+            var configForm = new AircraftConfigForm(lblCurrentAircraft.Text);
+            configForm.ShowDialog(this);
         }
     }
 
@@ -336,12 +327,9 @@ public partial class MainForm : Form
         Theme.IsDarkMode = chkDarkMode.Checked;
         ApplyTheme();
         
-        // Save to config
         var config = ConfigManager.GetConfig();
         config.UI.DarkMode = Theme.IsDarkMode;
         ConfigManager.Save(config);
-        
-        Logger.Info($"Dark mode {(Theme.IsDarkMode ? "enabled" : "disabled")} and saved to config");
     }
 
     private void ApplyTheme()
@@ -355,16 +343,19 @@ public partial class MainForm : Form
     {
         if (control is Label label)
         {
-            label.ForeColor = Theme.Text;
-            label.BackColor = Theme.Background;
-            
             if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus)
             {
-                // Keep existing status colors
+                label.BackColor = Theme.Background;
             }
             else if (label == lblVersion)
             {
                 label.ForeColor = Theme.IsDarkMode ? Color.FromArgb(200, 200, 200) : Color.FromArgb(100, 100, 100);
+                label.BackColor = Theme.Background;
+            }
+            else
+            {
+                label.ForeColor = Theme.Text;
+                label.BackColor = Theme.Background;
             }
         }
         else if (control is TextBox textBox)
@@ -431,21 +422,19 @@ public partial class MainForm : Form
         lblSystemStatus.ForeColor = active ? Color.LimeGreen : Color.DarkOrange;
     }
 
-    public void SetHotkeys(string activation, string reset, string toggleRefuel)
+    public void SetHotkeys(string activation, string reset)
     {
         if (InvokeRequired)
         {
-            Invoke(() => SetHotkeys(activation, reset, toggleRefuel));
+            Invoke(() => SetHotkeys(activation, reset));
             return;
         }
 
         txtActivationKey.Text = activation;
         txtResetKey.Text = reset;
-        txtToggleRefuelKey.Text = toggleRefuel;
         
         _originalActivationKey = activation;
         _originalResetKey = reset;
-        _originalToggleRefuelKey = toggleRefuel;
     }
     
     private void OnHotkeyTextBoxClick(TextBox textBox, string originalValue, string hotkeyType)
@@ -461,8 +450,6 @@ public partial class MainForm : Form
             _originalActivationKey = textBox.Text;
         else if (hotkeyType == "Reset")
             _originalResetKey = textBox.Text;
-        else if (hotkeyType == "ToggleRefuel")
-            _originalToggleRefuelKey = textBox.Text;
         
         _activeRebindTextBox = textBox;
         textBox.ReadOnly = false;
@@ -470,6 +457,11 @@ public partial class MainForm : Form
         textBox.Text = "Press key combination...";
         textBox.ForeColor = Color.Gray;
         textBox.SelectAll();
+    }
+    
+    private void OnHotkeyPreviewKeyDown(PreviewKeyDownEventArgs e)
+    {
+        e.IsInputKey = true;
     }
     
     private void OnHotkeyKeyDown(TextBox textBox, KeyEventArgs e, string hotkeyType)
@@ -486,25 +478,33 @@ public partial class MainForm : Form
                 textBox.Text = _originalActivationKey;
             else if (hotkeyType == "Reset")
                 textBox.Text = _originalResetKey;
-            else if (hotkeyType == "ToggleRefuel")
-                textBox.Text = _originalToggleRefuelKey;
                 
             EndRebindMode(textBox, false);
             return;
         }
         
+        System.Threading.Thread.Sleep(10);
+        
         List<string> parts = new List<string>();
-        if (e.Control) parts.Add("CTRL");
-        if (e.Alt) parts.Add("ALT");
-        if (e.Shift) parts.Add("SHIFT");
+        
+        bool ctrlPressed = e.Control || (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
+        bool altPressed = e.Alt || (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+        bool shiftPressed = e.Shift || (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
+        
+        if (ctrlPressed) parts.Add("CTRL");
+        if (altPressed) parts.Add("ALT");
+        if (shiftPressed) parts.Add("SHIFT");
         
         if (e.KeyCode != Keys.ControlKey && e.KeyCode != Keys.ShiftKey && 
-            e.KeyCode != Keys.Menu && e.KeyCode != Keys.LWin && e.KeyCode != Keys.RWin)
+            e.KeyCode != Keys.Menu && e.KeyCode != Keys.Alt && 
+            e.KeyCode != Keys.LWin && e.KeyCode != Keys.RWin &&
+            e.KeyCode != Keys.LControlKey && e.KeyCode != Keys.RControlKey &&
+            e.KeyCode != Keys.LShiftKey && e.KeyCode != Keys.RShiftKey)
         {
             parts.Add(e.KeyCode.ToString());
         }
         
-        if (parts.Count == 0 || (parts.Count == 1 && (parts[0] == "CTRL" || parts[0] == "ALT" || parts[0] == "SHIFT")))
+        if (parts.Count == 0 || parts.All(p => p == "CTRL" || p == "ALT" || p == "SHIFT"))
         {
             return;
         }
@@ -535,18 +535,7 @@ public partial class MainForm : Form
 
         lblCurrentAircraft.Text = aircraft;
         lblCurrentAircraft.ForeColor = Theme.Text;
-        chkRefuelEnabled.Checked = refuelEnabled;
-    }
-
-    public void UpdateRefuelCheckbox(bool enabled)
-    {
-        if (InvokeRequired)
-        {
-            Invoke(() => UpdateRefuelCheckbox(enabled));
-            return;
-        }
-
-        chkRefuelEnabled.Checked = enabled;
+        btnAircraftConfig.Enabled = !string.IsNullOrEmpty(aircraft) && aircraft != "None";
     }
 
     public void AppendLog(string message)

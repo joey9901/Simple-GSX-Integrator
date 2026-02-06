@@ -18,6 +18,7 @@ public class SimVarMonitor
     
     private bool _enginesHaveRun = false;
     private bool _aircraftHasMoved = false;
+    private bool _pushbackCompleted = false;
     private const double MovementThreshold = 5.0; // knots
     private bool _firstDataReceived = false;
     
@@ -34,6 +35,7 @@ public class SimVarMonitor
     public event Action? BoardingConditionsMet;
     public event Action? PushbackConditionsMet;
     public event Action? DeboardingConditionsMet;
+    public event Action? CateringConditionsMet;
     
     public SimVarMonitor(SimConnect simConnect)
     {
@@ -154,7 +156,9 @@ public class SimVarMonitor
         if (EngineRunning && !_enginesHaveRun)
             _enginesHaveRun = true;
         
-        if (_enginesHaveRun && GroundSpeed > MovementThreshold)
+        // Detect aircraft movement after pushback completion OR after engines have run
+        // This handles single-engine taxi scenarios and normal operations
+        if ((_pushbackCompleted && GroundSpeed > MovementThreshold) || (_enginesHaveRun && GroundSpeed > MovementThreshold))
         {
             _aircraftHasMoved = true;
         }
@@ -185,25 +189,18 @@ public class SimVarMonitor
         bool enginesOff = !EngineRunning;
         bool stationary = GroundSpeed < 0.5;
         
-        // Refueling: Same conditions as boarding (engines off, beacon off, on ground, stationary)
         if (enginesOff && !BeaconLight && OnGround && stationary)
         {
+            CateringConditionsMet?.Invoke();
             RefuelingConditionsMet?.Invoke();
-        }
-        
-        // Boarding: Engines off, beacon off, on ground, stationary
-        if (enginesOff && !BeaconLight && OnGround && stationary)
-        {
             BoardingConditionsMet?.Invoke();
         }
         
-        // Pushback: Beacon ON, parking brake SET, engines off, engines never started
         if (BeaconLight && ParkingBrake && enginesOff && OnGround && stationary && !_enginesHaveRun)
         {
             PushbackConditionsMet?.Invoke();
         }
         
-        // Deboarding: Beacon OFF, parking brake SET, on ground, stationary
         if (!BeaconLight && ParkingBrake && OnGround && stationary)
         {
             DeboardingConditionsMet?.Invoke();
@@ -218,12 +215,15 @@ public class SimVarMonitor
     
     public void SetAircraftHasMoved() => _aircraftHasMoved = true;
     
+    public void SetPushbackCompleted() => _pushbackCompleted = true;
+    
     public void ResetAircraftHasMoved() => _aircraftHasMoved = false;
     
     public void ResetEnginesHaveRun()
     {
         _enginesHaveRun = false;
         _aircraftHasMoved = false;
+        _pushbackCompleted = false;
     }
 }
 
