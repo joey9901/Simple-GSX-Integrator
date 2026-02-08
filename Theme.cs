@@ -3,7 +3,7 @@ namespace SimpleGsxIntegrator;
 public static class Theme
 {
     public static bool IsDarkMode { get; set; } = false;
-    
+
     public static class Light
     {
         public static Color Background = Color.FromArgb(240, 240, 240);
@@ -14,7 +14,7 @@ public static class Theme
         public static Color ButtonBackground = SystemColors.Control;
         public static Color ButtonText = Color.Black;
     }
-    
+
     public static class Dark
     {
         public static Color Background = Color.FromArgb(30, 30, 30);
@@ -25,7 +25,7 @@ public static class Theme
         public static Color ButtonBackground = Color.FromArgb(55, 55, 55);
         public static Color ButtonText = Color.FromArgb(220, 220, 220);
     }
-    
+
     public static Color Background => IsDarkMode ? Dark.Background : Light.Background;
     public static Color Surface => IsDarkMode ? Dark.Surface : Light.Surface;
     public static Color Text => IsDarkMode ? Dark.Text : Light.Text;

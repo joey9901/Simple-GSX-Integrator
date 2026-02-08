@@ -28,7 +28,7 @@ public class AircraftConfigForm : Form
         this.MaximizeBox = false;
         this.MinimizeBox = false;
         this.StartPosition = FormStartPosition.CenterParent;
-        
+
         try
         {
             string iconPath = Path.Combine(AppContext.BaseDirectory, "logo.ico");
@@ -153,7 +153,7 @@ public class AircraftConfigForm : Form
         chkCateringOnTurnaround.Enabled = config.AutoCallTurnaroundServices;
         nudTurnaroundDelay.Value = config.TurnaroundDelaySeconds;
     }
-    
+
     private void OnAutoCallTurnaroundChanged(object? sender, EventArgs e)
     {
         chkCateringOnTurnaround.Enabled = chkAutoCallTurnaroundServices.Checked;
@@ -171,9 +171,9 @@ public class AircraftConfigForm : Form
         config.CateringOnTurnaround = chkCateringOnTurnaround.Checked;
         config.AutoCallTurnaroundServices = chkAutoCallTurnaroundServices.Checked;
         config.TurnaroundDelaySeconds = (int)nudTurnaroundDelay.Value;
-        
+
         ConfigManager.SaveAircraftConfig(_aircraftTitle, config);
-        
+
         Logger.Info($"Aircraft configuration saved for '{_aircraftTitle}'");
         this.Close();
     }

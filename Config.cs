@@ -56,19 +56,19 @@ public static class HotkeyParser
 
         { "ALT", 0x12 }, { "CONTROL", 0x11 }, { "CTRL", 0x11 }, { "SHIFT", 0x10 }
     };
-    
+
     public static ParsedHotkey Parse(string hotkey)
     {
         var parsed = new ParsedHotkey { DisplayName = hotkey };
-        
+
         if (string.IsNullOrWhiteSpace(hotkey))
         {
             Logger.Warning("Empty hotkey string");
             return parsed;
         }
-        
+
         var parts = hotkey.ToUpperInvariant().Split('+').Select(p => p.Trim()).ToArray();
-        
+
         string? mainKey = null;
         foreach (var part in parts)
         {
@@ -89,7 +89,7 @@ public static class HotkeyParser
                     break;
             }
         }
-        
+
         if (mainKey != null && KeyCodes.TryGetValue(mainKey, out int keyCode))
         {
             parsed.KeyCode = keyCode;
@@ -98,7 +98,7 @@ public static class HotkeyParser
         {
             Logger.Warning($"Unknown key in hotkey: {mainKey ?? "none"}");
         }
-        
+
         return parsed;
     }
 }
@@ -117,7 +117,7 @@ public static class ConfigManager
             {
                 Directory.CreateDirectory(ConfigDirectory);
             }
-            
+
             if (File.Exists(ConfigFilePath))
             {
                 var config = new AppConfig();
@@ -128,14 +128,14 @@ public static class ConfigManager
                 foreach (var line in lines)
                 {
                     var trimmed = line.Trim();
-                    
+
                     if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith(";"))
                         continue;
-                    
+
                     if (trimmed.StartsWith("[") && trimmed.EndsWith("]"))
                     {
                         var sectionName = trimmed.Substring(1, trimmed.Length - 2);
-                        
+
                         if (sectionName == "Hotkeys")
                         {
                             currentSection = "Hotkeys";
@@ -157,13 +157,13 @@ public static class ConfigManager
                         }
                         continue;
                     }
-                    
+
                     var parts = trimmed.Split('=', 2);
                     if (parts.Length == 2)
                     {
                         var key = parts[0].Trim();
                         var value = parts[1].Trim();
-                        
+
                         if (currentSection == "Hotkeys")
                         {
                             if (key == "ActivationKey")
@@ -191,7 +191,7 @@ public static class ConfigManager
                         }
                     }
                 }
-                
+
                 _config = config;
                 Logger.Debug($"Configuration loaded from {ConfigFilePath}");
                 return _config;
@@ -216,7 +216,7 @@ public static class ConfigManager
             {
                 Directory.CreateDirectory(ConfigDirectory);
             }
-            
+
             var lines = new List<string>
             {
                 "# Simple GSX Integrator Configuration",
@@ -230,13 +230,13 @@ public static class ConfigManager
                 $"DarkMode={config.UI.DarkMode.ToString().ToLower()}",
                 ""
             };
-            
+
             if (config.Aircraft.Count > 0)
             {
                 lines.Add("# Aircraft-specific settings");
                 lines.Add("# Settings are saved automatically per aircraft type");
                 lines.Add("");
-                
+
                 foreach (var kvp in config.Aircraft.OrderBy(x => x.Key))
                 {
                     lines.Add($"[Aircraft:{kvp.Key}]");
@@ -250,7 +250,7 @@ public static class ConfigManager
                     lines.Add("");
                 }
             }
-            
+
             File.WriteAllLines(ConfigFilePath, lines);
             _config = config;
             Logger.Debug($"Configuration saved to {ConfigFilePath}");
@@ -265,14 +265,14 @@ public static class ConfigManager
     {
         return _config ?? Load();
     }
-    
+
     public static AircraftConfig GetAircraftConfig(string aircraftTitle)
     {
         if (_config == null)
         {
             _config = Load();
         }
-        
+
         if (!_config.Aircraft.ContainsKey(aircraftTitle))
         {
             _config.Aircraft[aircraftTitle] = new AircraftConfig();
@@ -280,17 +280,17 @@ public static class ConfigManager
             Logger.Debug($"Added '{aircraftTitle}' to config with RefuelBeforeBoarding=true");
             Logger.Debug($"Config saved to: {Path.GetFullPath(ConfigFilePath)}");
         }
-        
+
         return _config.Aircraft[aircraftTitle];
     }
-    
+
     public static void SaveAircraftConfig(string aircraftTitle, AircraftConfig aircraftConfig)
     {
         if (_config == null)
         {
             _config = Load();
         }
-        
+
         _config.Aircraft[aircraftTitle] = aircraftConfig;
         Save(_config);
     }

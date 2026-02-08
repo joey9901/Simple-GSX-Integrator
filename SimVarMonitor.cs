@@ -6,7 +6,7 @@ namespace SimpleGsxIntegrator;
 public class SimVarMonitor
 {
     private readonly SimConnect? _simConnect;
-    
+
     public bool BeaconLight { get; private set; }
     public bool ParkingBrake { get; private set; }
     public bool EngineRunning { get; private set; }
@@ -15,18 +15,18 @@ public class SimVarMonitor
     public double Airspeed { get; private set; }
     public double ExternalPower { get; private set; }
     public string AircraftTitle { get; private set; } = "";
-    
+
     private bool _enginesHaveRun = false;
     private bool _aircraftHasMoved = false;
     private bool _pushbackCompleted = false;
     private const double MovementThreshold = 5.0; // knots
     private bool _firstDataReceived = false;
-    
+
     private bool _prevBeaconLight = false;
     private bool _prevParkingBrake = false;
     private bool _prevEngineRunning = false;
     private string _prevAircraftTitle = "";
-    
+
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
@@ -36,7 +36,7 @@ public class SimVarMonitor
     public event Action? PushbackConditionsMet;
     public event Action? DeboardingConditionsMet;
     public event Action? CateringConditionsMet;
-    
+
     public double FwdLeftCabinDoor { get; private set; }
     public double FwdLeftCabinDoorFlag { get; private set; }
     public double AftLeftCabinDoor { get; private set; }
@@ -47,17 +47,17 @@ public class SimVarMonitor
     public double AftRightCabinDoor { get; private set; }
     public double AftRightCabinDoorFlag { get; private set; }
     public double AftLwrCargoDoor { get; private set; }
-    
+
     public SimVarMonitor(SimConnect simConnect)
     {
         _simConnect = simConnect;
         RegisterSimVariables();
     }
-    
+
     private void RegisterSimVariables()
     {
         if (_simConnect == null) return;
-        
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "LIGHT BEACON",
@@ -65,7 +65,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.INT32,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "BRAKE PARKING INDICATOR",
@@ -73,7 +73,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.INT32,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "GENERAL ENG COMBUSTION:1",
@@ -81,7 +81,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.INT32,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "SIM ON GROUND",
@@ -89,7 +89,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.INT32,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "GPS GROUND SPEED",
@@ -97,7 +97,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "AIRSPEED INDICATED",
@@ -105,7 +105,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "L:EXTERNAL POWER ON",
@@ -113,7 +113,7 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-            
+
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "TITLE",
@@ -121,9 +121,9 @@ public class SimVarMonitor
             SIMCONNECT_DATATYPE.STRING256,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
-        
+
         _simConnect.RegisterDataDefineStruct<AircraftStateStruct>(DEFINITIONS.AircraftState);
-        
+
         _simConnect.RequestDataOnSimObject(
             DATA_REQUESTS.AircraftState,
             DEFINITIONS.AircraftState,
@@ -222,7 +222,7 @@ public class SimVarMonitor
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
     }
-    
+
     public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID == (uint)DATA_REQUESTS.AircraftState)
@@ -253,7 +253,7 @@ public class SimVarMonitor
             AftLwrCargoDoor = doorVars.AftLwrCargoDoor;
             return;
         }
-        
+
         if (!_firstDataReceived)
         {
             _prevBeaconLight = BeaconLight;
@@ -262,78 +262,78 @@ public class SimVarMonitor
             _firstDataReceived = true;
             Logger.Debug($"Initial aircraft state - Beacon: {BeaconLight}, Parking Brake: {ParkingBrake}, Engines: {EngineRunning}");
         }
-        
+
         if (!string.IsNullOrEmpty(AircraftTitle) && AircraftTitle != _prevAircraftTitle)
         {
             Logger.Debug($"Aircraft detected: {AircraftTitle}");
             _prevAircraftTitle = AircraftTitle;
             AircraftChanged?.Invoke(AircraftTitle);
         }
-        
+
         if (EngineRunning && !_enginesHaveRun)
             _enginesHaveRun = true;
-        
+
         if ((_pushbackCompleted && GroundSpeed > MovementThreshold) || (_enginesHaveRun && GroundSpeed > MovementThreshold))
         {
             _aircraftHasMoved = true;
         }
-        
+
         if (BeaconLight != _prevBeaconLight)
         {
             _prevBeaconLight = BeaconLight;
             BeaconChanged?.Invoke(BeaconLight);
         }
-        
+
         if (ParkingBrake != _prevParkingBrake)
         {
             _prevParkingBrake = ParkingBrake;
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
-        
+
         if (EngineRunning != _prevEngineRunning)
         {
             _prevEngineRunning = EngineRunning;
             EngineChanged?.Invoke(EngineRunning);
         }
-        
+
         CheckTriggerConditions();
     }
-    
+
     private void CheckTriggerConditions()
     {
         bool enginesOff = !EngineRunning;
         bool stationary = GroundSpeed < 0.5;
-        
+
         if (enginesOff && !BeaconLight && OnGround && stationary)
         {
             CateringConditionsMet?.Invoke();
             RefuelingConditionsMet?.Invoke();
             BoardingConditionsMet?.Invoke();
         }
-        
+
         if (BeaconLight && ParkingBrake && enginesOff && OnGround && stationary && !_enginesHaveRun)
         {
             PushbackConditionsMet?.Invoke();
         }
-        
+
         if (!BeaconLight && ParkingBrake && OnGround && stationary)
         {
             DeboardingConditionsMet?.Invoke();
         }
     }
-    
+
     public bool GetEnginesHaveRun() => _enginesHaveRun;
-    
+
     public bool GetAircraftHasMoved() => _aircraftHasMoved;
-    
+
     public void SetEnginesHaveRun() => _enginesHaveRun = true;
-    
+
     public void SetAircraftHasMoved() => _aircraftHasMoved = true;
-    
+
     public void SetPushbackCompleted() => _pushbackCompleted = true;
-    
+
     public void ResetAircraftHasMoved() => _aircraftHasMoved = false;
-    
+
     public void ResetEnginesHaveRun()
     {
         _enginesHaveRun = false;

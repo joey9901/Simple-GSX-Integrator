@@ -26,3 +26,5 @@ release/
 *.zip
 /*.exe
 /*.pdb
+
+todo.md

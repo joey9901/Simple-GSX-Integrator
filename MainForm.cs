@@ -22,15 +22,15 @@ public partial class MainForm : Form
     private Label lblUpdateMessage = null!;
     private Button btnDownloadUpdate = null!;
     private ProgressBar prgUpdateProgress = null!;
-    
+
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
     private TextBox? _activeRebindTextBox = null;
-    
+
     private const int VK_MENU = 0x12;
     private const int VK_CONTROL = 0x11;
     private const int VK_SHIFT = 0x10;
-    
+
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
 
@@ -38,7 +38,7 @@ public partial class MainForm : Form
     {
         var config = ConfigManager.GetConfig();
         Theme.IsDarkMode = config.UI.DarkMode;
-        
+
         InitializeComponent();
         this.Text = "Simple GSX Integrator";
         this.ClientSize = new Size(700, 645);
@@ -46,7 +46,7 @@ public partial class MainForm : Form
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.MaximizeBox = true;
         this.StartPosition = FormStartPosition.CenterScreen;
-        
+
         try
         {
             string iconPath = Path.Combine(AppContext.BaseDirectory, "logo.ico");
@@ -304,12 +304,12 @@ public partial class MainForm : Form
         });
 
         this.ResumeLayout();
-        
-        txtLog.Width = this.ClientSize.Width - 40; 
-        txtLog.Height = this.ClientSize.Height - txtLog.Top - 20; 
-        
+
+        txtLog.Width = this.ClientSize.Width - 40;
+        txtLog.Height = this.ClientSize.Height - txtLog.Top - 20;
+
         ApplyTheme();
-        
+
         Task.Run(async () => await CheckForUpdatesAsync());
     }
 
@@ -326,7 +326,7 @@ public partial class MainForm : Form
     {
         Theme.IsDarkMode = chkDarkMode.Checked;
         ApplyTheme();
-        
+
         var config = ConfigManager.GetConfig();
         config.UI.DarkMode = Theme.IsDarkMode;
         ConfigManager.Save(config);
@@ -335,7 +335,7 @@ public partial class MainForm : Form
     private void ApplyTheme()
     {
         this.BackColor = Theme.Background;
-        
+
         ApplyThemeToControl(this);
     }
 
@@ -379,7 +379,7 @@ public partial class MainForm : Form
             checkBox.ForeColor = Theme.Text;
             checkBox.BackColor = Theme.Background;
         }
-        
+
         foreach (Control child in control.Controls)
         {
             ApplyThemeToControl(child);
@@ -432,25 +432,25 @@ public partial class MainForm : Form
 
         txtActivationKey.Text = activation;
         txtResetKey.Text = reset;
-        
+
         _originalActivationKey = activation;
         _originalResetKey = reset;
     }
-    
+
     private void OnHotkeyTextBoxClick(TextBox textBox, string originalValue, string hotkeyType)
     {
         Program.SetRebindingMode(true);
-        
+
         if (_activeRebindTextBox != null && _activeRebindTextBox != textBox)
         {
             EndRebindMode(_activeRebindTextBox, false);
         }
-        
+
         if (hotkeyType == "Activation")
             _originalActivationKey = textBox.Text;
         else if (hotkeyType == "Reset")
             _originalResetKey = textBox.Text;
-        
+
         _activeRebindTextBox = textBox;
         textBox.ReadOnly = false;
         textBox.TabStop = true;
@@ -458,64 +458,64 @@ public partial class MainForm : Form
         textBox.ForeColor = Color.Gray;
         textBox.SelectAll();
     }
-    
+
     private void OnHotkeyPreviewKeyDown(PreviewKeyDownEventArgs e)
     {
         e.IsInputKey = true;
     }
-    
+
     private void OnHotkeyKeyDown(TextBox textBox, KeyEventArgs e, string hotkeyType)
     {
         if (_activeRebindTextBox != textBox)
             return;
-            
+
         e.SuppressKeyPress = true;
         e.Handled = true;
-        
+
         if (e.KeyCode == Keys.Escape)
         {
             if (hotkeyType == "Activation")
                 textBox.Text = _originalActivationKey;
             else if (hotkeyType == "Reset")
                 textBox.Text = _originalResetKey;
-                
+
             EndRebindMode(textBox, false);
             return;
         }
-        
+
         System.Threading.Thread.Sleep(10);
-        
+
         List<string> parts = new List<string>();
-        
+
         bool ctrlPressed = e.Control || (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0;
         bool altPressed = e.Alt || (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
         bool shiftPressed = e.Shift || (GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0;
-        
+
         if (ctrlPressed) parts.Add("CTRL");
         if (altPressed) parts.Add("ALT");
         if (shiftPressed) parts.Add("SHIFT");
-        
-        if (e.KeyCode != Keys.ControlKey && e.KeyCode != Keys.ShiftKey && 
-            e.KeyCode != Keys.Menu && e.KeyCode != Keys.Alt && 
+
+        if (e.KeyCode != Keys.ControlKey && e.KeyCode != Keys.ShiftKey &&
+            e.KeyCode != Keys.Menu && e.KeyCode != Keys.Alt &&
             e.KeyCode != Keys.LWin && e.KeyCode != Keys.RWin &&
             e.KeyCode != Keys.LControlKey && e.KeyCode != Keys.RControlKey &&
             e.KeyCode != Keys.LShiftKey && e.KeyCode != Keys.RShiftKey)
         {
             parts.Add(e.KeyCode.ToString());
         }
-        
+
         if (parts.Count == 0 || parts.All(p => p == "CTRL" || p == "ALT" || p == "SHIFT"))
         {
             return;
         }
-        
+
         string hotkeyString = string.Join("+", parts);
         textBox.Text = hotkeyString;
-        
+
         EndRebindMode(textBox, true);
         Program.UpdateHotkey(hotkeyType, hotkeyString);
     }
-    
+
     private void EndRebindMode(TextBox textBox, bool success)
     {
         textBox.ReadOnly = true;
@@ -547,7 +547,7 @@ public partial class MainForm : Form
         }
 
         Color textColor = Theme.Text; // Use theme text color as default
-        
+
         if (message.Contains("[OK]"))
         {
             textColor = Theme.IsDarkMode ? Color.FromArgb(0, 200, 0) : Color.FromArgb(0, 128, 0);
@@ -570,11 +570,11 @@ public partial class MainForm : Form
         txtLog.SelectionColor = textColor;
         txtLog.AppendText(message + Environment.NewLine);
         txtLog.SelectionColor = txtLog.ForeColor;
-        
+
         txtLog.SelectionStart = txtLog.TextLength;
         txtLog.ScrollToCaret();
     }
-    
+
     private async Task CheckForUpdatesAsync()
     {
         try
@@ -582,7 +582,7 @@ public partial class MainForm : Form
             Logger.Debug($"Checking for updates... Current version: {UpdateChecker.GetCurrentVersion()}");
             var updateInfo = await UpdateChecker.CheckForUpdatesAsync();
             Logger.Debug($"Update check result: {(updateInfo != null ? $"Update available: {updateInfo.LatestVersion}" : "No update available")}");
-            
+
             if (updateInfo != null)
             {
                 if (InvokeRequired)
@@ -600,13 +600,13 @@ public partial class MainForm : Form
             Logger.Debug($"Update check error: {ex.Message}");
         }
     }
-    
+
     private void ShowUpdateNotification(UpdateInfo updateInfo)
     {
         lblUpdateMessage.Text = $"Update available! v{updateInfo.LatestVersion}";
         lblUpdateMessage.Tag = updateInfo.DownloadUrl;
         pnlUpdateAvailable.Visible = true;
-        
+
         if (Theme.IsDarkMode)
         {
             pnlUpdateAvailable.BackColor = Color.FromArgb(70, 60, 20);
@@ -619,11 +619,11 @@ public partial class MainForm : Form
             lblUpdateMessage.ForeColor = Color.FromArgb(133, 100, 4);
             btnDownloadUpdate.BackColor = Color.FromArgb(255, 193, 7);
         }
-        
+
         Logger.Info($"Update available: v{updateInfo.LatestVersion}");
     }
-    
-private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
+
+    private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
     {
         string? url = lblUpdateMessage.Tag as string;
         if (!string.IsNullOrEmpty(url))
@@ -635,14 +635,14 @@ private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
                 prgUpdateProgress.Visible = true;
                 prgUpdateProgress.Value = 0;
                 lblUpdateMessage.Text = "Downloading update...";
-                
+
                 Logger.Info("Starting update download...");
-                
+
                 var progress = new Progress<int>(percent =>
                 {
                     if (InvokeRequired)
                     {
-                        Invoke(() => 
+                        Invoke(() =>
                         {
                             prgUpdateProgress.Value = percent;
                             lblUpdateMessage.Text = $"Downloading update... {percent}%";
@@ -654,21 +654,21 @@ private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
                         lblUpdateMessage.Text = $"Downloading update... {percent}%";
                     }
                 });
-                
+
                 var zipPath = await UpdateChecker.DownloadUpdateAsync(url, progress);
-                
+
                 if (zipPath != null)
                 {
                     lblUpdateMessage.Text = "Installing update...";
                     Logger.Info("Download complete, installing...");
-                    
+
                     await Task.Run(() => UpdateChecker.InstallUpdateAndRestart(zipPath));
                 }
                 else
                 {
                     lblUpdateMessage.Text = "Download failed!";
                     Logger.Warning("Update download failed");
-                    
+
                     btnDownloadUpdate.Enabled = true;
                     btnDownloadUpdate.Visible = true;
                     prgUpdateProgress.Visible = false;
