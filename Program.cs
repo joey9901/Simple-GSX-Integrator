@@ -1,7 +1,29 @@
 using Microsoft.FlightSimulator.SimConnect;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator;
+
+internal enum DEFINITIONS : uint
+{
+    AircraftState = 1,
+    GsxVar = 2,
+    GsxVarRead = 3,
+    GsxMenuOpenWrite = 4,
+    GsxMenuChoiceWrite = 5
+}
+
+internal enum DATA_REQUESTS : uint
+{
+    AircraftState = 1,
+    GsxVar = 2,
+    GsxVarRead = 3
+}
+
+internal enum REQUESTS : uint
+{
+    AircraftLoaded = 1
+}
 
 class Program
 {
@@ -16,6 +38,7 @@ class Program
     private static SimConnect? _simConnect;
     private static SimVarMonitor? _simVariableMonitor;
     private static GsxCommunicator? _gsxCommunicator;
+    private static Pmdg737Controller? _pmdg737Controller;
     private static IntPtr _windowHandle = IntPtr.Zero;
     private static MainForm? _mainForm;
     
@@ -52,37 +75,44 @@ class Program
     private static bool _cateringBlockedLogged = false;
     private static bool _isInTurnaround = false;
     
-    private static bool? _prevBeaconOn = null;
-    private static bool? _prevParkingBrakeSet = null;
-    private static string? _currentAircraft = null;
+    private static bool _isPmdg737 = false;
+    private static bool _printedPmdg737Detected = false;
     private static Mutex? _instanceMutex;
     
     [STAThread]
     static void Main(string[] args)
     {
-        _instanceMutex = new Mutex(true, "SimpleGSXIntegrator_SingleInstance", out bool createdNew);
-        
-        if (!createdNew)
+        try
         {
-            MessageBox.Show("Simple GSX Integrator is already running!", "Already Running", 
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
+            _instanceMutex = new Mutex(true, "SimpleGSXIntegrator_SingleInstance", out bool createdNew);
+            if (!createdNew)
+            {
+                MessageBox.Show("Simple GSX Integrator is already running!", "Already Running", 
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
+            _config = ConfigManager.Load();
+            _activationHotkey = HotkeyParser.Parse(_config.Hotkeys.ActivationKey);
+            _resetHotkey = HotkeyParser.Parse(_config.Hotkeys.ResetKey);
+
+            _mainForm = new MainForm();
+            Logger.MainForm = _mainForm;
+            _mainForm.SetHotkeys(_config.Hotkeys.ActivationKey, _config.Hotkeys.ResetKey);
+
+            _ = Task.Run(InitializeAsync);
+
+            Application.Run(_mainForm);
         }
-        
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
-        
-        _config = ConfigManager.Load();
-        _activationHotkey = HotkeyParser.Parse(_config.Hotkeys.ActivationKey);
-        _resetHotkey = HotkeyParser.Parse(_config.Hotkeys.ResetKey);
-        
-        _mainForm = new MainForm();
-        Logger.MainForm = _mainForm;
-        _mainForm.SetHotkeys(_config.Hotkeys.ActivationKey, _config.Hotkeys.ResetKey);
-        
-        _ = Task.Run(InitializeAsync);
-        
-        Application.Run(_mainForm);
+        catch (Exception ex)
+        {
+            Logger.Error($"UNHANDLED EXCEPTION in Main: {ex.Message}");
+            Logger.Error($"Stack: {ex.StackTrace}");
+            throw;
+        }
     }
     
     static async Task InitializeAsync()
@@ -140,7 +170,11 @@ class Program
             _mainForm?.SetSystemStatus(_systemActivated);
             
             _simConnect.OnRecvSimobjectData += OnReceiveSimObjectData;
+            _simConnect.OnRecvSystemState += OnReceiveSystemState;
             _simConnect.OnRecvQuit += OnReceiveQuit;
+            
+            // Request current aircraft to detect PMDG
+            _simConnect.RequestSystemState(REQUESTS.AircraftLoaded, "AircraftLoaded");
             
             await MessagePump();
         }
@@ -178,6 +212,46 @@ class Program
         _gsxCommunicator?.OnSimObjectDataReceived(data);
     }
     
+    static void OnReceiveSystemState(SimConnect sender, SIMCONNECT_RECV_SYSTEM_STATE data)
+    {
+        if (data.dwRequestID == (uint)REQUESTS.AircraftLoaded)
+        {
+            string aircraftPath = data.szString;
+            
+            _isPmdg737 = aircraftPath.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase);
+            
+            if (_isPmdg737 && !_printedPmdg737Detected)
+            {
+                Logger.Info($"PMDG 737 Detected!");
+                _printedPmdg737Detected = true;
+                
+                if (_pmdg737Controller == null && _simConnect != null)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        Logger.Debug("Waiting 5 seconds for PMDG to initialize...");
+                        await Task.Delay(5000);
+                        
+                            if (_simConnect != null)
+                            {
+                            _pmdg737Controller = new Pmdg737Controller(_simConnect, _simVariableMonitor);
+                            _pmdg737Controller.Connect();
+                            
+                            if (_boardingCompleted)
+                            {
+                                await Task.Delay(1000);
+                                await _pmdg737Controller.CloseAllDoors();
+                            }
+                        }
+                    });
+                }
+            } else if (!_isPmdg737) {
+                _printedPmdg737Detected = false;
+                _pmdg737Controller = null;
+            }
+        }
+    }
+        
     static void OnReceiveQuit(SimConnect sender, SIMCONNECT_RECV data)
     {
         Logger.Info("SimConnect connection closed by simulator");
@@ -260,19 +334,17 @@ class Program
     static void OnResetHotkeyPressed()
     {
         ResetSession();
-        Logger.Success("Session reset - ready for turnaround flight");
+        Logger.Success("Session Reset!");
     }
     
     static void OnBeaconChanged(bool beaconOn)
     {
         Logger.Info($"Beacon light: {(beaconOn ? "ON" : "OFF")}");
-        _prevBeaconOn = beaconOn;
     }
     
     static void OnParkingBrakeChanged(bool brakeSet)
     {
         Logger.Info($"Parking brake: {(brakeSet ? "SET" : "RELEASED")}");
-        _prevParkingBrakeSet = brakeSet;
     }
     
     static void OnEngineChanged(bool running)
@@ -284,9 +356,10 @@ class Program
     {
         if (!string.IsNullOrEmpty(aircraftTitle))
         {
-            _currentAircraft = aircraftTitle;
             var config = ConfigManager.GetAircraftConfig(aircraftTitle);
             _mainForm?.SetCurrentAircraft(aircraftTitle, config.RefuelBeforeBoarding);
+            
+            _simConnect?.RequestSystemState(REQUESTS.AircraftLoaded, "AircraftLoaded");
         }
     }
     
@@ -329,49 +402,7 @@ class Program
                 var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
                 if (aircraftConfig.AutoCallTurnaroundServices)
                 {
-                    int delaySeconds = aircraftConfig.TurnaroundDelaySeconds;
-                    Logger.Info($"Starting turnaround delay timer ({delaySeconds}s) - services will be called automatically");
-                    
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(delaySeconds * 1000);
-                        _isInTurnaround = true;
-                        
-                        _refuelingCompleted = false;
-                        _cateringCompleted = false;
-                        _boardingCompleted = false;
-                        _refuelingWasActive = false;
-                        _cateringWasActive = false;
-                        _boardingBlockedLogged = false;
-                        _refuelingBlockedLogged = false;
-                        _cateringBlockedLogged = false;
-                        _boardingCompletedWarningLogged = false;
-                        
-                        if (aircraftConfig.AutoCallTurnaroundServices)
-                        {
-                            Logger.Success("Turnaround services starting now!");
-                            
-                            if (aircraftConfig.RefuelBeforeBoarding && !HasAircraftMoved() && 
-                                _gsxCommunicator!.RefuelingState == GsxServiceState.Callable)
-                            {
-                                _lastRefuelingTrigger = DateTime.Now;
-                                await Task.Delay(ServiceTriggerDelayMs);
-                                await _gsxCommunicator.CallRefueling();
-                            }
-                            
-                            if (aircraftConfig.CateringOnTurnaround && 
-                                _gsxCommunicator!.CateringState == GsxServiceState.Callable)
-                            {
-                                _lastCateringTrigger = DateTime.Now;
-                                await Task.Delay(ServiceTriggerDelayMs);
-                                await _gsxCommunicator.CallCatering();
-                            }
-                        }
-                        else
-                        {
-                            Logger.Success("Turnaround services now available!");
-                        }
-                    });
+                    StartTurnaround(aircraftConfig);
                 }
             }
         }
@@ -620,6 +651,11 @@ class Program
         
         await Task.Delay(ServiceTriggerDelayMs);
         await _gsxCommunicator.CallBoarding();
+
+        // if (_pmdgController != null) 
+        // {
+        //     _ = _pmdgController.OpenDoorsForBoarding();
+        // }
     }
     
     static async void OnPushbackConditions()
@@ -660,8 +696,10 @@ class Program
         Logger.Debug("TRIGGER: Pushback conditions met!");
         _lastPushbackTrigger = DateTime.Now;
         
-        await Task.Delay(ServiceTriggerDelayMs);
-        bool success = await _gsxCommunicator.CallPushback();
+                        await Task.Delay(ServiceTriggerDelayMs);
+                        if (_pmdg737Controller != null)
+                            _ = _pmdg737Controller.CloseAllDoors();
+                        bool success = await _gsxCommunicator.CallPushback();
         
         if (!success)
         {
@@ -741,47 +779,60 @@ class Program
                 Logger.Info($"Turnaround delay started - services will be available in {delaySeconds} seconds");
             }
             
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(delaySeconds * 1000);
-                _isInTurnaround = true;
-                
-                _refuelingCompleted = false;
-                _cateringCompleted = false;
-                _boardingCompleted = false;
-                _refuelingWasActive = false;
-                _cateringWasActive = false;
-                _boardingBlockedLogged = false;
-                _refuelingBlockedLogged = false;
-                _cateringBlockedLogged = false;
-                _boardingCompletedWarningLogged = false;
-                
-                if (aircraftConfig.AutoCallTurnaroundServices)
-                {
-                    Logger.Success("Turnaround services starting now!");
-                    
-                    if (aircraftConfig.RefuelBeforeBoarding && !HasAircraftMoved() && 
-                        _gsxCommunicator!.RefuelingState == GsxServiceState.Callable)
-                    {
-                        _lastRefuelingTrigger = DateTime.Now;
-                        await Task.Delay(ServiceTriggerDelayMs);
-                        await _gsxCommunicator.CallRefueling();
-                    }
-                    
-                    if (aircraftConfig.CateringOnTurnaround && 
-                        _gsxCommunicator!.CateringState == GsxServiceState.Callable)
-                    {
-                        _lastCateringTrigger = DateTime.Now;
-                        await Task.Delay(ServiceTriggerDelayMs);
-                        await _gsxCommunicator.CallCatering();
-                    }
-                }
-                else
-                {
-                    Logger.Success("Turnaround services now available!");
-                }
-            });
+            if (_systemActivated) StartTurnaround(aircraftConfig);
         }
+    }
+
+    private static void StartTurnaround(AircraftConfig aircraftConfig)
+    {
+        int delaySeconds = aircraftConfig.TurnaroundDelaySeconds;
+        Logger.Info($"Starting turnaround delay timer ({delaySeconds}s) - services will be called automatically");
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(delaySeconds * 1000);
+            _isInTurnaround = true;
+
+            _refuelingCompleted = false;
+            _cateringCompleted = false;
+            _boardingCompleted = false;
+            _refuelingWasActive = false;
+            _cateringWasActive = false;
+            _boardingBlockedLogged = false;
+            _refuelingBlockedLogged = false;
+            _cateringBlockedLogged = false;
+            _boardingCompletedWarningLogged = false;
+
+            if (aircraftConfig.AutoCallTurnaroundServices)
+            {
+                Logger.Success("Turnaround services starting now!");
+
+                if (aircraftConfig.RefuelBeforeBoarding && !HasAircraftMoved() &&
+                    _gsxCommunicator!.RefuelingState == GsxServiceState.Callable)
+                {
+                    _lastRefuelingTrigger = DateTime.Now;
+                    await Task.Delay(ServiceTriggerDelayMs);
+                    await _gsxCommunicator.CallRefueling();
+                }
+
+                if (aircraftConfig.CateringOnTurnaround &&
+                    _gsxCommunicator!.CateringState == GsxServiceState.Callable)
+                {
+                    _lastCateringTrigger = DateTime.Now;
+                    await Task.Delay(ServiceTriggerDelayMs);
+                    await _gsxCommunicator.CallCatering();
+                    if (_isPmdg737 && _pmdg737Controller != null)
+                    {
+                        await Task.Delay(2000); 
+                        await _pmdg737Controller.OpenDoorsForCatering();
+                    }
+                }
+            }
+            else
+            {
+                Logger.Success("Turnaround services now available!");
+            }
+        });
     }
     
     static void OnPushbackStateChanged(GsxServiceState state)
@@ -796,11 +847,32 @@ class Program
     
     static void OnBoardingStateChanged(GsxServiceState state)
     {
+        if (state == GsxServiceState.Requested)
+        {
+            // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
+            // if (_isPmdg737 && _pmdgController != null && _systemActivated)
+            // {
+            //     _ = Task.Run(async () =>
+            //     {
+            //         await Task.Delay(2000); 
+            //         await _pmdgController.OpenDoorsForBoarding();
+            //     });
+            // }
+        }
+
         if (state == GsxServiceState.Completed)
         {
             _boardingCompleted = true;
-            Logger.Debug("Boarding Completed!");
-        }
+            
+            if (_isPmdg737 && _pmdg737Controller != null && _systemActivated)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(2000); 
+                    await _pmdg737Controller.CloseAllDoors();
+                });
+            }
+        } 
     }
     
     static void OnRefuelingStateChanged(GsxServiceState state)
@@ -818,13 +890,26 @@ class Program
         }
     }
     
-    static void OnCateringStateChanged(GsxServiceState state)
+    static async void OnCateringStateChanged(GsxServiceState state)
     {
         if (state == GsxServiceState.Active)
         {
             _cateringWasActive = true;
         }
         
+        // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
+        // if (state == GsxServiceState.Requested)
+        // {
+        //     if (_isPmdg737 && _pmdgController != null && _systemActivated)
+        //     {
+        //         _ = Task.Run(async () =>
+        //         {
+        //             await Task.Delay(2000); 
+        //             await _pmdgController.OpenDoorsForCatering();
+        //         });
+        //     }
+        // }
+
         if (_cateringWasActive && state != GsxServiceState.Active && state != GsxServiceState.Requested)
         {
             _cateringCompleted = true;

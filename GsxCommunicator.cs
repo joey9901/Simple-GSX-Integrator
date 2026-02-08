@@ -140,7 +140,7 @@ public class GsxCommunicator
         Logger.Debug("Requesting GSX data updates...");
         
         _simConnect.RequestDataOnSimObject(
-            DATA_REQUESTS.GsxVar,
+            DATA_REQUESTS.GsxVarRead,
             DEFINITIONS.GsxVarRead,
             SimConnect.SIMCONNECT_OBJECT_ID_USER,
             SIMCONNECT_PERIOD.SECOND,
@@ -156,7 +156,7 @@ public class GsxCommunicator
     
     public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
-        if (data.dwRequestID != (uint)DATA_REQUESTS.GsxVar) return;
+    if (data.dwRequestID != (uint)DATA_REQUESTS.GsxVarRead) return;
         
         var gsxData = (GsxStateStruct)data.dwData[0];
         
@@ -180,7 +180,7 @@ public class GsxCommunicator
             BoardingState = newBoardingState;
             
             if (BoardingState == GsxServiceState.Active)
-                Logger.Debug($"Boarding ACTIVATED.");
+                Logger.Success($"Boarding ACTIVATED");
             else if (BoardingState == GsxServiceState.Completed)
                 Logger.Success($"Boarding COMPLETED");
             else if (BoardingState != GsxServiceState.Bypassed) 
@@ -196,7 +196,7 @@ public class GsxCommunicator
             DeboardingState = newDeboardingState;
             
             if (DeboardingState == GsxServiceState.Active)
-                Logger.Debug($"Deboarding ACTIVATED");
+                Logger.Success($"Deboarding ACTIVATED");
             else if (DeboardingState == GsxServiceState.Completed)
                 Logger.Success($"Deboarding COMPLETED");
             else if (DeboardingState != GsxServiceState.Bypassed)
@@ -212,7 +212,7 @@ public class GsxCommunicator
             PushbackState = newPushbackState;
             
             if (PushbackState == GsxServiceState.Active)
-                Logger.Debug($"Pushback ACTIVATED");
+                Logger.Success($"Pushback ACTIVATED");
             else if (PushbackState == GsxServiceState.Completed)
                 Logger.Success("Pushback COMPLETED");
             else
@@ -229,7 +229,7 @@ public class GsxCommunicator
             
             if (RefuelingState == GsxServiceState.Active)
             {
-                Logger.Debug($"Refueling ACTIVATED.");
+                Logger.Success($"Refueling ACTIVATED");
             }
             else if (RefuelingState == GsxServiceState.Completed)
                 Logger.Success($"Refueling COMPLETED");
@@ -246,7 +246,7 @@ public class GsxCommunicator
             CateringState = newCateringState;
             
             if (CateringState == GsxServiceState.Active)
-                Logger.Debug($"Catering ACTIVATED.");
+                Logger.Success($"Catering ACTIVATED");
             else if (CateringState == GsxServiceState.Completed)
                 Logger.Success($"Catering COMPLETED");
             else if (CateringState != GsxServiceState.Bypassed)

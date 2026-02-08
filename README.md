@@ -14,6 +14,7 @@ Automated GSX integration for Microsoft Flight Simulator 2024/2020. This tool au
 ## Limitations
  - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) will not be fixed
  - App only calls GSX Services and does not include GSX Aircraft Profiles
+ - Due to SimVar Limitations, Handling Operator choice is limited to the first option
 
 ## Installation
 
