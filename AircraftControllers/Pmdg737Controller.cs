@@ -41,6 +41,8 @@ namespace SimpleGsxIntegrator
         private const uint EVT_DOOR_AFT_R = BASE + 14008;
         private const uint EVT_DOOR_CARGO_FWD = BASE + 14013;
         private const uint EVT_DOOR_CARGO_AFT = BASE + 14014;
+        private const uint EVT_DOOR_CARGO_MAIN = BASE + 14015;
+        private const uint EVT_DOOR_EQUIPMENT_HATCH = BASE + 14016;
         private const uint EVT_OH_ELEC_GRD_PWR_SWITCH = BASE + 17;
         private enum PMDG_EVENTS : uint { OH_ELEC_GRD_PWR_SWITCH = BASE + 17 }
         private enum EVENT_GROUP : uint { GROUP0 = 0 }
@@ -87,6 +89,8 @@ namespace SimpleGsxIntegrator
                 await Close(EVT_DOOR_AFT_R);
                 await Close(EVT_DOOR_CARGO_FWD);
                 await Close(EVT_DOOR_CARGO_AFT);
+                await Close(EVT_DOOR_CARGO_MAIN);
+                await Close(EVT_DOOR_EQUIPMENT_HATCH);
             });
         }
 
@@ -154,6 +158,12 @@ namespace SimpleGsxIntegrator
 
                     if (IsDoorOpen(EVT_DOOR_CARGO_AFT))
                         await Close(EVT_DOOR_CARGO_AFT);
+
+                    if (IsDoorOpen(EVT_DOOR_CARGO_MAIN))
+                        await Close(EVT_DOOR_CARGO_MAIN);
+
+                    if (IsDoorOpen(EVT_DOOR_EQUIPMENT_HATCH))
+                        await Close(EVT_DOOR_EQUIPMENT_HATCH);
                 }
                 catch (Exception ex)
                 {
@@ -282,6 +292,8 @@ namespace SimpleGsxIntegrator
                 EVT_DOOR_AFT_R => "Aft Right Cabin",
                 EVT_DOOR_CARGO_FWD => "Forward Cargo",
                 EVT_DOOR_CARGO_AFT => "Aft Cargo",
+                EVT_DOOR_CARGO_MAIN => "Main Cargo",
+                EVT_DOOR_EQUIPMENT_HATCH => "Equipment Hatch",
                 _ => $"evt_{evt}"
             };
         }

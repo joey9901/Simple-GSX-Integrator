@@ -246,7 +246,7 @@ class Program
                                     await Task.Delay(1000);
                                     await _pmdg737Controller.CloseAllDoors();
                                     await Task.Delay(1000);
-                                    await _pmdg737Controller.DisconnectGpu();
+                                    // await _pmdg737Controller.DisconnectGpu();
                                 }
                             }
                         }
@@ -911,7 +911,7 @@ class Program
                     {
                         await _pmdg737Controller.CloseAllDoors();
                         await Task.Delay(2000);
-                        await _pmdg737Controller.DisconnectGpu();
+                        // await _pmdg737Controller.DisconnectGpu();
                     }
                 });
             }
