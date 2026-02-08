@@ -9,6 +9,7 @@ internal enum DEFINITIONS : uint
     AircraftState = 1,
     GsxVar = 2,
     GsxVarRead = 3,
+    ActivationVarRead = 6,
     GsxMenuOpenWrite = 4,
     GsxMenuChoiceWrite = 5
 }
@@ -17,7 +18,8 @@ internal enum DATA_REQUESTS : uint
 {
     AircraftState = 1,
     GsxVar = 2,
-    GsxVarRead = 3
+    GsxVarRead = 3,
+    ActivationVarRead = 4
 }
 
 internal enum REQUESTS : uint
@@ -77,6 +79,7 @@ class Program
     public static bool IsPmdg737 => _isPmdg737;
     private static bool _printedPmdg737Detected = false;
     private static Mutex? _instanceMutex;
+    private static double _lastActivationLvarValue = double.NaN;
 
     [STAThread]
     static void Main(string[] args)
@@ -145,6 +148,7 @@ class Program
             _simVariableMonitor.ParkingBrakeChanged += OnParkingBrakeChanged;
             _simVariableMonitor.EngineChanged += OnEngineChanged;
             _simVariableMonitor.AircraftChanged += OnAircraftChanged;
+            _simVariableMonitor.ActivationVarReceived += OnActivationLvarReceived;
             _simVariableMonitor.RefuelingConditionsMet += OnRefuelingConditions;
             _simVariableMonitor.CateringConditionsMet += OnCateringConditions;
             _simVariableMonitor.BoardingConditionsMet += OnBoardingConditions;
@@ -369,7 +373,71 @@ class Program
             _mainForm?.SetCurrentAircraft(aircraftTitle, config.RefuelBeforeBoarding);
 
             _simConnect?.RequestSystemState(REQUESTS.AircraftLoaded, "AircraftLoaded");
+
+            try
+            {
+                if (_simVariableMonitor != null && !string.IsNullOrEmpty(config.ActivationLvar))
+                {
+                    _simVariableMonitor.RegisterActivationLvar(config.ActivationLvar);
+                    Logger.Debug($"Activation L:var for '{aircraftTitle}' set to '{config.ActivationLvar}' value {config.ActivationValue}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"Failed to register activation L:var: {ex.Message}");
+            }
         }
+    }
+
+    public static void RegisterActivationForCurrentAircraft()
+    {
+        try
+        {
+            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+            if (string.IsNullOrEmpty(aircraftTitle)) return;
+
+            var cfg = ConfigManager.GetAircraftConfig(aircraftTitle);
+            if (!string.IsNullOrEmpty(cfg.ActivationLvar) && _simVariableMonitor != null)
+            {
+                _simVariableMonitor.RegisterActivationLvar(cfg.ActivationLvar);
+                Logger.Debug($"Activation L:var for '{aircraftTitle}' registered as '{cfg.ActivationLvar}' (value {cfg.ActivationValue})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning($"Failed to register activation L:var from UI: {ex.Message}");
+        }
+    }
+
+    static void OnActivationLvarReceived(double value)
+    {
+        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        if (string.IsNullOrEmpty(aircraftTitle)) return;
+
+        var cfg = ConfigManager.GetAircraftConfig(aircraftTitle);
+        if (string.IsNullOrEmpty(cfg.ActivationLvar)) return;
+
+        if (double.IsNaN(_lastActivationLvarValue))
+        {
+            _lastActivationLvarValue = value;
+            return;
+        }
+
+        const double epsilon = 0.01;
+        bool prevIsActivation = Math.Abs(_lastActivationLvarValue - cfg.ActivationValue) < epsilon;
+        bool currIsActivation = Math.Abs(value - cfg.ActivationValue) < epsilon;
+
+        if (!prevIsActivation && currIsActivation)
+        {
+            _systemActivated = !_systemActivated;
+            _mainForm?.SetSystemStatus(_systemActivated);
+            if (_systemActivated)
+                Logger.Success($"SYSTEM ACTIVATED via L:var toggle {cfg.ActivationLvar} == {cfg.ActivationValue}");
+            else
+                Logger.Warning($"SYSTEM DEACTIVATED via L:var toggle {cfg.ActivationLvar} == {cfg.ActivationValue}");
+        }
+
+        _lastActivationLvarValue = value;
     }
 
     static bool IsSystemReady()
@@ -771,6 +839,10 @@ class Program
 
     static void OnDeboardingStateChanged(GsxServiceState state)
     {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
 
         if (state == GsxServiceState.Active)
         {
@@ -856,6 +928,11 @@ class Program
 
     static void OnPushbackStateChanged(GsxServiceState state)
     {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
         if (state == GsxServiceState.Active)
         {
             Logger.Success($"Pushback ACTIVATED");
@@ -874,6 +951,11 @@ class Program
 
     static void OnBoardingStateChanged(GsxServiceState state)
     {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
         // if (state == GsxServiceState.Requested)
         // {
         // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
@@ -924,6 +1006,11 @@ class Program
 
     static void OnRefuelingStateChanged(GsxServiceState state)
     {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
         if (state == GsxServiceState.Active)
         {
             Logger.Success($"Refueling ACTIVATED");
@@ -945,6 +1032,11 @@ class Program
 
     static async void OnCateringStateChanged(GsxServiceState state)
     {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
         // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
         // if (state == GsxServiceState.Requested)
         // {

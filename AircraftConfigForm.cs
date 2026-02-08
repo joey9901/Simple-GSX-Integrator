@@ -11,6 +11,8 @@ public class AircraftConfigForm : Form
     private CheckBox chkAutoCallTurnaroundServices = null!;
     private CheckBox chkAutoCloseDoors = null!;
     private NumericUpDown nudTurnaroundDelay = null!;
+    private TextBox txtActivationLvar = null!;
+    private NumericUpDown nudActivationValue = null!;
     private Button btnSave = null!;
     private Button btnCancel = null!;
 
@@ -25,7 +27,7 @@ public class AircraftConfigForm : Form
     private void InitializeComponent()
     {
         this.Text = "Aircraft Configuration";
-        this.ClientSize = new Size(450, 410);
+        this.ClientSize = new Size(500, 420);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
@@ -109,6 +111,43 @@ public class AircraftConfigForm : Form
             Location = new Point(40, 290),
             Size = new Size(400, 20)
         };
+        var lblActivationHeader = new Label
+        {
+            Text = "System Activation",
+            Location = new Point(20, 320),
+            Size = new Size(250, 20),
+            Font = new Font("Segoe UI", 10, FontStyle.Bold)
+        };
+
+        var lblActivationL = new Label
+        {
+            Text = "L:",
+            Location = new Point(40, 345),
+            Size = new Size(18, 23),
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+
+        txtActivationLvar = new TextBox
+        {
+            Location = new Point(62, 345),
+            Size = new Size(260, 23)
+        };
+
+        var lblActivationValue = new Label
+        {
+            Text = "Activation Value:",
+            Location = new Point(330, 345),
+            Size = new Size(100, 23)
+        };
+
+        nudActivationValue = new NumericUpDown
+        {
+            Location = new Point(430, 345),
+            Size = new Size(60, 23),
+            Minimum = 0,
+            Maximum = 1000000,
+            DecimalPlaces = 0
+        };
         bool showPmdgSection = Program.IsPmdg737;
         lblPmdgHeader.Visible = showPmdgSection;
         chkAutoCloseDoors.Visible = showPmdgSection;
@@ -155,6 +194,11 @@ public class AircraftConfigForm : Form
             nudTurnaroundDelay,
             lblPmdgHeader,
             chkAutoCloseDoors,
+            lblActivationHeader,
+            lblActivationL,
+            txtActivationLvar,
+            lblActivationValue,
+            nudActivationValue,
             chkAutoCallTurnaroundServices,
             btnSave,
             btnCancel
@@ -170,6 +214,8 @@ public class AircraftConfigForm : Form
         chkCateringOnTurnaround.Checked = config.CateringOnTurnaround;
         chkCateringOnTurnaround.Enabled = config.AutoCallTurnaroundServices;
         chkAutoCloseDoors.Checked = config.AutoCloseDoors;
+        txtActivationLvar.Text = config.ActivationLvar?.Replace("L:", "") ?? string.Empty;
+        try { nudActivationValue.Value = (decimal)config.ActivationValue; } catch { nudActivationValue.Value = 1; }
         nudTurnaroundDelay.Value = config.TurnaroundDelaySeconds;
     }
 
@@ -190,11 +236,19 @@ public class AircraftConfigForm : Form
         config.CateringOnTurnaround = chkCateringOnTurnaround.Checked;
         config.AutoCallTurnaroundServices = chkAutoCallTurnaroundServices.Checked;
         config.AutoCloseDoors = chkAutoCloseDoors.Checked;
+        config.ActivationLvar = txtActivationLvar.Text?.Trim() ?? string.Empty;
+        config.ActivationValue = (double)nudActivationValue.Value;
         config.TurnaroundDelaySeconds = (int)nudTurnaroundDelay.Value;
 
         ConfigManager.SaveAircraftConfig(_aircraftTitle, config);
 
         Logger.Info($"Aircraft configuration saved for '{_aircraftTitle}'");
+        try
+        {
+            Program.RegisterActivationForCurrentAircraft();
+        }
+        catch { }
+
         this.Close();
     }
 

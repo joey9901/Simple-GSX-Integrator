@@ -5,15 +5,16 @@ Automated GSX integration for Microsoft Flight Simulator 2024/2020. This tool au
 ## Features
 - **Automatic Service Triggering**
   - Optional Automatic Catering Request before Boarding
-  - Optional Automatic Refueling Request before BoardingquesteAutomatic d upon manual Kequest Automatic when Beacon light is turned OL
-  - Deboarding when bAutomatic eacon ligh Requestt turnB off aL arrival
--OFF and Parking Brake is SETrols**
-  - `ALT+G` - Toggle system ON/OFF (Calls Refueling or Boarding if conditions are met)
-  - `ALT+B` - Reset session (for turnSround foggle Refuel before Boarding for current aircraft
+  - Optional Automatic Refueling Request before Boarding
+  - Automatic Boarding Request upon Singular Manual Key Press Activation
+  - Automatic Deboarding Request when Beacon Light turns OFF and Parking Brake is SET
+  - `ALT+G` - Toggle system ON/OFF (Calls Services if Conditions are met)
+  - `ALT+B` - Reset Session (Resets internal states if something breaks) 
+  - Automatic Door Closing for PMDG 737 after Boarding is Completed (WIP)
+  - Custom L:Var Trigger for System Activation
 
 ## Limitations
- - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) will not be fixed
- - App only calls GSX Services and does not include GSX Aircraft Profiles
+ - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) are NOT part of this Project
  - Due to SimVar Limitations, Handling Operator choice is limited to the first option
 
 ## Installation

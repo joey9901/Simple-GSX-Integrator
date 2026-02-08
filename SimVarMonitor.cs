@@ -26,6 +26,7 @@ public class SimVarMonitor
     private bool _prevParkingBrake = false;
     private bool _prevEngineRunning = false;
     private string _prevAircraftTitle = "";
+    private string? _registeredActivationLvar = null;
 
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
@@ -36,6 +37,7 @@ public class SimVarMonitor
     public event Action? PushbackConditionsMet;
     public event Action? DeboardingConditionsMet;
     public event Action? CateringConditionsMet;
+    public event Action<double>? ActivationVarReceived;
 
     public double FwdLeftCabinDoor { get; private set; }
     public double FwdLeftCabinDoorFlag { get; private set; }
@@ -54,6 +56,46 @@ public class SimVarMonitor
     {
         _simConnect = simConnect;
         RegisterSimVariables();
+    }
+
+    public void RegisterActivationLvar(string lvarName)
+    {
+        if (_simConnect == null) return;
+
+        if (string.IsNullOrWhiteSpace(lvarName)) return;
+
+        if (!lvarName.StartsWith("L:", StringComparison.OrdinalIgnoreCase))
+            lvarName = "L:" + lvarName;
+
+        if (_registeredActivationLvar != null && string.Equals(_registeredActivationLvar, lvarName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            _simConnect.AddToDataDefinition(
+                DEFINITIONS.ActivationVarRead,
+                lvarName,
+                "Number",
+                SIMCONNECT_DATATYPE.FLOAT64,
+                0.0f,
+                SimConnect.SIMCONNECT_UNUSED);
+            _simConnect.RegisterDataDefineStruct<ActivationVarStruct>(DEFINITIONS.ActivationVarRead);
+            _simConnect.RequestDataOnSimObject(
+                DATA_REQUESTS.ActivationVarRead,
+                DEFINITIONS.ActivationVarRead,
+                SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_PERIOD.SIM_FRAME,
+                SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+                0, 0, 0);
+            _registeredActivationLvar = lvarName;
+            Logger.Debug($"Registered activation L:var '{lvarName}' for monitoring");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning($"Failed to register activation L:var '{lvarName}': {ex.Message}");
+        }
     }
 
     private void RegisterSimVariables()
@@ -214,7 +256,6 @@ public class SimVarMonitor
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
 
-        // PMDG BCF specific
         _simConnect.AddToDataDefinition(
             DEFINITIONS.GsxVar,
             "L:MainCargoDoor",
@@ -272,6 +313,13 @@ public class SimVarMonitor
             AftLwrCargoDoor = doorVars.AftLwrCargoDoor;
             MainCargoDoor = doorVars.MainCargoDoor;
             EquipmentHatchDoor = doorVars.EEDoor;
+            return;
+        }
+
+        else if (data.dwRequestID == (uint)DATA_REQUESTS.ActivationVarRead)
+        {
+            var act = (ActivationVarStruct)data.dwData[0];
+            ActivationVarReceived?.Invoke(act.Value);
             return;
         }
 
@@ -392,4 +440,10 @@ public struct DoorVarsStruct
     public double AftLwrCargoDoor;
     public double MainCargoDoor;
     public double EEDoor;
+}
+
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+public struct ActivationVarStruct
+{
+    public double Value;
 }

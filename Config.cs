@@ -26,6 +26,8 @@ public class AircraftConfig
     public bool AutoCallTurnaroundServices { get; set; } = false;
     public int TurnaroundDelaySeconds { get; set; } = 120;
     public bool AutoCloseDoors { get; set; } = false;
+    public string ActivationLvar { get; set; } = string.Empty;
+    public double ActivationValue { get; set; } = 1.0;
 }
 
 public class ParsedHotkey
@@ -191,6 +193,10 @@ public static class ConfigManager
                                 config.Aircraft[currentAircraft].TurnaroundDelaySeconds = seconds;
                             else if (key == "AutoCloseDoors")
                                 config.Aircraft[currentAircraft].AutoCloseDoors = value.Equals("true", StringComparison.OrdinalIgnoreCase);
+                            else if (key == "ActivationLvar")
+                                config.Aircraft[currentAircraft].ActivationLvar = value;
+                            else if (key == "ActivationValue" && double.TryParse(value, out double actVal))
+                                config.Aircraft[currentAircraft].ActivationValue = actVal;
                         }
                     }
                 }
@@ -240,15 +246,20 @@ public static class ConfigManager
                 lines.Add("# Settings are saved automatically per aircraft type");
                 lines.Add("");
 
-                foreach (var kvp in config.Aircraft.OrderBy(x => x.Key))
+                foreach (var aircraftEntry in config.Aircraft.OrderBy(entry => entry.Key))
                 {
-                    lines.Add($"[Aircraft:{kvp.Key}]");
-                    lines.Add($"RefuelBeforeBoarding={kvp.Value.RefuelBeforeBoarding.ToString().ToLower()}");
-                    lines.Add($"CateringOnNewFlight={kvp.Value.CateringOnNewFlight.ToString().ToLower()}");
-                    lines.Add($"CateringOnTurnaround={kvp.Value.CateringOnTurnaround.ToString().ToLower()}");
-                    lines.Add($"AutoCallTurnaroundServices={kvp.Value.AutoCallTurnaroundServices.ToString().ToLower()}");
-                    lines.Add($"TurnaroundDelaySeconds={kvp.Value.TurnaroundDelaySeconds}");
-                    lines.Add($"AutoCloseDoors={kvp.Value.AutoCloseDoors.ToString().ToLower()}");
+                    string aircraftName = aircraftEntry.Key;
+                    var aircraftCfg = aircraftEntry.Value;
+
+                    lines.Add($"[Aircraft:{aircraftName}]");
+                    lines.Add($"RefuelBeforeBoarding={aircraftCfg.RefuelBeforeBoarding.ToString().ToLower()}");
+                    lines.Add($"CateringOnNewFlight={aircraftCfg.CateringOnNewFlight.ToString().ToLower()}");
+                    lines.Add($"CateringOnTurnaround={aircraftCfg.CateringOnTurnaround.ToString().ToLower()}");
+                    lines.Add($"AutoCallTurnaroundServices={aircraftCfg.AutoCallTurnaroundServices.ToString().ToLower()}");
+                    lines.Add($"TurnaroundDelaySeconds={aircraftCfg.TurnaroundDelaySeconds}");
+                    lines.Add($"AutoCloseDoors={aircraftCfg.AutoCloseDoors.ToString().ToLower()}");
+                    lines.Add($"ActivationLvar={aircraftCfg.ActivationLvar}");
+                    lines.Add($"ActivationValue={aircraftCfg.ActivationValue}");
                     lines.Add("");
                 }
             }
