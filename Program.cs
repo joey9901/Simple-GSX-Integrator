@@ -74,6 +74,7 @@ class Program
     private static bool _isInTurnaround = false;
 
     private static bool _isPmdg737 = false;
+    public static bool IsPmdg737 => _isPmdg737;
     private static bool _printedPmdg737Detected = false;
     private static Mutex? _instanceMutex;
 
@@ -237,8 +238,16 @@ class Program
 
                             if (_boardingCompleted)
                             {
-                                await Task.Delay(1000);
-                                await _pmdg737Controller.CloseAllDoors();
+                                string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+                                var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
+
+                                if (aircraftConfig.AutoCloseDoors)
+                                {
+                                    await Task.Delay(1000);
+                                    await _pmdg737Controller.CloseAllDoors();
+                                    await Task.Delay(1000);
+                                    await _pmdg737Controller.DisconnectGpu();
+                                }
                             }
                         }
                     });
@@ -470,7 +479,7 @@ class Program
         if (_gsxCommunicator!.RefuelingState != GsxServiceState.Callable) return;
         if (!CanTriggerService(_lastRefuelingTrigger)) return;
 
-        Logger.Info($"Aircraft '{aircraftTitle}' configured for refueling before boarding");
+        Logger.Debug($"Aircraft '{aircraftTitle}' configured for refueling before boarding");
         Logger.Debug("TRIGGER: Refueling conditions met!");
         _lastRefuelingTrigger = DateTime.Now;
 
@@ -497,7 +506,7 @@ class Program
             if (_gsxCommunicator!.CateringState != GsxServiceState.Callable) return;
             if (!CanTriggerService(_lastCateringTrigger)) return;
 
-            Logger.Info($"Aircraft '{aircraftTitle}' configured for catering on new flight");
+            Logger.Debug($"Aircraft '{aircraftTitle}' configured for catering on new flight");
             Logger.Debug("TRIGGER: Catering conditions met!");
             _lastCateringTrigger = DateTime.Now;
 
@@ -522,7 +531,7 @@ class Program
             if (_gsxCommunicator!.CateringState != GsxServiceState.Callable) return;
             if (!CanTriggerService(_lastCateringTrigger)) return;
 
-            Logger.Info($"Aircraft '{aircraftTitle}' configured for catering on turnaround");
+            Logger.Debug($"Aircraft '{aircraftTitle}' configured for catering on turnaround");
             Logger.Debug("TRIGGER: Catering conditions met!");
             _lastCateringTrigger = DateTime.Now;
 
@@ -698,7 +707,12 @@ class Program
 
         await Task.Delay(ServiceTriggerDelayMs);
         if (_pmdg737Controller != null)
-            _ = _pmdg737Controller.CloseAllDoors();
+        {
+            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+            var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
+            if (aircraftConfig.AutoCloseDoors)
+                _ = _pmdg737Controller.CloseAllDoors();
+        }
         bool success = await _gsxCommunicator.CallPushback();
 
         if (!success)
@@ -826,11 +840,11 @@ class Program
                     _lastCateringTrigger = DateTime.Now;
                     await Task.Delay(ServiceTriggerDelayMs);
                     await _gsxCommunicator.CallCatering();
-                    if (_isPmdg737 && _pmdg737Controller != null)
-                    {
-                        await Task.Delay(2000);
-                        await _pmdg737Controller.OpenDoorsForCatering();
-                    }
+                    // if (_isPmdg737 && _pmdg737Controller != null)
+                    // {
+                    //     await Task.Delay(2000);
+                    //     await _pmdg737Controller.OpenDoorsForCatering();
+                    // }
                 }
             }
             else
@@ -890,7 +904,15 @@ class Program
                 _ = Task.Run(async () =>
                 {
                     await Task.Delay(2000);
-                    await _pmdg737Controller.CloseAllDoors();
+                    string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+                    var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
+
+                    if (aircraftConfig.AutoCloseDoors)
+                    {
+                        await _pmdg737Controller.CloseAllDoors();
+                        await Task.Delay(2000);
+                        await _pmdg737Controller.DisconnectGpu();
+                    }
                 });
             }
         }
@@ -910,7 +932,7 @@ class Program
         {
             Logger.Success($"Refueling REQUESTED");
         }
-        else if (state != GsxServiceState.Completed)
+        else if (state == GsxServiceState.Completed)
         {
             _refuelingCompleted = true;
             Logger.Success($"Refueling COMPLETED");

@@ -20,11 +20,12 @@ public class HotkeyConfig
 
 public class AircraftConfig
 {
-    public bool RefuelBeforeBoarding { get; set; } = true;
+    public bool RefuelBeforeBoarding { get; set; } = false;
     public bool CateringOnNewFlight { get; set; } = false;
     public bool CateringOnTurnaround { get; set; } = false;
-    public bool AutoCallTurnaroundServices { get; set; } = true;
+    public bool AutoCallTurnaroundServices { get; set; } = false;
     public int TurnaroundDelaySeconds { get; set; } = 120;
+    public bool AutoCloseDoors { get; set; } = false;
 }
 
 public class ParsedHotkey
@@ -188,6 +189,8 @@ public static class ConfigManager
                                 config.Aircraft[currentAircraft].AutoCallTurnaroundServices = value.Equals("true", StringComparison.OrdinalIgnoreCase);
                             else if (key == "TurnaroundDelaySeconds" && int.TryParse(value, out int seconds))
                                 config.Aircraft[currentAircraft].TurnaroundDelaySeconds = seconds;
+                            else if (key == "AutoCloseDoors")
+                                config.Aircraft[currentAircraft].AutoCloseDoors = value.Equals("true", StringComparison.OrdinalIgnoreCase);
                         }
                     }
                 }
@@ -243,10 +246,9 @@ public static class ConfigManager
                     lines.Add($"RefuelBeforeBoarding={kvp.Value.RefuelBeforeBoarding.ToString().ToLower()}");
                     lines.Add($"CateringOnNewFlight={kvp.Value.CateringOnNewFlight.ToString().ToLower()}");
                     lines.Add($"CateringOnTurnaround={kvp.Value.CateringOnTurnaround.ToString().ToLower()}");
-                    lines.Add($"# Automatically call turnaround services (disable for one-way trips)");
                     lines.Add($"AutoCallTurnaroundServices={kvp.Value.AutoCallTurnaroundServices.ToString().ToLower()}");
-                    lines.Add($"# Delay in seconds after deboarding completes before turnaround services start");
                     lines.Add($"TurnaroundDelaySeconds={kvp.Value.TurnaroundDelaySeconds}");
+                    lines.Add($"AutoCloseDoors={kvp.Value.AutoCloseDoors.ToString().ToLower()}");
                     lines.Add("");
                 }
             }

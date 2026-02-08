@@ -9,6 +9,7 @@ public class AircraftConfigForm : Form
     private CheckBox chkCateringOnNewFlight = null!;
     private CheckBox chkCateringOnTurnaround = null!;
     private CheckBox chkAutoCallTurnaroundServices = null!;
+    private CheckBox chkAutoCloseDoors = null!;
     private NumericUpDown nudTurnaroundDelay = null!;
     private Button btnSave = null!;
     private Button btnCancel = null!;
@@ -18,12 +19,13 @@ public class AircraftConfigForm : Form
         _aircraftTitle = aircraftTitle;
         InitializeComponent();
         LoadCurrentSettings();
+        ApplyTheme();
     }
 
     private void InitializeComponent()
     {
         this.Text = "Aircraft Configuration";
-        this.ClientSize = new Size(450, 340);
+        this.ClientSize = new Size(450, 410);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
@@ -80,7 +82,7 @@ public class AircraftConfigForm : Form
 
         chkAutoCallTurnaroundServices = new CheckBox
         {
-            Text = "Automatically call Turnaround Services (Uncheck for one-way trips)",
+            Text = "Automatically call Turnaround Services (Uncheck for one-way Trips)",
             Location = new Point(40, 170),
             Size = new Size(400, 20)
         };
@@ -93,6 +95,23 @@ public class AircraftConfigForm : Form
             Size = new Size(380, 20)
         };
 
+        var lblPmdgHeader = new Label
+        {
+            Text = "PMDG Doors",
+            Location = new Point(20, 265),
+            Size = new Size(250, 20),
+            Font = new Font("Segoe UI", 10, FontStyle.Bold)
+        };
+
+        chkAutoCloseDoors = new CheckBox
+        {
+            Text = "Automatically Close PMDG Doors when Boarding Completes",
+            Location = new Point(40, 290),
+            Size = new Size(400, 20)
+        };
+        bool showPmdgSection = Program.IsPmdg737;
+        lblPmdgHeader.Visible = showPmdgSection;
+        chkAutoCloseDoors.Visible = showPmdgSection;
         var lblTurnaroundDelay = new Label
         {
             Text = "Delay before Turnaround Services (seconds):",
@@ -108,11 +127,10 @@ public class AircraftConfigForm : Form
             Maximum = 300,
             Value = 120
         };
-
         btnSave = new Button
         {
             Text = "Save",
-            Location = new Point(260, 295),
+            Location = new Point(260, 375),
             Size = new Size(85, 30)
         };
         btnSave.Click += BtnSave_Click;
@@ -120,7 +138,7 @@ public class AircraftConfigForm : Form
         btnCancel = new Button
         {
             Text = "Cancel",
-            Location = new Point(355, 295),
+            Location = new Point(355, 375),
             Size = new Size(85, 30)
         };
         btnCancel.Click += (s, e) => this.Close();
@@ -133,14 +151,14 @@ public class AircraftConfigForm : Form
             chkCateringOnNewFlight,
             lblTurnaroundHeader,
             chkCateringOnTurnaround,
-            chkAutoCallTurnaroundServices,
             lblTurnaroundDelay,
             nudTurnaroundDelay,
+            lblPmdgHeader,
+            chkAutoCloseDoors,
+            chkAutoCallTurnaroundServices,
             btnSave,
             btnCancel
         });
-
-        ApplyTheme();
     }
 
     private void LoadCurrentSettings()
@@ -151,6 +169,7 @@ public class AircraftConfigForm : Form
         chkAutoCallTurnaroundServices.Checked = config.AutoCallTurnaroundServices;
         chkCateringOnTurnaround.Checked = config.CateringOnTurnaround;
         chkCateringOnTurnaround.Enabled = config.AutoCallTurnaroundServices;
+        chkAutoCloseDoors.Checked = config.AutoCloseDoors;
         nudTurnaroundDelay.Value = config.TurnaroundDelaySeconds;
     }
 
@@ -170,6 +189,7 @@ public class AircraftConfigForm : Form
         config.CateringOnNewFlight = chkCateringOnNewFlight.Checked;
         config.CateringOnTurnaround = chkCateringOnTurnaround.Checked;
         config.AutoCallTurnaroundServices = chkAutoCallTurnaroundServices.Checked;
+        config.AutoCloseDoors = chkAutoCloseDoors.Checked;
         config.TurnaroundDelaySeconds = (int)nudTurnaroundDelay.Value;
 
         ConfigManager.SaveAircraftConfig(_aircraftTitle, config);

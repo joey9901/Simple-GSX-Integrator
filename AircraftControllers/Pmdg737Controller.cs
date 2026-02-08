@@ -41,6 +41,9 @@ namespace SimpleGsxIntegrator
         private const uint EVT_DOOR_AFT_R = BASE + 14008;
         private const uint EVT_DOOR_CARGO_FWD = BASE + 14013;
         private const uint EVT_DOOR_CARGO_AFT = BASE + 14014;
+        private const uint EVT_OH_ELEC_GRD_PWR_SWITCH = BASE + 17;
+        private enum PMDG_EVENTS : uint { OH_ELEC_GRD_PWR_SWITCH = BASE + 17 }
+        private enum EVENT_GROUP : uint { GROUP0 = 0 }
 
         public Pmdg737Controller(SimConnect sim, SimVarMonitor? simVarMonitor = null)
         {
@@ -159,6 +162,30 @@ namespace SimpleGsxIntegrator
             });
         }
 
+        public Task DisconnectGpu()
+        {
+            return Task.Run(async () =>
+            {
+                if (!IsConnected)
+                {
+                    Logger.Debug("Can't disconnect GPU: PMDG SDK not connected");
+                    return;
+                }
+
+                try
+                {
+                    Logger.Info("Disconnecting GPU");
+
+                    await SendCommand(EVT_OH_ELEC_GRD_PWR_SWITCH, 0);
+                    await Task.Delay(500);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"DisconnectGpu failed: {ex}");
+                }
+            });
+        }
+
         private async Task<bool> Close(uint door)
         {
             if (!IsConnected)
@@ -173,7 +200,6 @@ namespace SimpleGsxIntegrator
                 return true;
             }
 
-            await ClearControl();
             return await SendCommand(door, CLOSE_PARAM);
         }
 
@@ -191,7 +217,6 @@ namespace SimpleGsxIntegrator
                 return true;
             }
 
-            await ClearControl();
             return await SendCommand(door, OPEN_PARAM);
         }
 
@@ -230,28 +255,14 @@ namespace SimpleGsxIntegrator
             else return false;
         }
 
-        private async Task ClearControl()
-        {
-            var clear = new PMDG_NG3_Control { Event = 0, Parameter = 0 };
-            try
-            {
-                _sim.SetClientData(DATA_ID.CONTROL, DEF_ID.CONTROL, SIMCONNECT_CLIENT_DATA_SET_FLAG.DEFAULT, 0, clear);
-                Logger.Debug("PMDG control block cleared");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"PMDG clear failed: {ex}");
-            }
-        }
-
         private async Task<bool> SendCommand(uint evt, uint param)
         {
             var cmd = new PMDG_NG3_Control { Event = evt, Parameter = param };
-                try
-                {
-                    _sim.SetClientData(DATA_ID.CONTROL, DEF_ID.CONTROL, SIMCONNECT_CLIENT_DATA_SET_FLAG.DEFAULT, 0, cmd);
-                    Logger.Debug($"PMDG send evt={evt} ({GetDoorName(evt)})");
-                }
+            try
+            {
+                _sim.SetClientData(DATA_ID.CONTROL, DEF_ID.CONTROL, SIMCONNECT_CLIENT_DATA_SET_FLAG.DEFAULT, 0, cmd);
+                Logger.Debug($"PMDG send evt={evt} ({GetDoorName(evt)})");
+            }
             catch (Exception ex)
             {
                 Logger.Error($"PMDG send failed: {ex}");
