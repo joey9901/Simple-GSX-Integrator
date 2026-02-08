@@ -1,6 +1,6 @@
 # Simple GSX Integrator
 
-Automated GSX integration for Microsoft Flight Simulator 2024/2020. This tool automatically triggers GSX services based on your aircraft state, eliminating the need for manual menu navigation.
+Automated GSX Integration for Microsoft Flight Simulator 2024/2020. This Tool Automatically Triggers GSX Services based on your Aircraft State, Eliminating the need for Manual Menu Navigation.
 
 ## Features
 - **Automatic Service Triggering**
