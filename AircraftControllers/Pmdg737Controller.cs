@@ -249,6 +249,12 @@ namespace SimpleGsxIntegrator
                 case EVT_DOOR_CARGO_AFT:
                     val = _simVarMonitor.AftLwrCargoDoor;
                     break;
+                case EVT_DOOR_CARGO_MAIN:
+                    val = _simVarMonitor.MainCargoDoor;
+                    break;
+                case EVT_DOOR_EQUIPMENT_HATCH:
+                    val = _simVarMonitor.EquipmentHatchDoor;
+                    break;
                 case EVT_DOOR_FWD_R:
                     val = _simVarMonitor.FwdRightCabinDoor;
                     break;

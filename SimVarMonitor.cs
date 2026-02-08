@@ -47,6 +47,8 @@ public class SimVarMonitor
     public double AftRightCabinDoor { get; private set; }
     public double AftRightCabinDoorFlag { get; private set; }
     public double AftLwrCargoDoor { get; private set; }
+    public double MainCargoDoor { get; private set; }
+    public double EquipmentHatchDoor { get; private set; }
 
     public SimVarMonitor(SimConnect simConnect)
     {
@@ -212,6 +214,23 @@ public class SimVarMonitor
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
 
+        // PMDG BCF specific
+        _simConnect.AddToDataDefinition(
+            DEFINITIONS.GsxVar,
+            "L:MainCargoDoor",
+            "Number",
+            SIMCONNECT_DATATYPE.FLOAT64,
+            0.0f,
+            SimConnect.SIMCONNECT_UNUSED);
+
+        _simConnect.AddToDataDefinition(
+            DEFINITIONS.GsxVar,
+            "L:EEDoor",
+            "Number",
+            SIMCONNECT_DATATYPE.FLOAT64,
+            0.0f,
+            SimConnect.SIMCONNECT_UNUSED);
+
         _simConnect.RegisterDataDefineStruct<DoorVarsStruct>(DEFINITIONS.GsxVar);
 
         _simConnect.RequestDataOnSimObject(
@@ -251,6 +270,8 @@ public class SimVarMonitor
             AftRightCabinDoorFlag = doorVars.AftRightCabinDoorFlag;
             FwdLwrCargoDoor = doorVars.FwdLwrCargoDoor;
             AftLwrCargoDoor = doorVars.AftLwrCargoDoor;
+            MainCargoDoor = doorVars.MainCargoDoor;
+            EquipmentHatchDoor = doorVars.EEDoor;
             return;
         }
 
@@ -369,4 +390,6 @@ public struct DoorVarsStruct
     public double AftRightCabinDoorFlag;
     public double FwdLwrCargoDoor;
     public double AftLwrCargoDoor;
+    public double MainCargoDoor;
+    public double EEDoor;
 }
