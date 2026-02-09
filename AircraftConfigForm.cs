@@ -113,9 +113,9 @@ public class AircraftConfigForm : Form
         };
         var lblActivationHeader = new Label
         {
-            Text = "System Activation",
+            Text = "System Activation (Set Custom L:var as System Activation Trigger)",
             Location = new Point(20, 320),
-            Size = new Size(250, 20),
+            Size = new Size(500, 20),
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
         };
 
@@ -146,7 +146,7 @@ public class AircraftConfigForm : Form
             Size = new Size(60, 23),
             Minimum = 0,
             Maximum = 1000000,
-            DecimalPlaces = 0
+            DecimalPlaces = 2
         };
         bool showPmdgSection = Program.IsPmdg737;
         lblPmdgHeader.Visible = showPmdgSection;
@@ -169,7 +169,7 @@ public class AircraftConfigForm : Form
         btnSave = new Button
         {
             Text = "Save",
-            Location = new Point(260, 375),
+            Location = new Point(310, 375),
             Size = new Size(85, 30)
         };
         btnSave.Click += BtnSave_Click;
@@ -177,7 +177,7 @@ public class AircraftConfigForm : Form
         btnCancel = new Button
         {
             Text = "Cancel",
-            Location = new Point(355, 375),
+            Location = new Point(405, 375),
             Size = new Size(85, 30)
         };
         btnCancel.Click += (s, e) => this.Close();

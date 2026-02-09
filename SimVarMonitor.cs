@@ -13,7 +13,6 @@ public class SimVarMonitor
     public bool OnGround { get; private set; }
     public double GroundSpeed { get; private set; }
     public double Airspeed { get; private set; }
-    public double ExternalPower { get; private set; }
     public string AircraftTitle { get; private set; } = "";
 
     private bool _enginesHaveRun = false;
@@ -38,19 +37,6 @@ public class SimVarMonitor
     public event Action? DeboardingConditionsMet;
     public event Action? CateringConditionsMet;
     public event Action<double>? ActivationVarReceived;
-
-    public double FwdLeftCabinDoor { get; private set; }
-    public double FwdLeftCabinDoorFlag { get; private set; }
-    public double AftLeftCabinDoor { get; private set; }
-    public double AftLeftCabinDoorFlag { get; private set; }
-    public double FwdLwrCargoDoor { get; private set; }
-    public double FwdRightCabinDoor { get; private set; }
-    public double FwdRightCabinDoorFlag { get; private set; }
-    public double AftRightCabinDoor { get; private set; }
-    public double AftRightCabinDoorFlag { get; private set; }
-    public double AftLwrCargoDoor { get; private set; }
-    public double MainCargoDoor { get; private set; }
-    public double EquipmentHatchDoor { get; private set; }
 
     public SimVarMonitor(SimConnect simConnect)
     {
@@ -137,7 +123,7 @@ public class SimVarMonitor
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "GPS GROUND SPEED",
-            "Knots",
+            "Number",
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
             SimConnect.SIMCONNECT_UNUSED);
@@ -145,14 +131,6 @@ public class SimVarMonitor
         _simConnect.AddToDataDefinition(
             DEFINITIONS.AircraftState,
             "AIRSPEED INDICATED",
-            "Knots",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.AircraftState,
-            "L:EXTERNAL POWER ON",
             "Number",
             SIMCONNECT_DATATYPE.FLOAT64,
             0.0f,
@@ -176,111 +154,6 @@ public class SimVarMonitor
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
 
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:FwdLeftCabinDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:FwdLeftCabinDoorFlag",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:AftLeftCabinDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:AftLeftCabinDoorFlag",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:FwdRightCabinDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:FwdRightCabinDoorFlag",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:AftRightCabinDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:AftRightCabinDoorFlag",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:FwdLwrCargoDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:AftLwrCargoDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:MainCargoDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.AddToDataDefinition(
-            DEFINITIONS.GsxVar,
-            "L:EEDoor",
-            "Number",
-            SIMCONNECT_DATATYPE.FLOAT64,
-            0.0f,
-            SimConnect.SIMCONNECT_UNUSED);
-
-        _simConnect.RegisterDataDefineStruct<DoorVarsStruct>(DEFINITIONS.GsxVar);
-
-        _simConnect.RequestDataOnSimObject(
-            DATA_REQUESTS.GsxVar,
-            DEFINITIONS.GsxVar,
-            SimConnect.SIMCONNECT_OBJECT_ID_USER,
-            SIMCONNECT_PERIOD.SECOND,
-            SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
-            0, 0, 0);
     }
 
     public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -295,27 +168,8 @@ public class SimVarMonitor
             OnGround = aircraftState.OnGround != 0;
             GroundSpeed = aircraftState.GroundSpeed;
             Airspeed = aircraftState.Airspeed;
-            ExternalPower = aircraftState.ExternalPower;
             AircraftTitle = aircraftState.AircraftTitle;
         }
-        else if (data.dwRequestID == (uint)DATA_REQUESTS.GsxVar)
-        {
-            var doorVars = (DoorVarsStruct)data.dwData[0];
-            FwdLeftCabinDoor = doorVars.FwdLeftCabinDoor;
-            FwdLeftCabinDoorFlag = doorVars.FwdLeftCabinDoorFlag;
-            AftLeftCabinDoor = doorVars.AftLeftCabinDoor;
-            AftLeftCabinDoorFlag = doorVars.AftLeftCabinDoorFlag;
-            FwdRightCabinDoor = doorVars.FwdRightCabinDoor;
-            FwdRightCabinDoorFlag = doorVars.FwdRightCabinDoorFlag;
-            AftRightCabinDoor = doorVars.AftRightCabinDoor;
-            AftRightCabinDoorFlag = doorVars.AftRightCabinDoorFlag;
-            FwdLwrCargoDoor = doorVars.FwdLwrCargoDoor;
-            AftLwrCargoDoor = doorVars.AftLwrCargoDoor;
-            MainCargoDoor = doorVars.MainCargoDoor;
-            EquipmentHatchDoor = doorVars.EEDoor;
-            return;
-        }
-
         else if (data.dwRequestID == (uint)DATA_REQUESTS.ActivationVarRead)
         {
             var act = (ActivationVarStruct)data.dwData[0];
@@ -420,26 +274,8 @@ public struct AircraftStateStruct
     public int OnGround;
     public double GroundSpeed;
     public double Airspeed;
-    public double ExternalPower;
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
     public string AircraftTitle;
-}
-
-[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-public struct DoorVarsStruct
-{
-    public double FwdLeftCabinDoor;
-    public double FwdLeftCabinDoorFlag;
-    public double AftLeftCabinDoor;
-    public double AftLeftCabinDoorFlag;
-    public double FwdRightCabinDoor;
-    public double FwdRightCabinDoorFlag;
-    public double AftRightCabinDoor;
-    public double AftRightCabinDoorFlag;
-    public double FwdLwrCargoDoor;
-    public double AftLwrCargoDoor;
-    public double MainCargoDoor;
-    public double EEDoor;
 }
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]

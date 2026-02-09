@@ -9,9 +9,10 @@ internal enum DEFINITIONS : uint
     AircraftState = 1,
     GsxVar = 2,
     GsxVarRead = 3,
-    ActivationVarRead = 6,
     GsxMenuOpenWrite = 4,
-    GsxMenuChoiceWrite = 5
+    GsxMenuChoiceWrite = 5,
+    ActivationVarRead = 6,
+    PmdgVar = 7
 }
 
 internal enum DATA_REQUESTS : uint
@@ -19,7 +20,8 @@ internal enum DATA_REQUESTS : uint
     AircraftState = 1,
     GsxVar = 2,
     GsxVarRead = 3,
-    ActivationVarRead = 4
+    ActivationVarRead = 4,
+    PmdgVar = 5
 }
 
 internal enum REQUESTS : uint
@@ -176,7 +178,6 @@ class Program
             _simConnect.OnRecvSystemState += OnReceiveSystemState;
             _simConnect.OnRecvQuit += OnReceiveQuit;
 
-            // Request current aircraft to detect PMDG
             _simConnect.RequestSystemState(REQUESTS.AircraftLoaded, "AircraftLoaded");
 
             await MessagePump();
@@ -213,6 +214,7 @@ class Program
     {
         _simVariableMonitor?.OnSimObjectDataReceived(data);
         _gsxCommunicator?.OnSimObjectDataReceived(data);
+        _pmdg737Controller?.OnSimObjectDataReceived(data);
     }
 
     static void OnReceiveSystemState(SimConnect sender, SIMCONNECT_RECV_SYSTEM_STATE data)
@@ -232,26 +234,29 @@ class Program
                 {
                     _ = Task.Run(async () =>
                     {
-                        Logger.Debug("Waiting 5 seconds for PMDG to initialize...");
-                        await Task.Delay(5000);
-
                         if (_simConnect != null)
                         {
                             _pmdg737Controller = new Pmdg737Controller(_simConnect, _simVariableMonitor);
                             _pmdg737Controller.Connect();
+
+                            await Task.Delay(5000);
 
                             if (_boardingCompleted)
                             {
                                 string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
                                 var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
-                                if (aircraftConfig.AutoCloseDoors)
+                                if (aircraftConfig.AutoCloseDoors && _systemActivated)
                                 {
-                                    await Task.Delay(1000);
-                                    await _pmdg737Controller.CloseAllDoors();
-                                    await Task.Delay(1000);
-                                    // await _pmdg737Controller.DisconnectGpu();
+                                    await _pmdg737Controller.CloseOpenDoors();
                                 }
+                            }
+
+                            if (_gsxCommunicator != null && _gsxCommunicator.PushbackState == GsxServiceState.Requested)
+                            {
+                                await _pmdg737Controller.CloseOpenDoors();
+                                await Task.Delay(2000);
+                                await _pmdg737Controller.RemoveGroundEquipment();
                             }
                         }
                     });
@@ -379,6 +384,7 @@ class Program
                 if (_simVariableMonitor != null && !string.IsNullOrEmpty(config.ActivationLvar))
                 {
                     _simVariableMonitor.RegisterActivationLvar(config.ActivationLvar);
+                    _lastActivationLvarValue = double.NaN;
                     Logger.Debug($"Activation L:var for '{aircraftTitle}' set to '{config.ActivationLvar}' value {config.ActivationValue}");
                 }
             }
@@ -400,6 +406,7 @@ class Program
             if (!string.IsNullOrEmpty(cfg.ActivationLvar) && _simVariableMonitor != null)
             {
                 _simVariableMonitor.RegisterActivationLvar(cfg.ActivationLvar);
+                _lastActivationLvarValue = double.NaN;
                 Logger.Debug($"Activation L:var for '{aircraftTitle}' registered as '{cfg.ActivationLvar}' (value {cfg.ActivationValue})");
             }
         }
@@ -423,11 +430,7 @@ class Program
             return;
         }
 
-        const double epsilon = 0.01;
-        bool prevIsActivation = Math.Abs(_lastActivationLvarValue - cfg.ActivationValue) < epsilon;
-        bool currIsActivation = Math.Abs(value - cfg.ActivationValue) < epsilon;
-
-        if (!prevIsActivation && currIsActivation)
+        if (value == cfg.ActivationValue && _lastActivationLvarValue != cfg.ActivationValue)
         {
             _systemActivated = !_systemActivated;
             _mainForm?.SetSystemStatus(_systemActivated);
@@ -773,13 +776,21 @@ class Program
         Logger.Debug("TRIGGER: Pushback conditions met!");
         _lastPushbackTrigger = DateTime.Now;
 
-        await Task.Delay(ServiceTriggerDelayMs);
-        if (_pmdg737Controller != null)
+        if (_isPmdg737 && _pmdg737Controller != null && _systemActivated)
         {
-            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
-            var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
-            if (aircraftConfig.AutoCloseDoors)
-                _ = _pmdg737Controller.CloseAllDoors();
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+                var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
+
+                if (aircraftConfig.AutoCloseDoors && _systemActivated)
+                {
+                    await _pmdg737Controller.CloseOpenDoors();
+                    await Task.Delay(1000);
+                    await _pmdg737Controller.RemoveGroundEquipment();
+                }
+            });
         }
         bool success = await _gsxCommunicator.CallPushback();
 
@@ -933,7 +944,11 @@ class Program
             return;
         }
 
-        if (state == GsxServiceState.Active)
+        if (state == GsxServiceState.Requested)
+        {
+            Logger.Success($"Pushback REQUESTED");
+        }
+        else if (state == GsxServiceState.Active)
         {
             Logger.Success($"Pushback ACTIVATED");
         }
@@ -989,11 +1004,9 @@ class Program
                     string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
                     var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
-                    if (aircraftConfig.AutoCloseDoors)
+                    if (aircraftConfig.AutoCloseDoors && _systemActivated)
                     {
-                        await _pmdg737Controller.CloseAllDoors();
-                        await Task.Delay(2000);
-                        // await _pmdg737Controller.DisconnectGpu();
+                        await _pmdg737Controller.CloseOpenDoors();
                     }
                 });
             }
