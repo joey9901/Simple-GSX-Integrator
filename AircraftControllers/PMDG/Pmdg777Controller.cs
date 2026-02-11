@@ -425,7 +425,7 @@ namespace SimpleGsxIntegrator
 
                     await SendCommand(EVT_CDU_R_MENU, 1);
                     await Task.Delay(300);
-                    await SendCommand(EVT_CDU_R_R5, 1);
+                    await SendCommand(EVT_CDU_R_R6, 1);
                     await Task.Delay(300);
                     await SendCommand(EVT_CDU_R_R1, 1);
                     await Task.Delay(300);
