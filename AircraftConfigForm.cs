@@ -172,7 +172,7 @@ public class AircraftConfigForm : Form
             Location = new Point(310, 375),
             Size = new Size(85, 30)
         };
-        btnSave.Click += BtnSave_Click;
+        btnSave.Click += ButtonSaveClick;
 
         btnCancel = new Button
         {
@@ -228,7 +228,7 @@ public class AircraftConfigForm : Form
         }
     }
 
-    private void BtnSave_Click(object? sender, EventArgs e)
+    private void ButtonSaveClick(object? sender, EventArgs e)
     {
         var config = ConfigManager.GetAircraftConfig(_aircraftTitle);
         config.RefuelBeforeBoarding = chkRefuelBeforeBoarding.Checked;
@@ -242,12 +242,7 @@ public class AircraftConfigForm : Form
 
         ConfigManager.SaveAircraftConfig(_aircraftTitle, config);
 
-        Logger.Info($"Aircraft configuration saved for '{_aircraftTitle}'");
-        try
-        {
-            Program.RegisterActivationForCurrentAircraft();
-        }
-        catch { }
+        Program.RegisterActivationForCurrentAircraft();
 
         this.Close();
     }

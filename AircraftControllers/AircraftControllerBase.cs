@@ -20,5 +20,15 @@ namespace SimpleGsxIntegrator
         public virtual void Dispose()
         {
         }
+
+        public virtual void CloseOpenDoors() { }
+
+        public virtual bool AreAnyDoorsOpen() => false;
+
+        public virtual void RemoveGroundEquipment() { }
+
+        public virtual void RequestSnapshot() { }
+
+        public virtual bool IsConnected { get; protected set; } = false;
     }
 }

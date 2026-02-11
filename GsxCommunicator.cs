@@ -40,8 +40,6 @@ public class GsxCommunicator
     {
         if (_simConnect == null) return;
 
-        Logger.Debug("Registering GSX L:Vars for reading...");
-
         _simConnect.AddToDataDefinition(
             DEFINITIONS.GsxVarRead,
             GsxConstants.VarCouatlStarted,
@@ -116,8 +114,6 @@ public class GsxCommunicator
 
         _simConnect.RegisterDataDefineStruct<GsxStateStruct>(DEFINITIONS.GsxVarRead);
 
-        Logger.Debug("Registering L:Vars for WRITING...");
-
         _simConnect.AddToDataDefinition(
             DEFINITIONS.GsxMenuOpenWrite,
             GsxConstants.VarMenuOpen,
@@ -138,8 +134,6 @@ public class GsxCommunicator
 
         _simConnect.RegisterDataDefineStruct<SetGsxMenuChoice>(DEFINITIONS.GsxMenuChoiceWrite);
 
-        Logger.Debug("Requesting GSX data updates...");
-
         _simConnect.RequestDataOnSimObject(
             DATA_REQUESTS.GsxVarRead,
             DEFINITIONS.GsxVarRead,
@@ -148,11 +142,7 @@ public class GsxCommunicator
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
 
-        Logger.Debug("Mapping EXTERNAL_SYSTEM_TOGGLE event...");
-
         _simConnect.MapClientEventToSimEvent(EVENTS.MenuToggle, GsxConstants.EventMenu);
-
-        Logger.Success("GSX communication setup complete");
     }
 
     public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -166,12 +156,10 @@ public class GsxCommunicator
 
         if (_isGsxRunning && !wasRunning)
         {
-            Logger.Success("GSX is running!");
             GsxStarted?.Invoke();
         }
         else if (!_isGsxRunning && wasRunning)
         {
-            Logger.Warning("GSX stopped");
             GsxStopped?.Invoke();
             _handlingOperatorSelected = false;
         }
@@ -355,18 +343,18 @@ public class GsxCommunicator
         }
     }
 
-    public async Task<bool> CallPushback()
+    public async Task CallPushback()
     {
         if (PushbackState != GsxServiceState.Callable)
         {
             Logger.Warning($"Pushback not available (current state: {PushbackState})");
-            return false;
+            return;
         }
 
         if (PushbackProgress > 0 && PushbackProgress < 5)
         {
             Logger.Warning($"Pushback already in progress (status: {PushbackProgress})");
-            return false;
+            return;
         }
 
         Logger.Info("Calling GSX Pushback");
@@ -382,18 +370,6 @@ public class GsxCommunicator
         CloseGsxMenu();
 
         Logger.Debug("Pushback menu sequence sent");
-
-        if (PushbackState == GsxServiceState.Active || PushbackState == GsxServiceState.Requested)
-        {
-            Logger.Debug("Pushback menu sequence sent");
-            Logger.Warning("IMPORTANT: Manually select pushback direction from GSX menu");
-            return true;
-        }
-        else
-        {
-            Logger.Debug($"Pushback state did not change (still {PushbackState}) - menu likely different");
-            return false;
-        }
     }
 
     public async Task CallDeboarding()

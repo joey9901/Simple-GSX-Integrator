@@ -9,11 +9,6 @@ namespace SimpleGsxIntegrator
     {
         private static bool _printedPmdg777Detected = false;
 
-        private const uint OPEN_PARAM = 1;
-        private const uint CLOSE_PARAM = 2;
-
-        public bool IsConnected { get; private set; }
-
         private enum DATA_ID : uint
         {
             DATA = 0x504D4447,
@@ -83,8 +78,6 @@ namespace SimpleGsxIntegrator
 
         private const uint EVT_OH_ELEC_GRD_PWR_PRIM_SWITCH = BASE + 8;
         private const uint EVT_OH_ELEC_GRD_PWR_SEC_SWITCH = BASE + 7;
-
-        private static bool _DoorsAreClosing = false;
 
         public Pmdg777Controller(SimConnect sim, SimVarMonitor? simVarMonitor = null)
             : base(sim, simVarMonitor) { }
@@ -217,76 +210,53 @@ namespace SimpleGsxIntegrator
                     Logger.Warning($"PMDG var registration failed: {ex.Message}");
                 }
 
-                IsConnected = true;
                 Logger.Debug("PMDG SDK connected!");
             }
             catch (Exception ex)
             {
-                IsConnected = false;
                 Logger.Error($"PMDG SDK init failed: {ex}");
             }
         }
 
-        public Task CloseOpenDoors()
+        public override void CloseOpenDoors()
         {
-            return Task.Run(async () =>
+            try
             {
-                try
+                var doors = new[] { EVT_DOOR_1L, EVT_DOOR_1R, EVT_DOOR_2L, EVT_DOOR_2R, EVT_DOOR_3L, EVT_DOOR_3R,
+                    EVT_DOOR_4L, EVT_DOOR_4R, EVT_DOOR_5L, EVT_DOOR_5R, EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT,
+                    EVT_DOOR_CARGO_MAIN, EVT_DOOR_CARGO_BULK, EVT_DOOR_FWD_ACCESS, EVT_DOOR_EE_ACCESS };
+                bool doorsToClose = false;
+
+                foreach (var door in doors)
                 {
-                    var doors = new[] { EVT_DOOR_1L, EVT_DOOR_1R, EVT_DOOR_2L, EVT_DOOR_2R, EVT_DOOR_3L, EVT_DOOR_3R,
-                        EVT_DOOR_4L, EVT_DOOR_4R, EVT_DOOR_5L, EVT_DOOR_5R, EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT,
-                        EVT_DOOR_CARGO_MAIN, EVT_DOOR_CARGO_BULK, EVT_DOOR_FWD_ACCESS, EVT_DOOR_EE_ACCESS };
-                    bool doorsToClose = false;
-
-                    if (!_DoorsAreClosing)
+                    if (IsDoorOpen(door))
                     {
-                        foreach (var door in doors)
-                        {
-                            if (IsDoorOpen(door))
-                            {
-                                doorsToClose = true;
-                                await Close(door);
-                            }
-                        }
-
-                        if (doorsToClose)
-                        {
-                            _DoorsAreClosing = true;
-                            Logger.Info("Closed Open Doors");
-                            return;
-                        }
-                        else
-                        {
-                            _DoorsAreClosing = false;
-                        }
-                    }
-                    else
-                    {
-                        Logger.Debug("Doors are already closing, skipping CloseOpenDoors to avoid opening");
+                        doorsToClose = true;
+                        Close(door);
                     }
                 }
-                catch (Exception ex)
+
+                if (doorsToClose)
                 {
-                    Logger.Error($"CloseOpenDoors failed: {ex}");
+                    Logger.Info("Closed Open Doors");
+                    return;
                 }
-            });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"CloseOpenDoors failed: {ex}");
+            }
         }
 
-        private async Task<bool> Close(uint door)
+        private bool Close(uint door)
         {
-            if (!IsConnected)
-            {
-                Logger.Error("PMDG not connected");
-                return false;
-            }
-
             if (!IsDoorOpen(door))
             {
                 Logger.Debug($"PMDG: door '{GetDoorName(door)}' already closed");
                 return true;
             }
 
-            return await SendCommand(door, CLOSE_PARAM);
+            return SendCommand(door, 1);
         }
 
         private bool IsDoorOpen(uint door)
@@ -352,7 +322,24 @@ namespace SimpleGsxIntegrator
             return val >= 0.50;
         }
 
-        private async Task<bool> SendCommand(uint evt, uint param)
+        public override bool AreAnyDoorsOpen()
+        {
+            var doors = new[] { EVT_DOOR_1L, EVT_DOOR_1R, EVT_DOOR_2L, EVT_DOOR_2R, EVT_DOOR_3L, EVT_DOOR_3R,
+                    EVT_DOOR_4L, EVT_DOOR_4R, EVT_DOOR_5L, EVT_DOOR_5R, EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT,
+                    EVT_DOOR_CARGO_MAIN, EVT_DOOR_CARGO_BULK, EVT_DOOR_FWD_ACCESS, EVT_DOOR_EE_ACCESS };
+
+            foreach (var door in doors)
+            {
+                if (IsDoorOpen(door))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool SendCommand(uint evt, uint param)
         {
             var cmd = new PMDG_777X_Control { Event = evt, Parameter = param };
             try
@@ -392,50 +379,42 @@ namespace SimpleGsxIntegrator
             };
         }
 
-        public Task RemoveGroundEquipment()
+        public override void RemoveGroundEquipment()
         {
-            return Task.Run(async () =>
+            try
             {
-                if (!IsConnected)
+                if (_pmdg777Vars.SecondaryExternalPower != 0)
                 {
-                    Logger.Debug("Can't trigger FMC sequence: PMDG SDK not connected");
+                    SendCommand(EVT_OH_ELEC_GRD_PWR_SEC_SWITCH, 1);
+                }
+
+                if (_pmdg777Vars.PrimaryExternalPower != 0)
+                {
+                    SendCommand(EVT_OH_ELEC_GRD_PWR_PRIM_SWITCH, 1);
+                }
+
+                bool chocksSet = _pmdg777Vars.Chocks > 0.5;
+
+                if (!chocksSet)
+                {
+                    Logger.Debug("Chocks not set, skipping FMC sequence");
                     return;
                 }
 
-                try
-                {
-                    bool externalPowerIsOff = _pmdg777Vars.SecondaryExternalPower == 0 && _pmdg777Vars.PrimaryExternalPower == 0;
+                Logger.Info("Removing Chocks");
 
-                    if (!externalPowerIsOff)
-                    {
-                        await SendCommand(EVT_OH_ELEC_GRD_PWR_PRIM_SWITCH, 1);
-                        await Task.Delay(300);
-                        await SendCommand(EVT_OH_ELEC_GRD_PWR_SEC_SWITCH, 1);
-                    }
-
-                    bool chocksSet = _pmdg777Vars.Chocks > 0.5;
-
-                    if (!chocksSet)
-                    {
-                        Logger.Debug("Chocks not set, skipping FMC sequence");
-                        return;
-                    }
-
-                    Logger.Info("Removing Chocks");
-
-                    await SendCommand(EVT_CDU_R_MENU, 1);
-                    await Task.Delay(300);
-                    await SendCommand(EVT_CDU_R_R6, 1);
-                    await Task.Delay(300);
-                    await SendCommand(EVT_CDU_R_R1, 1);
-                    await Task.Delay(300);
-                    await SendCommand(EVT_CDU_R_R6, 1);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"FMC Chocks sequence failed: {ex}");
-                }
-            });
+                SendCommand(EVT_CDU_R_MENU, 1);
+                Task.Delay(300).Wait();
+                SendCommand(EVT_CDU_R_R6, 1);
+                Task.Delay(300).Wait();
+                SendCommand(EVT_CDU_R_R1, 1);
+                Task.Delay(300).Wait();
+                SendCommand(EVT_CDU_R_R6, 1);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"FMC Chocks sequence failed: {ex}");
+            }
         }
 
         public override void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)

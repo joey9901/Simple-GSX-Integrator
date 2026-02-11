@@ -7,5 +7,8 @@ namespace SimpleGsxIntegrator
         void Connect();
         void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data);
         void Dispose();
+        void CloseOpenDoors();
+        bool AreAnyDoorsOpen();
+        void RemoveGroundEquipment();
     }
 }

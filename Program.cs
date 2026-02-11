@@ -1,7 +1,7 @@
 using Microsoft.FlightSimulator.SimConnect;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-
+using System.Windows.Forms.VisualStyles;
 namespace SimpleGsxIntegrator;
 
 internal enum DEFINITIONS : uint
@@ -33,7 +33,7 @@ internal enum REQUESTS : uint
 
 class Program
 {
-    private const int TriggerCooldownSeconds = 30;
+    private const int TriggerCooldownSeconds = 5;
     private const int KeyPollingDelayMs = 100;
     private const int SimConnectPumpDelayMs = 10;
     private const int ServiceTriggerDelayMs = 1000;
@@ -44,10 +44,12 @@ class Program
     private static SimConnect? _simConnect;
     private static SimVarMonitor? _simVariableMonitor;
     private static GsxCommunicator? _gsxCommunicator;
-    private static Pmdg737Controller? _pmdg737Controller;
-    private static Pmdg777Controller? _pmdg777Controller;
+    private static IAircraftController? _aircraftController;
     private static IntPtr _windowHandle = IntPtr.Zero;
     private static MainForm? _mainForm;
+
+    public static bool IsPmdg737 => _aircraftController is Pmdg737Controller;
+    public static bool IsPmdg777 => _aircraftController is Pmdg777Controller;
 
     private static bool _isRunning = true;
     private static bool _systemActivated = false;
@@ -67,6 +69,7 @@ class Program
     private static bool _refuelingCompleted = false;
     private static bool _cateringCompleted = false;
     private static bool _checkedInitialGsxStates = false;
+    private static bool _pushbackAttempted = false; // This is a fallback for if GPU is disconnected but APU is not on and power cuts, meaning beacon could turn off and call boarding instead
 
     private static DateTime _lastBoardingTrigger = DateTime.MinValue;
     private static DateTime _lastPushbackTrigger = DateTime.MinValue;
@@ -83,12 +86,10 @@ class Program
     private static bool _isInTurnaround = false;
 
     private static string _prevAircraftTitle = "";
-    private static bool _isPmdg737 = false;
-    public static bool IsPmdg737 => _isPmdg737;
-    private static bool _isPmdg777 = false;
-    public static bool IsPmdg777 => _isPmdg777;
+
     private static Mutex? _instanceMutex;
     private static double _lastActivationLvarValue = double.NaN;
+    private static bool _attempt = false;
 
     [STAThread]
     static void Main(string[] args)
@@ -227,8 +228,7 @@ class Program
     {
         _simVariableMonitor?.OnSimObjectDataReceived(data);
         _gsxCommunicator?.OnSimObjectDataReceived(data);
-        _pmdg737Controller?.OnSimObjectDataReceived(data);
-        _pmdg777Controller?.OnSimObjectDataReceived(data);
+        _aircraftController?.OnSimObjectDataReceived(data);
     }
 
     // Receives full aircraft path when aircraft is changed
@@ -238,10 +238,8 @@ class Program
 
         string aircraftPath = data.szString ?? string.Empty;
 
-        try { _pmdg737Controller?.Dispose(); } catch { }
-        try { _pmdg777Controller?.Dispose(); } catch { }
-        _pmdg737Controller = null;
-        _pmdg777Controller = null;
+        try { _aircraftController?.Dispose(); } catch { }
+        _aircraftController = null;
 
         if (_simConnect == null) return;
 
@@ -249,13 +247,8 @@ class Program
         if (controller != null)
         {
             controller.Connect();
-
-            if (controller is Pmdg737Controller pmdg737Controller) _pmdg737Controller = pmdg737Controller;
-            else if (controller is Pmdg777Controller pmdg777Controller) _pmdg777Controller = pmdg777Controller;
+            _aircraftController = controller;
         }
-
-        _isPmdg737 = _pmdg737Controller != null;
-        _isPmdg777 = _pmdg777Controller != null;
 
         if (_prevAircraftTitle != _simVariableMonitor?.AircraftState.AircraftTitle
             && !string.IsNullOrEmpty(_simVariableMonitor?.AircraftState.AircraftTitle) && !string.IsNullOrEmpty(_prevAircraftTitle))
@@ -343,7 +336,7 @@ class Program
         }
         else
         {
-            Logger.Warning($"SYSTEM DEACTIVATED - GSX automation disabled! Press {_config?.Hotkeys.ActivationKey} again to re-activate.");
+            Logger.Warning($"SYSTEM DEACTIVATED - GSX automation disabled!");
         }
 
         CheckInitialGsxStates();
@@ -447,9 +440,9 @@ class Program
         CheckInitialGsxStates();
     }
 
-    static bool IsSystemReady()
+    static bool IsGsxAvailable()
     {
-        return _systemActivated && _gsxCommunicator != null && _gsxCommunicator.IsGsxRunning();
+        return _gsxCommunicator != null && _gsxCommunicator.IsGsxRunning();
     }
 
     static bool CanTriggerService(DateTime lastTrigger)
@@ -526,7 +519,7 @@ class Program
 
     static async void OnRefuelingConditions()
     {
-        if (!IsSystemReady()) return;
+        if (!IsGsxAvailable()) return;
 
         if (HasAircraftMoved())
         {
@@ -571,7 +564,7 @@ class Program
 
     static async void OnCateringConditions()
     {
-        if (!IsSystemReady()) return;
+        if (!IsGsxAvailable()) return;
 
         if (HasAircraftMoved()) return;
 
@@ -624,7 +617,9 @@ class Program
 
     static async void OnBoardingConditions()
     {
-        if (!IsSystemReady()) return;
+        if (!IsGsxAvailable()) return;
+
+        if (_pushbackAttempted) return;
 
         if (HasAircraftMoved())
         {
@@ -746,7 +741,7 @@ class Program
 
     static async void OnPushbackConditions()
     {
-        if (!IsSystemReady()) return;
+        if (!IsGsxAvailable()) return;
 
         if (HasAircraftMoved())
         {
@@ -778,53 +773,36 @@ class Program
         }
 
         if (!CanTriggerService(_lastPushbackTrigger)) return;
-
-        Logger.Debug("TRIGGER: Pushback conditions met!");
         _lastPushbackTrigger = DateTime.Now;
 
         string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
-        if (_isPmdg737 && _pmdg737Controller != null && _systemActivated)
+        _pushbackAttempted = true;
+
+        if (_aircraftController != null && _aircraftController.AreAnyDoorsOpen())
         {
+            if (!_systemActivated) return;
+
             _ = Task.Run(async () =>
             {
                 await Task.Delay(2000);
 
-                if (aircraftConfig.AutoCloseDoors && _systemActivated)
+                if (aircraftConfig.AutoCloseDoors)
                 {
-                    await _pmdg737Controller.CloseOpenDoors();
+                    _aircraftController.CloseOpenDoors();
                     await Task.Delay(1000);
-                    await _pmdg737Controller.RemoveGroundEquipment();
+                    _aircraftController.RemoveGroundEquipment();
                 }
             });
         }
-        else if (_isPmdg777 && _pmdg777Controller != null && _systemActivated)
-        {
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(2000);
 
-                if (aircraftConfig.AutoCloseDoors && _systemActivated)
-                {
-                    await _pmdg777Controller.CloseOpenDoors();
-                    await Task.Delay(1000);
-                    await _pmdg777Controller.RemoveGroundEquipment();
-                }
-            });
-        }
-        bool success = await _gsxCommunicator.CallPushback();
-
-        if (!success)
-        {
-            Logger.Warning("Pushback menu sequence did not activate GSX - likely not at gate");
-            _pushbackCompleted = true;
-        }
+        if (_systemActivated) await _gsxCommunicator.CallPushback();
     }
 
     static async void OnDeboardingConditions()
     {
-        if (!IsSystemReady()) return;
+        if (!IsGsxAvailable()) return;
 
         if (_simVariableMonitor != null)
         {
@@ -849,6 +827,7 @@ class Program
 
     static void ResetSession()
     {
+        _pushbackAttempted = false;
         _deboardingCompleted = false;
         _pushbackCompleted = false;
         _boardingCompleted = false;
@@ -1082,33 +1061,22 @@ class Program
     {
         if (!_systemActivated) return;
 
-        _ = Task.Run(async () =>
-        {
-            await PerformBoardingCloseActions();
-        });
+        PerformBoardingCloseActions();
     }
 
-    static async Task PerformBoardingCloseActions()
+    static void PerformBoardingCloseActions()
     {
-        await Task.Delay(2000);
-
         string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
         if (!aircraftConfig.AutoCloseDoors) return;
 
-        if (_isPmdg737 && _pmdg737Controller != null)
+        if (_aircraftController != null)
         {
-            await _pmdg737Controller.CloseOpenDoors();
-        }
-        else if (_isPmdg777 && _pmdg777Controller != null)
-        {
-            if (!_pmdg777Controller.IsConnected)
+            if (_aircraftController.AreAnyDoorsOpen())
             {
-                try { _pmdg777Controller.Connect(); } catch { }
+                _aircraftController.CloseOpenDoors();
             }
-
-            await _pmdg777Controller.CloseOpenDoors();
         }
     }
 
