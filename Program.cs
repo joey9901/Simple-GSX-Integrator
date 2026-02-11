@@ -12,7 +12,8 @@ internal enum DEFINITIONS : uint
     GsxMenuOpenWrite = 4,
     GsxMenuChoiceWrite = 5,
     ActivationVarRead = 6,
-    PmdgVar = 7
+    PmdgVar737 = 7,
+    PmdgVar777 = 8
 }
 
 internal enum DATA_REQUESTS : uint
@@ -21,7 +22,8 @@ internal enum DATA_REQUESTS : uint
     GsxVar = 2,
     GsxVarRead = 3,
     ActivationVarRead = 4,
-    PmdgVar = 5
+    PmdgVar737 = 5,
+    PmdgVar777 = 6
 }
 
 internal enum REQUESTS : uint
@@ -43,6 +45,7 @@ class Program
     private static SimVarMonitor? _simVariableMonitor;
     private static GsxCommunicator? _gsxCommunicator;
     private static Pmdg737Controller? _pmdg737Controller;
+    private static Pmdg777Controller? _pmdg777Controller;
     private static IntPtr _windowHandle = IntPtr.Zero;
     private static MainForm? _mainForm;
 
@@ -57,11 +60,13 @@ class Program
     private static ParsedHotkey? _activationHotkey;
     private static ParsedHotkey? _resetHotkey;
 
+    // These variables are used as internal vars, in case GSX restarts we still know if the service were completed or not, to prevent unwanted triggers
     private static bool _deboardingCompleted = false;
     private static bool _pushbackCompleted = false;
     private static bool _boardingCompleted = false;
     private static bool _refuelingCompleted = false;
     private static bool _cateringCompleted = false;
+    private static bool _checkedInitialGsxStates = false;
 
     private static DateTime _lastBoardingTrigger = DateTime.MinValue;
     private static DateTime _lastPushbackTrigger = DateTime.MinValue;
@@ -77,9 +82,11 @@ class Program
     private static bool _cateringBlockedLogged = false;
     private static bool _isInTurnaround = false;
 
+    private static string _prevAircraftTitle = "";
     private static bool _isPmdg737 = false;
     public static bool IsPmdg737 => _isPmdg737;
-    private static bool _printedPmdg737Detected = false;
+    private static bool _isPmdg777 = false;
+    public static bool IsPmdg777 => _isPmdg777;
     private static Mutex? _instanceMutex;
     private static double _lastActivationLvarValue = double.NaN;
 
@@ -146,6 +153,8 @@ class Program
             _simVariableMonitor = new SimVarMonitor(_simConnect);
             _gsxCommunicator = new GsxCommunicator(_simConnect);
 
+            AircraftControllerRegistry.RegisterDefaults();
+
             _simVariableMonitor.BeaconChanged += OnBeaconChanged;
             _simVariableMonitor.ParkingBrakeChanged += OnParkingBrakeChanged;
             _simVariableMonitor.EngineChanged += OnEngineChanged;
@@ -165,12 +174,6 @@ class Program
             _gsxCommunicator.GsxStarted += () => _mainForm?.SetGsxStatus(true);
             _gsxCommunicator.GsxStopped += () => _mainForm?.SetGsxStatus(false);
 
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(2000);
-                CheckInitialGsxStates();
-            });
-
             Logger.Info($"SYSTEM STATUS: {(_systemActivated ? "ACTIVATED" : $"STANDBY - Press {_config!.Hotkeys.ActivationKey} to activate")}");
             _mainForm?.SetSystemStatus(_systemActivated);
 
@@ -179,6 +182,16 @@ class Program
             _simConnect.OnRecvQuit += OnReceiveQuit;
 
             _simConnect.RequestSystemState(REQUESTS.AircraftLoaded, "AircraftLoaded");
+
+            CheckInitialGsxStates();
+            if (_systemActivated && _gsxCommunicator != null)
+            {
+                OnDeboardingConditions();
+                OnBoardingConditions();
+                OnPushbackConditions();
+                OnRefuelingConditions();
+                OnCateringConditions();
+            }
 
             await MessagePump();
         }
@@ -215,59 +228,43 @@ class Program
         _simVariableMonitor?.OnSimObjectDataReceived(data);
         _gsxCommunicator?.OnSimObjectDataReceived(data);
         _pmdg737Controller?.OnSimObjectDataReceived(data);
+        _pmdg777Controller?.OnSimObjectDataReceived(data);
     }
 
+    // Receives full aircraft path when aircraft is changed
     static void OnReceiveSystemState(SimConnect sender, SIMCONNECT_RECV_SYSTEM_STATE data)
     {
-        if (data.dwRequestID == (uint)REQUESTS.AircraftLoaded)
+        if (data.dwRequestID != (uint)REQUESTS.AircraftLoaded) return;
+
+        string aircraftPath = data.szString ?? string.Empty;
+
+        try { _pmdg737Controller?.Dispose(); } catch { }
+        try { _pmdg777Controller?.Dispose(); } catch { }
+        _pmdg737Controller = null;
+        _pmdg777Controller = null;
+
+        if (_simConnect == null) return;
+
+        var controller = AircraftControllerRegistry.CreateAircraftController(aircraftPath, _simConnect, _simVariableMonitor);
+        if (controller != null)
         {
-            string aircraftPath = data.szString;
+            controller.Connect();
 
-            _isPmdg737 = aircraftPath.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase);
-
-            if (_isPmdg737 && !_printedPmdg737Detected)
-            {
-                Logger.Info($"PMDG 737 Detected!");
-                _printedPmdg737Detected = true;
-
-                if (_pmdg737Controller == null && _simConnect != null)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        if (_simConnect != null)
-                        {
-                            _pmdg737Controller = new Pmdg737Controller(_simConnect, _simVariableMonitor);
-                            _pmdg737Controller.Connect();
-
-                            await Task.Delay(5000);
-
-                            if (_boardingCompleted)
-                            {
-                                string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
-                                var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
-
-                                if (aircraftConfig.AutoCloseDoors && _systemActivated)
-                                {
-                                    await _pmdg737Controller.CloseOpenDoors();
-                                }
-                            }
-
-                            if (_gsxCommunicator != null && _gsxCommunicator.PushbackState == GsxServiceState.Requested)
-                            {
-                                await _pmdg737Controller.CloseOpenDoors();
-                                await Task.Delay(2000);
-                                await _pmdg737Controller.RemoveGroundEquipment();
-                            }
-                        }
-                    });
-                }
-            }
-            else if (!_isPmdg737)
-            {
-                _printedPmdg737Detected = false;
-                _pmdg737Controller = null;
-            }
+            if (controller is Pmdg737Controller pmdg737Controller) _pmdg737Controller = pmdg737Controller;
+            else if (controller is Pmdg777Controller pmdg777Controller) _pmdg777Controller = pmdg777Controller;
         }
+
+        _isPmdg737 = _pmdg737Controller != null;
+        _isPmdg777 = _pmdg777Controller != null;
+
+        if (_prevAircraftTitle != _simVariableMonitor?.AircraftState.AircraftTitle
+            && !string.IsNullOrEmpty(_simVariableMonitor?.AircraftState.AircraftTitle) && !string.IsNullOrEmpty(_prevAircraftTitle))
+        {
+            Logger.Info($"Aircraft changed: {_simVariableMonitor?.AircraftState.AircraftTitle}");
+            ResetSession();
+        }
+
+        _prevAircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
     }
 
     static void OnReceiveQuit(SimConnect sender, SIMCONNECT_RECV data)
@@ -347,12 +344,22 @@ class Program
         {
             Logger.Warning($"SYSTEM DEACTIVATED - GSX automation disabled! Press {_config?.Hotkeys.ActivationKey} again to re-activate.");
         }
+
+        CheckInitialGsxStates();
+
+        if (_systemActivated && _gsxCommunicator != null)
+        {
+            OnDeboardingStateChanged(_gsxCommunicator.DeboardingState);
+            OnBoardingStateChanged(_gsxCommunicator.BoardingState, true);
+            OnPushbackStateChanged(_gsxCommunicator.PushbackState);
+            OnRefuelingStateChanged(_gsxCommunicator.RefuelingState);
+            OnCateringStateChanged(_gsxCommunicator.CateringState);
+        }
     }
 
     static void OnResetHotkeyPressed()
     {
         ResetSession();
-        Logger.Success("Session Reset!");
     }
 
     static void OnBeaconChanged(bool beaconOn)
@@ -399,7 +406,7 @@ class Program
     {
         try
         {
-            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+            string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
             if (string.IsNullOrEmpty(aircraftTitle)) return;
 
             var cfg = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -418,7 +425,7 @@ class Program
 
     static void OnActivationLvarReceived(double value)
     {
-        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         if (string.IsNullOrEmpty(aircraftTitle)) return;
 
         var cfg = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -432,15 +439,11 @@ class Program
 
         if (value == cfg.ActivationValue && _lastActivationLvarValue != cfg.ActivationValue)
         {
-            _systemActivated = !_systemActivated;
-            _mainForm?.SetSystemStatus(_systemActivated);
-            if (_systemActivated)
-                Logger.Success($"SYSTEM ACTIVATED via L:var toggle {cfg.ActivationLvar} == {cfg.ActivationValue}");
-            else
-                Logger.Warning($"SYSTEM DEACTIVATED via L:var toggle {cfg.ActivationLvar} == {cfg.ActivationValue}");
+            OnActivationHotkeyPressed();
         }
 
         _lastActivationLvarValue = value;
+        CheckInitialGsxStates();
     }
 
     static bool IsSystemReady()
@@ -460,7 +463,7 @@ class Program
 
     static int GetTurnaroundDelaySeconds()
     {
-        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         if (string.IsNullOrEmpty(aircraftTitle)) return 60;
 
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -469,6 +472,13 @@ class Program
 
     static void CheckInitialGsxStates()
     {
+        if (_checkedInitialGsxStates)
+        {
+            return;
+        }
+
+        _checkedInitialGsxStates = true;
+
         if (_gsxCommunicator == null) return;
 
         if (_gsxCommunicator.DeboardingState == GsxServiceState.Completed && !_deboardingCompleted)
@@ -476,7 +486,7 @@ class Program
             Logger.Debug("Detected deboarding already completed - setting internal state");
             _deboardingCompleted = true;
 
-            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+            string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
             if (!string.IsNullOrEmpty(aircraftTitle))
             {
                 var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -541,7 +551,7 @@ class Program
             return;
         }
 
-        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         if (string.IsNullOrEmpty(aircraftTitle)) return;
 
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -567,7 +577,7 @@ class Program
         if (_cateringCompleted) return;
         if (_boardingCompleted) return;
 
-        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         if (string.IsNullOrEmpty(aircraftTitle)) return;
 
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -660,7 +670,7 @@ class Program
             return;
         }
 
-        string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         if (!string.IsNullOrEmpty(aircraftTitle))
         {
             var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -731,11 +741,6 @@ class Program
 
         await Task.Delay(ServiceTriggerDelayMs);
         await _gsxCommunicator.CallBoarding();
-
-        // if (_pmdgController != null) 
-        // {
-        //     _ = _pmdgController.OpenDoorsForBoarding();
-        // }
     }
 
     static async void OnPushbackConditions()
@@ -776,19 +781,34 @@ class Program
         Logger.Debug("TRIGGER: Pushback conditions met!");
         _lastPushbackTrigger = DateTime.Now;
 
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
+        var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
+
         if (_isPmdg737 && _pmdg737Controller != null && _systemActivated)
         {
             _ = Task.Run(async () =>
             {
                 await Task.Delay(2000);
-                string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
-                var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
                 if (aircraftConfig.AutoCloseDoors && _systemActivated)
                 {
                     await _pmdg737Controller.CloseOpenDoors();
                     await Task.Delay(1000);
                     await _pmdg737Controller.RemoveGroundEquipment();
+                }
+            });
+        }
+        else if (_isPmdg777 && _pmdg777Controller != null && _systemActivated)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+
+                if (aircraftConfig.AutoCloseDoors && _systemActivated)
+                {
+                    await _pmdg777Controller.CloseOpenDoors();
+                    await Task.Delay(1000);
+                    await _pmdg777Controller.RemoveGroundEquipment();
                 }
             });
         }
@@ -845,7 +865,7 @@ class Program
         _lastDeboardingTrigger = DateTime.MinValue;
         _lastRefuelingTrigger = DateTime.MinValue;
         _lastCateringTrigger = DateTime.MinValue;
-        Logger.Debug("Session state reset.");
+        Logger.Success("Session Reset!");
     }
 
     static void OnDeboardingStateChanged(GsxServiceState state)
@@ -864,7 +884,7 @@ class Program
             _deboardingCompleted = true;
             Logger.Debug("Deboarding Completed!");
 
-            string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
+            string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
             if (string.IsNullOrEmpty(aircraftTitle)) return;
 
             var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
@@ -884,6 +904,58 @@ class Program
         else if (state != GsxServiceState.Bypassed)
         {
             Logger.Debug($"Deboarding state: {state}");
+        }
+    }
+
+    static void OnRefuelingStateChanged(GsxServiceState state)
+    {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
+        if (state == GsxServiceState.Requested)
+        {
+            Logger.Success($"Refueling REQUESTED");
+        }
+        else if (state == GsxServiceState.Active)
+        {
+            Logger.Success($"Refueling ACTIVATED");
+        }
+        else if (state == GsxServiceState.Completed)
+        {
+            _refuelingCompleted = true;
+            Logger.Success("Refueling COMPLETED");
+        }
+        else
+        {
+            Logger.Debug($"Refueling state: {state}");
+        }
+    }
+
+    static void OnCateringStateChanged(GsxServiceState state)
+    {
+        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        {
+            return;
+        }
+
+        if (state == GsxServiceState.Requested)
+        {
+            Logger.Success($"Catering REQUESTED");
+        }
+        else if (state == GsxServiceState.Active)
+        {
+            Logger.Success($"Catering ACTIVATED");
+        }
+        else if (state == GsxServiceState.Completed)
+        {
+            _cateringCompleted = true;
+            Logger.Success("Catering COMPLETED");
+        }
+        else
+        {
+            Logger.Debug($"Catering state: {state}");
         }
     }
 
@@ -923,11 +995,6 @@ class Program
                     _lastCateringTrigger = DateTime.Now;
                     await Task.Delay(ServiceTriggerDelayMs);
                     await _gsxCommunicator.CallCatering();
-                    // if (_isPmdg737 && _pmdg737Controller != null)
-                    // {
-                    //     await Task.Delay(2000);
-                    //     await _pmdg737Controller.OpenDoorsForCatering();
-                    // }
                 }
             }
             else
@@ -966,23 +1033,16 @@ class Program
 
     static void OnBoardingStateChanged(GsxServiceState state)
     {
+        OnBoardingStateChanged(state, false);
+    }
+
+    static void OnBoardingStateChanged(GsxServiceState state, bool forceActions)
+    {
         if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
         {
             return;
         }
 
-        // if (state == GsxServiceState.Requested)
-        // {
-        // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
-        // if (_isPmdg737 && _pmdgController != null && _systemActivated)
-        // {
-        //     _ = Task.Run(async () =>
-        //     {
-        //         await Task.Delay(2000); 
-        //         await _pmdgController.OpenDoorsForBoarding();
-        //     });
-        // }
-        // }
         if (state == GsxServiceState.Active)
         {
             Logger.Success($"Boarding ACTIVATED");
@@ -993,22 +1053,22 @@ class Program
         }
         else if (state == GsxServiceState.Completed)
         {
-            _boardingCompleted = true;
-            Logger.Success($"Boarding COMPLETED");
-
-            if (_isPmdg737 && _pmdg737Controller != null && _systemActivated)
+            if (!_boardingCompleted)
             {
-                _ = Task.Run(async () =>
+                _boardingCompleted = true;
+                Logger.Success($"Boarding COMPLETED");
+                RunBoardingCompletedActions();
+            }
+            else
+            {
+                if (forceActions && _systemActivated)
                 {
-                    await Task.Delay(2000);
-                    string aircraftTitle = _simVariableMonitor?.AircraftTitle ?? "";
-                    var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
-
-                    if (aircraftConfig.AutoCloseDoors && _systemActivated)
-                    {
-                        await _pmdg737Controller.CloseOpenDoors();
-                    }
-                });
+                    RunBoardingCompletedActions();
+                }
+                else
+                {
+                    Logger.Debug("Boarding already completed - ignoring repeated completion event");
+                }
             }
         }
         else if (state != GsxServiceState.Bypassed)
@@ -1017,77 +1077,38 @@ class Program
         }
     }
 
-    static void OnRefuelingStateChanged(GsxServiceState state)
+    static void RunBoardingCompletedActions()
     {
-        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
-        {
-            return;
-        }
+        if (!_systemActivated) return;
 
-        if (state == GsxServiceState.Active)
+        _ = Task.Run(async () =>
         {
-            Logger.Success($"Refueling ACTIVATED");
-        }
-        else if (state == GsxServiceState.Requested)
-        {
-            Logger.Success($"Refueling REQUESTED");
-        }
-        else if (state == GsxServiceState.Completed)
-        {
-            _refuelingCompleted = true;
-            Logger.Success($"Refueling COMPLETED");
-        }
-        else if (state != GsxServiceState.Bypassed)
-        {
-            Logger.Debug($"Refueling state: {state}");
-        }
+            await PerformBoardingCloseActions();
+        });
     }
 
-    static async void OnCateringStateChanged(GsxServiceState state)
+    static async Task PerformBoardingCloseActions()
     {
-        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
-        {
-            return;
-        }
+        await Task.Delay(2000);
 
-        // Perhaps we can check if doors are not opened within n amount of seconds since request and then auto open
-        // if (state == GsxServiceState.Requested)
-        // {
-        //     if (_isPmdg737 && _pmdgController != null && _systemActivated)
-        //     {
-        //         _ = Task.Run(async () =>
-        //         {
-        //             await Task.Delay(2000); 
-        //             await _pmdgController.OpenDoorsForCatering();
-        //         });
-        //     }
-        // }
-        if (state == GsxServiceState.Active)
-        {
-            Logger.Success($"Catering ACTIVATED");
-        }
-        else if (state == GsxServiceState.Requested)
-        {
-            Logger.Success($"Catering REQUESTED");
-        }
-        else if (state == GsxServiceState.Completed)
-        {
-            _cateringCompleted = true;
-            Logger.Success($"Catering COMPLETED");
-        }
-        else if (state != GsxServiceState.Bypassed)
-        {
-            Logger.Debug($"Catering state: {state}");
-        }
-    }
+        string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
+        var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
-    public static void UpdateRefuelSetting(string aircraftTitle, bool enabled)
-    {
-        if (string.IsNullOrEmpty(aircraftTitle)) return;
+        if (!aircraftConfig.AutoCloseDoors) return;
 
-        var config = ConfigManager.GetAircraftConfig(aircraftTitle);
-        config.RefuelBeforeBoarding = enabled;
-        ConfigManager.SaveAircraftConfig(aircraftTitle, config);
+        if (_isPmdg737 && _pmdg737Controller != null)
+        {
+            await _pmdg737Controller.CloseOpenDoors();
+        }
+        else if (_isPmdg777 && _pmdg777Controller != null)
+        {
+            if (!_pmdg777Controller.IsConnected)
+            {
+                try { _pmdg777Controller.Connect(); } catch { }
+            }
+
+            await _pmdg777Controller.CloseOpenDoors();
+        }
     }
 
     public static void SetRebindingMode(bool rebinding)
@@ -1127,9 +1148,9 @@ class Program
         }
 
         Logger.Info("=== Current State ===");
-        Logger.Info($"Aircraft: {_simVariableMonitor.AircraftTitle}");
-        Logger.Info($"Beacon: {(_simVariableMonitor.BeaconLight ? "ON" : "OFF")}, Parking Brake: {(_simVariableMonitor.ParkingBrake ? "SET" : "RELEASED")}, On Ground: {_simVariableMonitor.OnGround}");
-        Logger.Info($"Speed: {_simVariableMonitor.GroundSpeed:F1} kts, Engine(s) Running: {_simVariableMonitor.EngineRunning}, Has Moved: {_simVariableMonitor.GetAircraftHasMoved()}");
+        Logger.Info($"Aircraft: {_simVariableMonitor.AircraftState.AircraftTitle}");
+        Logger.Info($"Beacon: {(_simVariableMonitor.AircraftState.BeaconLight != 0 ? "ON" : "OFF")}, Parking Brake: {(_simVariableMonitor.AircraftState.ParkingBrake != 0 ? "SET" : "RELEASED")}, On Ground: {_simVariableMonitor.AircraftState.OnGround}");
+        Logger.Info($"Speed: {_simVariableMonitor.AircraftState.GroundSpeed:F1} kts, Engine(s) Running: {_simVariableMonitor.AircraftState.EngineRunning != 0}, Has Moved: {_simVariableMonitor.GetAircraftHasMoved()}");
         Logger.Info($"GSX Running: {_gsxCommunicator.IsGsxRunning()}, Deboarding: {_gsxCommunicator.DeboardingState}, Boarding: {_gsxCommunicator.BoardingState}");
         Logger.Info($"Pushback: {_gsxCommunicator.PushbackState}, Refueling: {_gsxCommunicator.RefuelingState}, Catering: {_gsxCommunicator.CateringState}");
         Logger.Info($"System Active: {_systemActivated}, Pushback Done: {_pushbackCompleted}, Deboarding Done: {_deboardingCompleted}, Boarding Done: {_boardingCompleted}, Catering Done: {_cateringCompleted}");
@@ -1144,7 +1165,7 @@ class Program
             return;
         }
 
-        Logger.Info($"Movement Debug - Speed: {_simVariableMonitor.GroundSpeed:F1} kts, EnginesRun: {_simVariableMonitor.GetEnginesHaveRun()}, HasMoved: {_simVariableMonitor.GetAircraftHasMoved()}");
+        Logger.Info($"Movement Debug - Speed: {_simVariableMonitor.AircraftState.GroundSpeed:F1} kts, EnginesRun: {_simVariableMonitor.GetEnginesHaveRun()}, HasMoved: {_simVariableMonitor.GetAircraftHasMoved()}");
     }
 
     public static void ToggleMovementFlag()

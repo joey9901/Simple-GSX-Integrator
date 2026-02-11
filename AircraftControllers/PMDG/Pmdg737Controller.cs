@@ -5,14 +5,12 @@ using System.Threading.Tasks;
 
 namespace SimpleGsxIntegrator
 {
-    public sealed class Pmdg737Controller
+    public sealed class Pmdg737Controller : AircraftControllerBase
     {
-        private readonly SimConnect _simConnect;
-        private readonly SimVarMonitor? _simVarMonitor;
+        private static bool _printedPmdg737Detected = false;
 
         private const uint OPEN_PARAM = 1;
         private const uint CLOSE_PARAM = 2;
-
         public bool IsConnected { get; private set; }
 
         private enum DATA_ID : uint
@@ -58,55 +56,50 @@ namespace SimpleGsxIntegrator
         private const uint EVT_CDU_R_R5 = BASE + 616;
         private const uint EVT_CDU_R_R6 = BASE + 617;
         private const uint EVT_CDU_R_MENU = BASE + 623;
-        private enum PMDG_EVENTS : uint { OH_ELEC_GRD_PWR_SWITCH = BASE + 17 }
-        private enum EVENT_GROUP : uint { GROUP0 = 0 }
+        private static bool _DoorsAreClosing = false;
 
         public Pmdg737Controller(SimConnect sim, SimVarMonitor? simVarMonitor = null)
+            : base(sim, simVarMonitor) { }
+
+        public static bool IsPmdg737(string aircraftPath)
         {
-            _simConnect = sim ?? throw new ArgumentNullException(nameof(sim));
-            _simVarMonitor = simVarMonitor;
-            GroundPowerLightConnected = double.NaN;
+            if (string.IsNullOrEmpty(aircraftPath)) return false;
+            bool isPmdg737 = aircraftPath.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase);
+
+            if (isPmdg737 && !_printedPmdg737Detected)
+            {
+                Logger.Info("PMDG 737 Detected!");
+                _printedPmdg737Detected = true;
+            }
+            else if (!isPmdg737)
+            {
+                _printedPmdg737Detected = false;
+            }
+
+            return isPmdg737;
         }
 
-        public double GroundPowerLightConnected { get; private set; }
-        public double FwdLeftCabinDoor { get; private set; }
-        public double FwdLeftCabinDoorFlag { get; private set; }
-        public double AftLeftCabinDoor { get; private set; }
-        public double AftLeftCabinDoorFlag { get; private set; }
-        public double FwdRightCabinDoor { get; private set; }
-        public double FwdRightCabinDoorFlag { get; private set; }
-        public double AftRightCabinDoor { get; private set; }
-        public double AftRightCabinDoorFlag { get; private set; }
-        public double FwdLwrCargoDoor { get; private set; }
-        public double AftLwrCargoDoor { get; private set; }
-        public double MainCargoDoor { get; private set; }
-        public double EquipmentHatchDoor { get; private set; }
-        public double Chocks { get; private set; }
-
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
-        public struct PmdgVarsStruct
+        public struct Pmdg737VarsStruct
         {
             public double FwdLeftCabinDoor;
-            public double FwdLeftCabinDoorFlag;
             public double AftLeftCabinDoor;
-            public double AftLeftCabinDoorFlag;
             public double FwdRightCabinDoor;
-            public double FwdRightCabinDoorFlag;
             public double AftRightCabinDoor;
-            public double AftRightCabinDoorFlag;
             public double FwdLwrCargoDoor;
             public double AftLwrCargoDoor;
             public double MainCargoDoor;
-            public double EEDoor;
-            public double GroundPowerLightConnected;
+            public double EquipmentHatchDoor;
             public double Chocks;
         }
 
-        public void Connect()
+        private Pmdg737VarsStruct _pmdg737Vars;
+
+        public override void Connect()
         {
             try
             {
-                Logger.Debug("PMDG: Initializing SDK");
+                Logger.Debug("PMDG 737: Initializing SDK");
 
                 _simConnect.MapClientDataNameToID("PMDG_NG3_Control", DATA_ID.CONTROL);
 
@@ -119,40 +112,47 @@ namespace SimpleGsxIntegrator
 
                 try
                 {
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:FwdLeftCabinDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
-                        "L:FwdLeftCabinDoorFlag", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:AftLeftCabinDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
-                        "L:AftLeftCabinDoorFlag", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:FwdRightCabinDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
-                        "L:FwdRightCabinDoorFlag", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:AftRightCabinDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
-                        "L:AftRightCabinDoorFlag", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:FwdLwrCargoDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:AftLwrCargoDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:MainCargoDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:EEDoor", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
-                        "L:7X7X_Ground_Power_Light_Connected", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar,
+                    _simConnect.AddToDataDefinition(DEFINITIONS.PmdgVar737,
                         "L:NGXWheelChocks", "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
 
-                    _simConnect.RegisterDataDefineStruct<PmdgVarsStruct>(DEFINITIONS.PmdgVar);
+                    _simConnect.RegisterDataDefineStruct<Pmdg737VarsStruct>(DEFINITIONS.PmdgVar737);
 
-                    _simConnect.RequestDataOnSimObject(DATA_REQUESTS.PmdgVar, DEFINITIONS.PmdgVar,
-                        SimConnect.SIMCONNECT_OBJECT_ID_USER, SIMCONNECT_PERIOD.SECOND,
-                        SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 0, 0);
+                    // Simconnect seems to have an issue where it stops sending packets, this seems to be a working workaround...
+                    _simConnect.RequestDataOnSimObject(
+                        DATA_REQUESTS.PmdgVar737,
+                        DEFINITIONS.PmdgVar737,
+                        SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                        SIMCONNECT_PERIOD.SIM_FRAME,
+                        SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
+                        0, 0, 0);
+
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000);
+                        _simConnect.RequestDataOnSimObject(
+                            DATA_REQUESTS.PmdgVar737,
+                            DEFINITIONS.PmdgVar737,
+                            SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                            SIMCONNECT_PERIOD.SECOND,
+                            SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+                            0, 0, 0);
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -169,62 +169,6 @@ namespace SimpleGsxIntegrator
             }
         }
 
-        public Task CloseAllDoors()
-        {
-            return Task.Run(async () =>
-            {
-                Logger.Info("Closing all Doors");
-                await Close(EVT_DOOR_FWD_L);
-                await Close(EVT_DOOR_FWD_R);
-                await Close(EVT_DOOR_AFT_L);
-                await Close(EVT_DOOR_AFT_R);
-                await Close(EVT_DOOR_CARGO_FWD);
-                await Close(EVT_DOOR_CARGO_AFT);
-                await Close(EVT_DOOR_CARGO_MAIN);
-                await Close(EVT_DOOR_EQUIPMENT_HATCH);
-            });
-        }
-
-        public Task OpenDoorsForBoarding()
-        {
-            return Task.Run(async () =>
-            {
-                try
-                {
-                    uint[] doors = new[] { EVT_DOOR_FWD_L, EVT_DOOR_AFT_L, EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT };
-                    Logger.Info("Opening Boarding Doors");
-                    foreach (var door in doors)
-                    {
-                        if (!IsDoorOpen(door))
-                        {
-                            await Open(door);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"OpenDoorsForBoarding failed: {ex}");
-                }
-            });
-        }
-
-        public Task OpenDoorsForCatering()
-        {
-            return Task.Run(async () =>
-            {
-                try
-                {
-                    Logger.Info("Opening Catering Doors");
-                    await Open(EVT_DOOR_FWD_R);
-                    await Open(EVT_DOOR_AFT_R);
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error($"OpenDoorsForCatering failed: {ex}");
-                }
-            });
-        }
-
         public Task CloseOpenDoors()
         {
             return Task.Run(async () =>
@@ -234,19 +178,32 @@ namespace SimpleGsxIntegrator
                     var doors = new[] { EVT_DOOR_FWD_L, EVT_DOOR_FWD_R, EVT_DOOR_AFT_L, EVT_DOOR_AFT_R, EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT, EVT_DOOR_CARGO_MAIN, EVT_DOOR_EQUIPMENT_HATCH };
                     bool doorsToClose = false;
 
-                    foreach (var door in doors)
+                    if (!_DoorsAreClosing)
                     {
-                        if (IsDoorOpen(door))
+
+                        foreach (var door in doors)
                         {
-                            doorsToClose = true;
-                            await Close(door);
+                            if (IsDoorOpen(door))
+                            {
+                                doorsToClose = true;
+                                await Close(door);
+                            }
+                        }
+
+                        if (doorsToClose)
+                        {
+                            _DoorsAreClosing = true;
+                            Logger.Info("Closed Open Doors");
+                            return;
+                        }
+                        else
+                        {
+                            _DoorsAreClosing = false;
                         }
                     }
-
-                    if (doorsToClose)
+                    else
                     {
-                        Logger.Info("Closed Open Doors");
-                        return;
+                        Logger.Debug("Doors are already closing, skipping CloseOpenDoors to avoid opening");
                     }
                 }
                 catch (Exception ex)
@@ -273,23 +230,6 @@ namespace SimpleGsxIntegrator
             return await SendCommand(door, CLOSE_PARAM);
         }
 
-        private async Task<bool> Open(uint door)
-        {
-            if (!IsConnected)
-            {
-                Logger.Error("PMDG not connected");
-                return false;
-            }
-
-            if (IsDoorOpen(door))
-            {
-                Logger.Debug($"PMDG: door '{GetDoorName(door)}' already open");
-                return true;
-            }
-
-            return await SendCommand(door, OPEN_PARAM);
-        }
-
         private bool IsDoorOpen(uint door)
         {
             double val = double.NaN;
@@ -297,28 +237,28 @@ namespace SimpleGsxIntegrator
             switch (door)
             {
                 case EVT_DOOR_FWD_L:
-                    val = FwdLeftCabinDoor;
+                    val = _pmdg737Vars.FwdLeftCabinDoor;
                     break;
                 case EVT_DOOR_AFT_L:
-                    val = AftLeftCabinDoor;
+                    val = _pmdg737Vars.AftLeftCabinDoor;
                     break;
                 case EVT_DOOR_CARGO_FWD:
-                    val = FwdLwrCargoDoor;
+                    val = _pmdg737Vars.FwdLwrCargoDoor;
                     break;
                 case EVT_DOOR_CARGO_AFT:
-                    val = AftLwrCargoDoor;
+                    val = _pmdg737Vars.AftLwrCargoDoor;
                     break;
                 case EVT_DOOR_CARGO_MAIN:
-                    val = MainCargoDoor;
+                    val = _pmdg737Vars.MainCargoDoor;
                     break;
                 case EVT_DOOR_EQUIPMENT_HATCH:
-                    val = EquipmentHatchDoor;
+                    val = _pmdg737Vars.EquipmentHatchDoor;
                     break;
                 case EVT_DOOR_FWD_R:
-                    val = FwdRightCabinDoor;
+                    val = _pmdg737Vars.FwdRightCabinDoor;
                     break;
                 case EVT_DOOR_AFT_R:
-                    val = AftRightCabinDoor;
+                    val = _pmdg737Vars.AftRightCabinDoor;
                     break;
                 default:
                     return false;
@@ -374,7 +314,7 @@ namespace SimpleGsxIntegrator
 
                 try
                 {
-                    bool chocksSet = !double.IsNaN(Chocks) && Chocks > 0.5;
+                    bool chocksSet = !double.IsNaN(_pmdg737Vars.Chocks) && _pmdg737Vars.Chocks > 0.5;
 
                     if (!chocksSet)
                     {
@@ -399,31 +339,37 @@ namespace SimpleGsxIntegrator
             });
         }
 
-        public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
+        public void RequestSnapshot()
         {
-            if (data.dwRequestID == (uint)DATA_REQUESTS.PmdgVar)
+            try
             {
-                var pmdgVars = (PmdgVarsStruct)data.dwData[0];
-                UpdatePmdgVars(pmdgVars);
+                _simConnect.RequestDataOnSimObject(
+                    DATA_REQUESTS.PmdgVar737,
+                    DEFINITIONS.PmdgVar737,
+                    SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                    SIMCONNECT_PERIOD.ONCE,
+                    SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
+                    0, 0, 0);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"Pmdg737 RequestSnapshot failed: {ex.Message}");
             }
         }
 
-        private void UpdatePmdgVars(PmdgVarsStruct pmdgVars)
+        public override void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
         {
-            FwdLeftCabinDoor = pmdgVars.FwdLeftCabinDoor;
-            FwdLeftCabinDoorFlag = pmdgVars.FwdLeftCabinDoorFlag;
-            AftLeftCabinDoor = pmdgVars.AftLeftCabinDoor;
-            AftLeftCabinDoorFlag = pmdgVars.AftLeftCabinDoorFlag;
-            FwdRightCabinDoor = pmdgVars.FwdRightCabinDoor;
-            FwdRightCabinDoorFlag = pmdgVars.FwdRightCabinDoorFlag;
-            AftRightCabinDoor = pmdgVars.AftRightCabinDoor;
-            AftRightCabinDoorFlag = pmdgVars.AftRightCabinDoorFlag;
-            FwdLwrCargoDoor = pmdgVars.FwdLwrCargoDoor;
-            AftLwrCargoDoor = pmdgVars.AftLwrCargoDoor;
-            MainCargoDoor = pmdgVars.MainCargoDoor;
-            EquipmentHatchDoor = pmdgVars.EEDoor;
-            GroundPowerLightConnected = pmdgVars.GroundPowerLightConnected;
-            Chocks = pmdgVars.Chocks;
+            if (data.dwDefineID != (uint)DEFINITIONS.PmdgVar737 && data.dwRequestID != (uint)DATA_REQUESTS.PmdgVar737)
+                return;
+
+            try
+            {
+                _pmdg737Vars = (Pmdg737VarsStruct)data.dwData[0];
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Parse failed: {ex}");
+            }
         }
     }
 

@@ -148,7 +148,7 @@ public class AircraftConfigForm : Form
             Maximum = 1000000,
             DecimalPlaces = 2
         };
-        bool showPmdgSection = Program.IsPmdg737;
+        bool showPmdgSection = Program.IsPmdg737 || Program.IsPmdg777;
         lblPmdgHeader.Visible = showPmdgSection;
         chkAutoCloseDoors.Visible = showPmdgSection;
         var lblTurnaroundDelay = new Label

@@ -7,13 +7,7 @@ public class SimVarMonitor
 {
     private readonly SimConnect? _simConnect;
 
-    public bool BeaconLight { get; private set; }
-    public bool ParkingBrake { get; private set; }
-    public bool EngineRunning { get; private set; }
-    public bool OnGround { get; private set; }
-    public double GroundSpeed { get; private set; }
-    public double Airspeed { get; private set; }
-    public string AircraftTitle { get; private set; } = "";
+    public AircraftStateStruct AircraftState;
 
     private bool _enginesHaveRun = false;
     private bool _aircraftHasMoved = false;
@@ -153,22 +147,13 @@ public class SimVarMonitor
             SIMCONNECT_PERIOD.SECOND,
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
-
     }
 
     public void OnSimObjectDataReceived(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID == (uint)DATA_REQUESTS.AircraftState)
         {
-            var aircraftState = (AircraftStateStruct)data.dwData[0];
-
-            BeaconLight = aircraftState.BeaconLight != 0;
-            ParkingBrake = aircraftState.ParkingBrake != 0;
-            EngineRunning = aircraftState.EngineRunning != 0;
-            OnGround = aircraftState.OnGround != 0;
-            GroundSpeed = aircraftState.GroundSpeed;
-            Airspeed = aircraftState.Airspeed;
-            AircraftTitle = aircraftState.AircraftTitle;
+            AircraftState = (AircraftStateStruct)data.dwData[0];
         }
         else if (data.dwRequestID == (uint)DATA_REQUESTS.ActivationVarRead)
         {
@@ -179,44 +164,47 @@ public class SimVarMonitor
 
         if (!_firstDataReceived)
         {
-            _prevBeaconLight = BeaconLight;
-            _prevParkingBrake = ParkingBrake;
-            _prevEngineRunning = EngineRunning;
+            _prevBeaconLight = AircraftState.BeaconLight != 0;
+            _prevParkingBrake = AircraftState.ParkingBrake != 0;
+            _prevEngineRunning = AircraftState.EngineRunning != 0;
             _firstDataReceived = true;
-            Logger.Debug($"Initial aircraft state - Beacon: {BeaconLight}, Parking Brake: {ParkingBrake}, Engines: {EngineRunning}");
+            Logger.Debug($"Initial aircraft state - Beacon: {_prevBeaconLight}, Parking Brake: {_prevParkingBrake}, Engines: {_prevEngineRunning}");
         }
 
-        if (!string.IsNullOrEmpty(AircraftTitle) && AircraftTitle != _prevAircraftTitle)
+        if (!string.IsNullOrEmpty(AircraftState.AircraftTitle) && AircraftState.AircraftTitle != _prevAircraftTitle)
         {
-            Logger.Debug($"Aircraft detected: {AircraftTitle}");
-            _prevAircraftTitle = AircraftTitle;
-            AircraftChanged?.Invoke(AircraftTitle);
+            Logger.Debug($"Aircraft detected: {AircraftState.AircraftTitle}");
+            _prevAircraftTitle = AircraftState.AircraftTitle;
+            AircraftChanged?.Invoke(AircraftState.AircraftTitle);
         }
 
-        if (EngineRunning && !_enginesHaveRun)
+        if (AircraftState.EngineRunning != 0 && !_enginesHaveRun)
             _enginesHaveRun = true;
 
-        if ((_pushbackCompleted && GroundSpeed > MovementThreshold) || (_enginesHaveRun && GroundSpeed > MovementThreshold))
+        if ((_pushbackCompleted && AircraftState.GroundSpeed > MovementThreshold) || (_enginesHaveRun && AircraftState.GroundSpeed > MovementThreshold))
         {
             _aircraftHasMoved = true;
         }
 
-        if (BeaconLight != _prevBeaconLight)
+        bool beaconOn = AircraftState.BeaconLight != 0;
+        if (beaconOn != _prevBeaconLight)
         {
-            _prevBeaconLight = BeaconLight;
-            BeaconChanged?.Invoke(BeaconLight);
+            _prevBeaconLight = beaconOn;
+            BeaconChanged?.Invoke(beaconOn);
         }
 
-        if (ParkingBrake != _prevParkingBrake)
+        bool parkingBrakeOn = AircraftState.ParkingBrake != 0;
+        if (parkingBrakeOn != _prevParkingBrake)
         {
-            _prevParkingBrake = ParkingBrake;
-            ParkingBrakeChanged?.Invoke(ParkingBrake);
+            _prevParkingBrake = parkingBrakeOn;
+            ParkingBrakeChanged?.Invoke(parkingBrakeOn);
         }
 
-        if (EngineRunning != _prevEngineRunning)
+        bool engineRunning = AircraftState.EngineRunning != 0;
+        if (engineRunning != _prevEngineRunning)
         {
-            _prevEngineRunning = EngineRunning;
-            EngineChanged?.Invoke(EngineRunning);
+            _prevEngineRunning = engineRunning;
+            EngineChanged?.Invoke(engineRunning);
         }
 
         CheckTriggerConditions();
@@ -224,22 +212,25 @@ public class SimVarMonitor
 
     private void CheckTriggerConditions()
     {
-        bool enginesOff = !EngineRunning;
-        bool stationary = GroundSpeed < 0.5;
+        bool enginesOff = AircraftState.EngineRunning == 0;
+        bool stationary = AircraftState.GroundSpeed < 0.5;
+        bool beaconOn = AircraftState.BeaconLight != 0;
+        bool parkingBrakeOn = AircraftState.ParkingBrake != 0;
+        bool onGround = AircraftState.OnGround != 0;
 
-        if (enginesOff && !BeaconLight && OnGround && stationary)
+        if (enginesOff && !beaconOn && onGround && stationary)
         {
             CateringConditionsMet?.Invoke();
             RefuelingConditionsMet?.Invoke();
             BoardingConditionsMet?.Invoke();
         }
 
-        if (BeaconLight && ParkingBrake && enginesOff && OnGround && stationary && !_enginesHaveRun)
+        if (beaconOn && parkingBrakeOn && enginesOff && onGround && stationary && !_enginesHaveRun)
         {
             PushbackConditionsMet?.Invoke();
         }
 
-        if (!BeaconLight && ParkingBrake && OnGround && stationary)
+        if (!beaconOn && parkingBrakeOn && onGround && stationary)
         {
             DeboardingConditionsMet?.Invoke();
         }
