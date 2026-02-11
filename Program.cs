@@ -262,6 +262,7 @@ class Program
         {
             Logger.Info($"Aircraft changed: {_simVariableMonitor?.AircraftState.AircraftTitle}");
             ResetSession();
+            if (_systemActivated) OnActivationHotkeyPressed();
         }
 
         _prevAircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
