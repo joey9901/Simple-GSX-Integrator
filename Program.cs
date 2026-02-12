@@ -361,17 +361,20 @@ class Program
 
     static void OnBeaconChanged(bool beaconOn)
     {
-        Logger.Info($"Beacon light: {(beaconOn ? "ON" : "OFF")}");
+        Logger.Debug($"Beacon light changed: {(beaconOn ? "ON" : "OFF")}");
+        UpdateAircraftStateLabel();
     }
 
     static void OnParkingBrakeChanged(bool brakeSet)
     {
-        Logger.Info($"Parking brake: {(brakeSet ? "SET" : "RELEASED")}");
+        Logger.Debug($"Parking brake changed: {(brakeSet ? "SET" : "RELEASED")}");
+        UpdateAircraftStateLabel();
     }
 
     static void OnEngineChanged(bool running)
     {
-        Logger.Info($"Engine: {(running ? "RUNNING" : "OFF")}");
+        Logger.Debug($"Engine state changed: {(running ? "RUNNING" : "OFF")}");
+        UpdateAircraftStateLabel();
     }
 
     static void OnAircraftChanged(string aircraftTitle)
@@ -396,7 +399,24 @@ class Program
             {
                 Logger.Warning($"Failed to register activation L:var: {ex.Message}");
             }
+
+            UpdateAircraftStateLabel();
         }
+    }
+
+    static void UpdateAircraftStateLabel()
+    {
+        if (_mainForm == null || _simVariableMonitor == null) return;
+
+        var s = _simVariableMonitor.AircraftState;
+        string title = s.AircraftTitle ?? "None";
+        bool beaconOn = s.BeaconLight != 0;
+        bool parkingBrakeSet = s.ParkingBrake != 0;
+        bool enginesRunning = s.EngineRunning != 0;
+        bool hasMoved = _simVariableMonitor.GetAircraftHasMoved();
+        double speed = s.GroundSpeed;
+
+        _mainForm.SetAircraftStateDetails(title, beaconOn, parkingBrakeSet, enginesRunning, hasMoved, speed);
     }
 
     public static void RegisterActivationForCurrentAircraft()

@@ -14,6 +14,11 @@ public partial class MainForm : Form
     private RichTextBox txtLog = null!;
     private Button btnAircraftConfig = null!;
     private Label lblCurrentAircraft = null!;
+    private Label lblAircraftStateBeacon = null!;
+    private Label lblAircraftStateBrake = null!;
+    private Label lblAircraftStateEngines = null!;
+    private Label lblAircraftStateHasMoved = null!;
+    private Label lblAircraftStateSpeed = null!;
     private Button btnPrintState = null!;
     private Button btnMovementDebug = null!;
     private Button btnToggleMovement = null!;
@@ -221,7 +226,7 @@ public partial class MainForm : Form
         {
             Text = "None",
             Location = new Point(40, 395),
-            Size = new Size(600, 20),
+            Size = new Size(300, 20),
             ForeColor = Color.Gray,
             Font = new Font("Segoe UI", 10, FontStyle.Regular)
         };
@@ -257,18 +262,76 @@ public partial class MainForm : Form
             Multiline = true
         };
 
+        var lblAircraftStateHeader = new Label
+        {
+            Text = "Aircraft State",
+            Font = new Font("Segoe UI", 12, FontStyle.Bold),
+            Location = new Point(480, 110),
+            Size = new Size(200, 25)
+        };
+
+        lblAircraftStateBeacon = new Label
+        {
+            Text = "Beacon Light: -",
+            Location = new Point(480, 140),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblAircraftStateBrake = new Label
+        {
+            Text = "Parking Brake: -",
+            Location = new Point(480, 160),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblAircraftStateEngines = new Label
+        {
+            Text = "Engines Running: -",
+            Location = new Point(480, 180),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblAircraftStateHasMoved = new Label
+        {
+            Text = "Has Moved: -",
+            Location = new Point(480, 200),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblAircraftStateSpeed = new Label
+        {
+            Text = "Speed: -",
+            Location = new Point(480, 220),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            ForeColor = Theme.Text,
+            AutoSize = false
+        };
+
         var lblDebugHeader = new Label
         {
             Text = "Debug",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(480, 190),
+            Location = new Point(480, 280),
             Size = new Size(180, 25)
         };
 
         btnPrintState = new Button
         {
             Text = "Print State",
-            Location = new Point(480, 225),
+            Location = new Point(480, 310),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -277,7 +340,7 @@ public partial class MainForm : Form
         btnMovementDebug = new Button
         {
             Text = "Print Movement Debug",
-            Location = new Point(480, 265),
+            Location = new Point(480, 350),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -286,7 +349,7 @@ public partial class MainForm : Form
         btnToggleMovement = new Button
         {
             Text = "Toggle HasMoved Flag",
-            Location = new Point(480, 305),
+            Location = new Point(480, 390),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -300,6 +363,7 @@ public partial class MainForm : Form
             lblResetKey, txtResetKey,
             lblAircraftHeader, lblCurrentAircraft, btnAircraftConfig,
             lblLogHeader, txtLog,
+            lblAircraftStateHeader, lblAircraftStateBeacon, lblAircraftStateBrake, lblAircraftStateEngines, lblAircraftStateHasMoved, lblAircraftStateSpeed,
             lblDebugHeader, btnPrintState, btnMovementDebug, btnToggleMovement
         });
 
@@ -396,6 +460,30 @@ public partial class MainForm : Form
 
         lblSimConnectStatus.Text = connected ? "● SimConnect: Connected" : "● SimConnect: Disconnected";
         lblSimConnectStatus.ForeColor = connected ? Color.LimeGreen : Color.Gray;
+    }
+
+    public void SetAircraftStateDetails(string title, bool beaconOn, bool parkingBrakeSet, bool enginesRunning, bool hasMoved, double speed)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(() => SetAircraftStateDetails(title, beaconOn, parkingBrakeSet, enginesRunning, hasMoved, speed));
+            return;
+        }
+
+        lblAircraftStateBeacon.Text = $"Beacon Light: {(beaconOn ? "ON" : "OFF")}";
+        lblAircraftStateBeacon.ForeColor = beaconOn ? Color.LimeGreen : Color.Red;
+
+        lblAircraftStateBrake.Text = $"Parking Brake: {(parkingBrakeSet ? "SET" : "RELEASED")}";
+        lblAircraftStateBrake.ForeColor = parkingBrakeSet ? Color.LimeGreen : Color.Red;
+
+        lblAircraftStateEngines.Text = $"Engines Running: {(enginesRunning ? "YES" : "NO")}";
+        lblAircraftStateEngines.ForeColor = enginesRunning ? Color.LimeGreen : Color.Red;
+
+        lblAircraftStateHasMoved.Text = $"Has Moved: {(hasMoved ? "YES" : "NO")}";
+        lblAircraftStateHasMoved.ForeColor = hasMoved ? Color.Red : Color.LimeGreen;
+
+        lblAircraftStateSpeed.Text = $"Speed: {speed:F1} kts";
+        lblAircraftStateSpeed.ForeColor = Theme.Text;
     }
 
     public void SetGsxStatus(bool detected)
