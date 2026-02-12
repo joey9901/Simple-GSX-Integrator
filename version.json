@@ -1,5 +1,5 @@
 {
   "latestVersion": "1.4.1",
   "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.4.1/SimpleGSXIntegrator-v1.4.1.zip",
-  "releaseNotes": "Added PMDG 777 support"
+  "releaseNotes": "Added PMDG 777 support, Fixed Ground Equipment not being Removed for PMDG Aircraft, Fixed Doors Re-opening because of GSX, Added Overwing Emergency Exit Doors to PMDG 737"
 }
