@@ -2,6 +2,7 @@ using Microsoft.FlightSimulator.SimConnect;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms.VisualStyles;
+using System.Threading;
 namespace SimpleGsxIntegrator;
 
 internal enum DEFINITIONS : uint
@@ -90,6 +91,8 @@ class Program
     private static Mutex? _instanceMutex;
     private static double _lastActivationLvarValue = double.NaN;
     private static bool _attempt = false;
+    private static readonly object _activationLock = new object();
+    private static DateTime _lastActivationProcessed = DateTime.MinValue;
 
     [STAThread]
     static void Main(string[] args)
@@ -433,11 +436,22 @@ class Program
 
         if (value == cfg.ActivationValue && _lastActivationLvarValue != cfg.ActivationValue)
         {
-            OnActivationHotkeyPressed();
+            var now = DateTime.Now;
+            if ((now - _lastActivationProcessed).TotalMilliseconds > 300)
+            {
+                _lastActivationProcessed = now;
+                Task.Run(() =>
+                {
+                    lock (_activationLock)
+                    {
+                        OnActivationHotkeyPressed();
+                    }
+                });
+            }
         }
 
         _lastActivationLvarValue = value;
-        CheckInitialGsxStates();
+        Task.Run(() => CheckInitialGsxStates());
     }
 
     static bool IsGsxAvailable()
@@ -466,16 +480,12 @@ class Program
 
     static void CheckInitialGsxStates()
     {
-        if (_checkedInitialGsxStates)
-        {
-            return;
-        }
+        if (!IsGsxAvailable()) return;
 
+        if (_checkedInitialGsxStates) return;
         _checkedInitialGsxStates = true;
 
-        if (_gsxCommunicator == null) return;
-
-        if (_gsxCommunicator.DeboardingState == GsxServiceState.Completed && !_deboardingCompleted)
+        if (_gsxCommunicator!.DeboardingState == GsxServiceState.Completed && !_deboardingCompleted)
         {
             Logger.Debug("Detected deboarding already completed - setting internal state");
             _deboardingCompleted = true;
@@ -517,9 +527,9 @@ class Program
         }
     }
 
-    static async void OnRefuelingConditions()
+    static void OnRefuelingConditions()
     {
-        if (!IsGsxAvailable()) return;
+        if (!IsGsxAvailable() || !_systemActivated) return;
 
         if (HasAircraftMoved())
         {
@@ -558,12 +568,13 @@ class Program
         Logger.Debug("TRIGGER: Refueling conditions met!");
         _lastRefuelingTrigger = DateTime.Now;
 
-        await Task.Delay(ServiceTriggerDelayMs);
-        await _gsxCommunicator.CallRefueling();
+        Thread.Sleep(ServiceTriggerDelayMs);
+        Task.Run(() => _gsxCommunicator.CallRefueling());
     }
 
-    static async void OnCateringConditions()
+    static void OnCateringConditions()
     {
+        if (!_systemActivated) return;
         if (!IsGsxAvailable()) return;
 
         if (HasAircraftMoved()) return;
@@ -585,8 +596,8 @@ class Program
             Logger.Debug("TRIGGER: Catering conditions met!");
             _lastCateringTrigger = DateTime.Now;
 
-            await Task.Delay(ServiceTriggerDelayMs);
-            await _gsxCommunicator.CallCatering();
+            Thread.Sleep(ServiceTriggerDelayMs);
+            Task.Run(() => _gsxCommunicator.CallCatering());
             return;
         }
 
@@ -610,16 +621,15 @@ class Program
             Logger.Debug("TRIGGER: Catering conditions met!");
             _lastCateringTrigger = DateTime.Now;
 
-            await Task.Delay(ServiceTriggerDelayMs);
-            await _gsxCommunicator.CallCatering();
+            Thread.Sleep(ServiceTriggerDelayMs);
+            Task.Run(() => _gsxCommunicator.CallCatering());
         }
     }
 
-    static async void OnBoardingConditions()
+    static void OnBoardingConditions()
     {
-        if (!IsGsxAvailable()) return;
-
-        if (_pushbackAttempted) return;
+        if (!_systemActivated) return;
+        if (!IsGsxAvailable() || _pushbackAttempted) return;
 
         if (HasAircraftMoved())
         {
@@ -735,13 +745,13 @@ class Program
         Logger.Debug("TRIGGER: Boarding conditions met!");
         _lastBoardingTrigger = DateTime.Now;
 
-        await Task.Delay(ServiceTriggerDelayMs);
-        await _gsxCommunicator.CallBoarding();
+        Thread.Sleep(ServiceTriggerDelayMs);
+        Task.Run(() => _gsxCommunicator.CallBoarding());
     }
 
-    static async void OnPushbackConditions()
+    static void OnPushbackConditions()
     {
-        if (!IsGsxAvailable()) return;
+        if (!IsGsxAvailable() || !_systemActivated || _aircraftController == null) return;
 
         if (HasAircraftMoved())
         {
@@ -761,14 +771,22 @@ class Program
         if (_gsxCommunicator.BoardingState == GsxServiceState.Active ||
             _gsxCommunicator.BoardingState == GsxServiceState.Requested)
         {
-            Logger.Debug("Pushback blocked - boarding is ongoing");
+            if (!_pushbackBlockedLogged)
+            {
+                Logger.Debug("Pushback blocked - boarding is ongoing");
+                _pushbackBlockedLogged = true;
+            }
             return;
         }
 
         if (_gsxCommunicator.DeboardingState == GsxServiceState.Active ||
             _gsxCommunicator.DeboardingState == GsxServiceState.Requested)
         {
-            Logger.Debug("Pushback blocked - deboarding is ongoing");
+            if (!_pushbackBlockedLogged)
+            {
+                Logger.Debug("Pushback blocked - deboarding is ongoing");
+                _pushbackBlockedLogged = true;
+            }
             return;
         }
 
@@ -778,31 +796,35 @@ class Program
         string aircraftTitle = _simVariableMonitor?.AircraftState.AircraftTitle ?? "";
         var aircraftConfig = ConfigManager.GetAircraftConfig(aircraftTitle);
 
+        if (_pushbackAttempted) return;
+
         _pushbackAttempted = true;
 
-        if (_aircraftController != null && _aircraftController.AreAnyDoorsOpen())
+        Task.Run(() =>
         {
-            if (!_systemActivated) return;
-
-            _ = Task.Run(async () =>
+            if (_aircraftController.AreAnyDoorsOpen() && aircraftConfig.AutoCloseDoors)
             {
-                await Task.Delay(2000);
+                Thread.Sleep(500);
+                _aircraftController.CloseOpenDoors();
 
-                if (aircraftConfig.AutoCloseDoors)
-                {
-                    _aircraftController.CloseOpenDoors();
-                    await Task.Delay(1000);
-                    _aircraftController.RemoveGroundEquipment();
-                }
-            });
-        }
+                Thread.Sleep(250);
+                _aircraftController.RemoveGroundEquipment();
+            }
 
-        if (_systemActivated) await _gsxCommunicator.CallPushback();
+            var maxAttempts = 120;
+            while (_aircraftController != null && _aircraftController.AreAnyDoorsOpen() && maxAttempts > 0)
+            {
+                Thread.Sleep(500);
+                maxAttempts--;
+            }
+
+            _gsxCommunicator.CallPushback();
+        });
     }
 
-    static async void OnDeboardingConditions()
+    static void OnDeboardingConditions()
     {
-        if (!IsGsxAvailable()) return;
+        if (!IsGsxAvailable() || _aircraftController == null) return;
 
         if (_simVariableMonitor != null)
         {
@@ -821,8 +843,8 @@ class Program
         Logger.Debug("TRIGGER: Deboarding conditions met!");
         _lastDeboardingTrigger = DateTime.Now;
 
-        await Task.Delay(ServiceTriggerDelayMs);
-        await _gsxCommunicator.CallDeboarding();
+        Thread.Sleep(ServiceTriggerDelayMs);
+        Task.Run(() => _gsxCommunicator.CallDeboarding());
     }
 
     static void ResetSession()
@@ -944,9 +966,9 @@ class Program
         int delaySeconds = aircraftConfig.TurnaroundDelaySeconds;
         Logger.Info($"Starting turnaround delay timer ({delaySeconds}s) - services will be called automatically");
 
-        _ = Task.Run(async () =>
+        _ = Task.Run(() =>
         {
-            await Task.Delay(delaySeconds * 1000);
+            Thread.Sleep(delaySeconds * 1000);
             _isInTurnaround = true;
 
             _refuelingCompleted = false;
@@ -965,16 +987,16 @@ class Program
                     _gsxCommunicator!.RefuelingState == GsxServiceState.Callable)
                 {
                     _lastRefuelingTrigger = DateTime.Now;
-                    await Task.Delay(ServiceTriggerDelayMs);
-                    await _gsxCommunicator.CallRefueling();
+                    Thread.Sleep(ServiceTriggerDelayMs);
+                    _gsxCommunicator.CallRefueling();
                 }
 
                 if (aircraftConfig.CateringOnTurnaround &&
                     _gsxCommunicator!.CateringState == GsxServiceState.Callable)
                 {
                     _lastCateringTrigger = DateTime.Now;
-                    await Task.Delay(ServiceTriggerDelayMs);
-                    await _gsxCommunicator.CallCatering();
+                    Thread.Sleep(ServiceTriggerDelayMs);
+                    _gsxCommunicator.CallCatering();
                 }
             }
             else
@@ -986,7 +1008,7 @@ class Program
 
     static void OnPushbackStateChanged(GsxServiceState state)
     {
-        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        if (!IsGsxAvailable())
         {
             return;
         }
@@ -1018,7 +1040,7 @@ class Program
 
     static void OnBoardingStateChanged(GsxServiceState state, bool forceActions)
     {
-        if (_gsxCommunicator == null || !_gsxCommunicator.IsGsxRunning())
+        if (!IsGsxAvailable())
         {
             return;
         }

@@ -281,8 +281,6 @@ namespace SimpleGsxIntegrator
                     return false;
             }
 
-            Logger.Debug($"Door: {GetDoorName(door)}, IsOpen Value: {val}");
-
             if (double.IsNaN(val)) return false;
 
             return val >= 0.50;
@@ -364,24 +362,6 @@ namespace SimpleGsxIntegrator
             catch (Exception ex)
             {
                 Logger.Error($"FMC Chocks sequence failed: {ex}");
-            }
-        }
-
-        public override void RequestSnapshot()
-        {
-            try
-            {
-                _simConnect.RequestDataOnSimObject(
-                    DATA_REQUESTS.PmdgVar737,
-                    DEFINITIONS.PmdgVar737,
-                    SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_PERIOD.ONCE,
-                    SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
-                    0, 0, 0);
-            }
-            catch (Exception ex)
-            {
-                Logger.Warning($"Pmdg737 RequestSnapshot failed: {ex.Message}");
             }
         }
 

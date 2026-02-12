@@ -1,5 +1,6 @@
 using Microsoft.FlightSimulator.SimConnect;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace SimpleGsxIntegrator;
 
@@ -235,7 +236,7 @@ public class GsxCommunicator
             data);
     }
 
-    public async Task SelectMenuOption(int option)
+    public void SelectMenuOption(int option)
     {
         if (_simConnect == null) return;
 
@@ -249,16 +250,16 @@ public class GsxCommunicator
             data);
     }
 
-    private async Task SelectHandlingOperator()
+    private void SelectHandlingOperator()
     {
         if (_simConnect == null) return;
         if (_handlingOperatorSelected) return;
 
-        await SelectMenuOption(1);
+        SelectMenuOption(1);
         _handlingOperatorSelected = true;
     }
 
-    public async Task CallBoarding()
+    public void CallBoarding()
     {
         GsxServiceState oldBoardingState = BoardingState;
         if (BoardingState != GsxServiceState.Callable)
@@ -270,13 +271,13 @@ public class GsxCommunicator
         Logger.Info("Calling GSX Boarding");
 
         CloseGsxMenu();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
         OpenGsxMenu();
-        await Task.Delay(1500);
-        await SelectMenuOption(4);
-        await Task.Delay(1500);
-        await SelectHandlingOperator();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
+        SelectMenuOption(4);
+        Thread.Sleep(1500);
+        SelectHandlingOperator();
+        Thread.Sleep(1500);
         CloseGsxMenu();
 
         if (oldBoardingState == BoardingState)
@@ -285,7 +286,7 @@ public class GsxCommunicator
         }
     }
 
-    public async Task CallRefueling()
+    public void CallRefueling()
     {
         GsxServiceState oldRefuelingState = RefuelingState;
         if (RefuelingState != GsxServiceState.Callable)
@@ -297,13 +298,13 @@ public class GsxCommunicator
         Logger.Info("Calling GSX Refueling");
 
         CloseGsxMenu();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
         OpenGsxMenu();
-        await Task.Delay(1500);
-        await SelectMenuOption(3);
-        await Task.Delay(1500);
-        await SelectHandlingOperator();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
+        SelectMenuOption(3);
+        Thread.Sleep(1500);
+        SelectHandlingOperator();
+        Thread.Sleep(1500);
         CloseGsxMenu();
 
         Logger.Debug("Refueling menu sequence sent");
@@ -314,7 +315,7 @@ public class GsxCommunicator
         }
     }
 
-    public async Task CallCatering()
+    public void CallCatering()
     {
         GsxServiceState oldCateringState = CateringState;
         if (CateringState != GsxServiceState.Callable)
@@ -326,13 +327,13 @@ public class GsxCommunicator
         Logger.Info("Calling GSX Catering");
 
         CloseGsxMenu();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
         OpenGsxMenu();
-        await Task.Delay(1500);
-        await SelectMenuOption(2);
-        await Task.Delay(1500);
-        await SelectHandlingOperator();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
+        SelectMenuOption(2);
+        Thread.Sleep(1500);
+        SelectHandlingOperator();
+        Thread.Sleep(1500);
         CloseGsxMenu();
 
         Logger.Debug("Catering menu sequence sent");
@@ -343,7 +344,7 @@ public class GsxCommunicator
         }
     }
 
-    public async Task CallPushback()
+    public void CallPushback()
     {
         if (PushbackState != GsxServiceState.Callable)
         {
@@ -360,19 +361,19 @@ public class GsxCommunicator
         Logger.Info("Calling GSX Pushback");
 
         CloseGsxMenu();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
         OpenGsxMenu();
-        await Task.Delay(1500);
-        await SelectMenuOption(5);
-        await Task.Delay(1500);
-        await SelectHandlingOperator();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
+        SelectMenuOption(5);
+        Thread.Sleep(1500);
+        SelectHandlingOperator();
+        Thread.Sleep(1500);
         CloseGsxMenu();
 
         Logger.Debug("Pushback menu sequence sent");
     }
 
-    public async Task CallDeboarding()
+    public void CallDeboarding()
     {
         if (DeboardingState != GsxServiceState.Callable)
         {
@@ -384,13 +385,13 @@ public class GsxCommunicator
         Logger.Warning("If map opens, select your gate position in GSX first, then call deboarding manually.");
 
         CloseGsxMenu();
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
         OpenGsxMenu();
-        await Task.Delay(1500);
-        await SelectMenuOption(1);
-        await Task.Delay(1500);
-        await SelectMenuOption(2);
-        await Task.Delay(1500);
+        Thread.Sleep(1500);
+        SelectMenuOption(1);
+        Thread.Sleep(1500);
+        SelectMenuOption(2);
+        Thread.Sleep(1500);
         CloseGsxMenu();
 
         Logger.Debug("Deboarding menu sequence sent");
