@@ -20,7 +20,6 @@ public partial class MainForm : Form
     private Label lblAircraftStateHasMoved = null!;
     private Label lblAircraftStateSpeed = null!;
     private Button btnPrintState = null!;
-    private Button btnMovementDebug = null!;
     private Button btnToggleMovement = null!;
     private CheckBox chkDarkMode = null!;
     private Panel pnlUpdateAvailable = null!;
@@ -337,19 +336,10 @@ public partial class MainForm : Form
         };
         btnPrintState.Click += (s, e) => Program.PrintCurrentState();
 
-        btnMovementDebug = new Button
-        {
-            Text = "Print Movement Debug",
-            Location = new Point(480, 350),
-            Size = new Size(180, 30),
-            BackColor = SystemColors.Control
-        };
-        btnMovementDebug.Click += (s, e) => Program.PrintMovementDebug();
-
         btnToggleMovement = new Button
         {
             Text = "Toggle HasMoved Flag",
-            Location = new Point(480, 390),
+            Location = new Point(480, 350),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -364,7 +354,7 @@ public partial class MainForm : Form
             lblAircraftHeader, lblCurrentAircraft, btnAircraftConfig,
             lblLogHeader, txtLog,
             lblAircraftStateHeader, lblAircraftStateBeacon, lblAircraftStateBrake, lblAircraftStateEngines, lblAircraftStateHasMoved, lblAircraftStateSpeed,
-            lblDebugHeader, btnPrintState, btnMovementDebug, btnToggleMovement
+            lblDebugHeader, btnPrintState, btnToggleMovement
         });
 
         this.ResumeLayout();
