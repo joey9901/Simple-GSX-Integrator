@@ -1,5 +1,6 @@
 using System.Windows.Forms;
 using System.Runtime.InteropServices;
+using SimpleGsxIntegrator.Config;
 
 namespace SimpleGsxIntegrator;
 
@@ -21,6 +22,7 @@ public partial class MainForm : Form
     private Label lblAircraftStateSpeed = null!;
     private Button btnPrintState = null!;
     private Button btnToggleMovement = null!;
+    private Button btnToggleEnginesRun = null!;
     private CheckBox chkDarkMode = null!;
     private Panel pnlUpdateAvailable = null!;
     private Label lblUpdateMessage = null!;
@@ -345,6 +347,15 @@ public partial class MainForm : Form
         };
         btnToggleMovement.Click += (s, e) => Program.ToggleMovementFlag();
 
+        btnToggleEnginesRun = new Button
+        {
+            Text = "Toggle EnginesEverRun",
+            Location = new Point(480, 390),
+            Size = new Size(180, 30),
+            BackColor = SystemColors.Control
+        };
+        btnToggleEnginesRun.Click += (s, e) => Program.ToggleEnginesEverRunFlag();
+
         this.Controls.AddRange(new Control[]
         {
             lblTitle, lblVersion, chkDarkMode, pnlUpdateAvailable,
@@ -354,7 +365,7 @@ public partial class MainForm : Form
             lblAircraftHeader, lblCurrentAircraft, btnAircraftConfig,
             lblLogHeader, txtLog,
             lblAircraftStateHeader, lblAircraftStateBeacon, lblAircraftStateBrake, lblAircraftStateEngines, lblAircraftStateHasMoved, lblAircraftStateSpeed,
-            lblDebugHeader, btnPrintState, btnToggleMovement
+            lblDebugHeader, btnPrintState, btnToggleMovement, btnToggleEnginesRun
         });
 
         this.ResumeLayout();

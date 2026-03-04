@@ -25,18 +25,10 @@ namespace SimpleGsxIntegrator.Automation;
 /// </summary>
 public sealed class AutomationManager
 {
-    // -----------------------------------------------------------------
-    //  Dependencies
-    // -----------------------------------------------------------------
-
     private readonly FlightStateTracker _flightState;
     private readonly GsxMonitor _gsxMonitor;
     private readonly GsxMenuController _gsxMenu;
     private readonly DoorManager _doorManager;
-
-    // -----------------------------------------------------------------
-    //  Session state
-    // -----------------------------------------------------------------
 
     private bool _activated;
     private bool _refuelingDone;
@@ -63,19 +55,8 @@ public sealed class AutomationManager
 
     private readonly object _sequenceLock = new();
 
-    // -----------------------------------------------------------------
-    //  Events for the UI
-    // -----------------------------------------------------------------
-
-    /// <summary>The system was activated or deactivated.</summary>
     public event Action<bool>? ActivationChanged;
-
-    /// <summary>The current aircraft name changed.</summary>
     public event Action<string>? AircraftChanged;
-
-    // -----------------------------------------------------------------
-    //  Constructor
-    // -----------------------------------------------------------------
 
     public AutomationManager(
         FlightStateTracker flightState,
@@ -90,10 +71,6 @@ public sealed class AutomationManager
 
         SetupEvents();
     }
-
-    // -----------------------------------------------------------------
-    //  Public interface
-    // -----------------------------------------------------------------
 
     public bool IsActivated => _activated;
 
@@ -119,10 +96,7 @@ public sealed class AutomationManager
         if (_activated)
         {
             SyncInitialGsxStates();
-            if (_flightState.BeaconOn)
-                EvaluatePushback();   // Beacon already on – skip ground services, go straight to pushback
-            else
-                EvaluateGroundServicesNow();
+            EvaluateServices();
         }
     }
 
@@ -148,18 +122,13 @@ public sealed class AutomationManager
         Logger.Success("Session reset – all service flags cleared");
     }
 
-    // -----------------------------------------------------------------
-    //  Event subscriptions
-    // -----------------------------------------------------------------
-
     private void SetupEvents()
     {
-        // FlightState
         _flightState.BeaconChanged += OnBeaconChanged;
         _flightState.AircraftChanged += OnAircraftChanged;
         _flightState.ActivationLvarTriggered += OnActivationLvarTriggered;
+        _flightState.EngineChanged += OnEngineChanged;
 
-        // GSX service states
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
         _gsxMonitor.BoardingStateChanged += OnBoardingStateChanged;
@@ -169,18 +138,10 @@ public sealed class AutomationManager
         _gsxMonitor.CateringStateChanged += OnCateringStateChanged;
     }
 
-    // -----------------------------------------------------------------
-    //  FlightState event handlers
-    // -----------------------------------------------------------------
-
     private void OnBeaconChanged(bool beaconOn)
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
-
-        if (beaconOn)
-            EvaluatePushback();
-        else
-            EvaluateGroundServicesNow();
+        EvaluateServices();
     }
 
     private void OnAircraftChanged(string title)
@@ -190,7 +151,6 @@ public sealed class AutomationManager
         var cfg = ConfigManager.GetAircraftConfig(title);
         AircraftChanged?.Invoke(title);
 
-        // Register activation L:var if configured for this aircraft
         if (_sc != null && !string.IsNullOrEmpty(cfg.ActivationLvar))
         {
             _flightState.SetActivationLvar(_sc, cfg.ActivationLvar);
@@ -209,28 +169,23 @@ public sealed class AutomationManager
             ToggleActivation();
         }
     }
-
-    // -----------------------------------------------------------------
-    //  GSX event handlers
-    // -----------------------------------------------------------------
+    private void OnEngineChanged(bool engineOn)
+    {
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        EvaluateServices();
+    }
 
     private void OnGsxStarted()
     {
         Logger.Debug("GSX is running");
         SyncInitialGsxStates();
         if (_activated)
-        {
-            if (_flightState.BeaconOn)
-                EvaluatePushback();
-            else
-                EvaluateGroundServicesNow();
-        }
+            EvaluateServices();
     }
 
     private void OnGsxStopped()
     {
         Logger.Debug("GSX stopped – automation paused until GSX restarts");
-        _gsxMenu.ResetOperatorSelection();
     }
 
     private void OnBoardingStateChanged(GsxServiceState state)
@@ -299,8 +254,7 @@ public sealed class AutomationManager
             case GsxServiceState.Completed:
                 _refuelingDone = true;
                 Logger.Success("Refueling: Complete");
-                // Try to call boarding now that refueling is done
-                if (_activated) EvaluateBoardingReady();
+                if (_activated) EvaluateBoarding();
                 break;
         }
     }
@@ -316,69 +270,66 @@ public sealed class AutomationManager
             case GsxServiceState.Completed:
                 _cateringDone = true;
                 Logger.Success("Catering: Complete");
-                // Try to call boarding now that catering is done
-                if (_activated) EvaluateBoardingReady();
+                if (_activated) EvaluateBoarding();
                 break;
         }
     }
 
-    // -----------------------------------------------------------------
-    //  Service evaluation logic
-    // -----------------------------------------------------------------
-
     /// <summary>
-    /// Evaluates all ground services (refueling, catering, boarding).
-    /// Called when the system activates, beacon turns off, or GSX starts.
+    /// Central dispatch: evaluates all services in priority order.
+    /// Each evaluate method is fully self-guarded and returns immediately if
+    /// its preconditions are not met, so calling all of them is always safe.
     /// </summary>
-    private void EvaluateGroundServicesNow()
+    private void EvaluateServices()
     {
-        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
-        if (_flightState.HasMoved) return;
-        if (_flightState.BeaconOn) return;
-
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
-
-        // ---- Refueling ----
-        if (cfg.RefuelBeforeBoarding && !_refuelingDone && !_boardingDone)
-        {
-            TryCallService("Refueling",
-                _gsxMonitor.Refueling,
-                ref _lastRefuelingCall,
-                () => _ = _gsxMenu.CallRefuelingAsync());
-        }
-
-        // ---- Catering ----
-        if (cfg.CateringOnNewFlight && !_cateringDone && !_boardingDone)
-        {
-            TryCallService("Catering",
-                _gsxMonitor.Catering,
-                ref _lastCateringCall,
-                () => _ = _gsxMenu.CallCateringAsync());
-        }
-
-        // ---- Boarding ----
-        EvaluateBoardingReady();
+        EvaluateDeboarding();
+        EvaluatePushback();
+        EvaluateRefueling();
+        EvaluateCatering();
+        EvaluateBoarding();
     }
 
-    /// <summary>
-    /// Evaluates whether boarding should be called, respecting sequencing guards.
-    /// </summary>
-    private void EvaluateBoardingReady()
+    private void EvaluateRefueling()
+    {
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.HasMoved || _flightState.BeaconOn) return;
+        if (_refuelingDone || _boardingDone) return;
+
+        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        if (!cfg.RefuelBeforeBoarding) return;
+
+        TryCallService("Refueling",
+            _gsxMonitor.Refueling,
+            ref _lastRefuelingCall,
+            () => _ = _gsxMenu.CallRefuelingAsync());
+    }
+
+    private void EvaluateCatering()
+    {
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.HasMoved || _flightState.BeaconOn) return;
+        if (_cateringDone || _boardingDone) return;
+
+        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        if (!cfg.CateringOnNewFlight) return;
+
+        TryCallService("Catering",
+            _gsxMonitor.Catering,
+            ref _lastCateringCall,
+            () => _ = _gsxMenu.CallCateringAsync());
+    }
+
+    private void EvaluateBoarding()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_boardingDone || _pushbackAttempted) return;
 
-        // Deboarding must not be running
         if (_gsxMonitor.Deboarding == GsxServiceState.Active ||
             _gsxMonitor.Deboarding == GsxServiceState.Requested) return;
 
         var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
-
-        // Wait for refueling if configured
         if (cfg.RefuelBeforeBoarding && !_refuelingDone) return;
-
-        // Wait for catering if enabled and not done
         if (cfg.CateringOnNewFlight && !_cateringDone) return;
 
         TryCallService("Boarding",
@@ -393,22 +344,22 @@ public sealed class AutomationManager
     private void EvaluatePushback()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (!_flightState.BeaconOn) return;
         if (_flightState.HasMoved) return;
         if (_pushbackDone || _pushbackAttempted) return;
 
         // Don't push back if boarding/deboarding is still actively running.
-        // We no longer require _boardingDone: if the beacon is ON the crew is ready,
+        // Beacon must be ON (checked above) – that signals the crew is ready to depart,
         // regardless of whether this session tracked boarding completing.
         if (_gsxMonitor.Boarding == GsxServiceState.Active ||
             _gsxMonitor.Boarding == GsxServiceState.Requested ||
             _gsxMonitor.Deboarding == GsxServiceState.Active ||
             _gsxMonitor.Deboarding == GsxServiceState.Requested) return;
 
-        // Pushback cooldown
         if ((DateTime.Now - _lastPushbackCall) < ServiceCallCooldown) return;
         _pushbackAttempted = true;
 
-        Logger.Info("AutomationManager: pre-pushback sequence initiated");
+        Logger.Debug("AutomationManager: pre-pushback sequence initiated");
 
         _ = Task.Run(async () =>
         {
@@ -419,11 +370,25 @@ public sealed class AutomationManager
                 var adapter = _doorManager.CurrentAdapter;
                 if (adapter != null)
                 {
-                    Logger.Info("AutomationManager: closing all open doors before pushback");
-                    adapter.CloseAllOpenDoors();
-                    await Task.Delay(3_000);   // allow door animations to complete
+                    Logger.Debug("AutomationManager: closing all open doors before pushback");
+                    await adapter.CloseAllOpenDoorsAsync();
 
-                    Logger.Info("AutomationManager: removing ground equipment");
+                    // Poll until L:vars confirm all doors are closed (max 60 s).
+                    // This prevents GSX from re-opening a door if we
+                    // call pushback while a door is still swinging shut.
+                    var deadline = DateTime.UtcNow.AddSeconds(60);
+                    while (adapter.AreAnyDoorsOpen() && DateTime.UtcNow < deadline)
+                    {
+                        Logger.Debug("AutomationManager: waiting for doors to close…");
+                        await Task.Delay(2_000);
+                    }
+
+                    if (adapter.AreAnyDoorsOpen())
+                        Logger.Warning("AutomationManager: doors still open after 60 s – proceeding with pushback anyway");
+                    else
+                        Logger.Info("AutomationManager: All Doors Confirmed Closed");
+
+                    Logger.Info("AutomationManager: Removing Ground Equipment");
                     adapter.RemoveGroundEquipment();
                     await Task.Delay(2_000);   // allow GPU/chock removal animations
                 }
@@ -433,9 +398,32 @@ public sealed class AutomationManager
                     await Task.Delay(2_000);
                 }
 
-                // 2. Request pushback via GSX menu.
                 _lastPushbackCall = DateTime.Now;
                 await _gsxMenu.CallPushbackAsync();
+
+                // Wait up to 30 s for GSX to acknowledge the pushback request.
+                // If the state never leaves Callable/Unknown the call was likely dropped
+                // (e.g. wrong menu position, GSX not ready). Clear the attempt flag and
+                // re-evaluate so we can try again on the next trigger.
+                var ackDeadline = DateTime.UtcNow.AddSeconds(30);
+                while (DateTime.UtcNow < ackDeadline)
+                {
+                    var s = _gsxMonitor.Pushback;
+                    if (s == GsxServiceState.Requested || s == GsxServiceState.Active || s == GsxServiceState.Completed)
+                    {
+                        Logger.Debug("AutomationManager: GSX acknowledged pushback request");
+                        break;
+                    }
+                    await Task.Delay(2_000);
+                }
+
+                if (_gsxMonitor.Pushback == GsxServiceState.Callable || _gsxMonitor.Pushback == GsxServiceState.Unknown)
+                {
+                    Logger.Warning("AutomationManager: GSX did not acknowledge pushback within 30 s – will retry");
+                    _pushbackAttempted = false;
+                    _lastPushbackCall = DateTime.MinValue;
+                    EvaluatePushback();
+                }
             }
             catch (Exception ex)
             {
@@ -450,12 +438,9 @@ public sealed class AutomationManager
     /// </summary>
     public void EvaluateDeboarding()
     {
-        if (!_activated && !_flightState.HasEnginesEverRun) return;
-        if (!_gsxMonitor.IsGsxRunning) return;
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_deboardingDone) return;
-        if (_flightState.HasMoved && !_flightState.HasEnginesEverRun) return;
-
-        // Must be parked
+        if (!_flightState.HasMoved || !_flightState.HasEnginesEverRun) return;
         if (!_flightState.OnGround || _flightState.BeaconOn) return;
         if (_flightState.GroundSpeed > 0.5) return;
 
@@ -464,10 +449,6 @@ public sealed class AutomationManager
             ref _lastDeboardingCall,
             () => _ = _gsxMenu.CallDeboardingAsync());
     }
-
-    // -----------------------------------------------------------------
-    //  Helpers
-    // -----------------------------------------------------------------
 
     /// <summary>
     /// Tries to call a service, checking that:
@@ -531,10 +512,6 @@ public sealed class AutomationManager
         }
     }
 
-    // -----------------------------------------------------------------
-    //  Debug helpers
-    // -----------------------------------------------------------------
-
     public void PrintState()
     {
         Logger.Info("=== Automation State ===");
@@ -542,6 +519,7 @@ public sealed class AutomationManager
         Logger.Info($"  Aircraft:\t\t{_flightState.AircraftTitle}");
         Logger.Info($"  Beacon:\t\t{_flightState.BeaconOn}");
         Logger.Info($"  Brake:\t\t{_flightState.ParkingBrake}");
+        Logger.Info($"  On Ground:\t\t{_flightState.OnGround}");
         Logger.Info($"  Engine Running:\t{_flightState.EngineOn}");
         Logger.Info($"  Ground Speed:\t{_flightState.GroundSpeed:F1} kts");
         Logger.Info($"  Has Moved:\t\t{_flightState.HasMoved}");

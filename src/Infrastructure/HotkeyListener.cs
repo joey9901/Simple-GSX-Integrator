@@ -19,34 +19,18 @@ public sealed class HotkeyListener : IDisposable
 
     private const int PollIntervalMs = 100;
 
-    // -----------------------------------------------------------------
-    //  Hotkey slots
-    // -----------------------------------------------------------------
-
     private ParsedHotkey? _activationHotkey;
     private ParsedHotkey? _resetHotkey;
 
     private bool _lastActivationState;
     private bool _lastResetState;
 
-    // -----------------------------------------------------------------
-    //  Events
-    // -----------------------------------------------------------------
-
     public event Action? ActivationPressed;
     public event Action? ResetPressed;
-
-    // -----------------------------------------------------------------
-    //  State
-    // -----------------------------------------------------------------
 
     private CancellationTokenSource? _cts;
     private volatile bool _rebinding;
     private int _rebindCooldownTicks;
-
-    // -----------------------------------------------------------------
-    //  Public API
-    // -----------------------------------------------------------------
 
     public HotkeyListener() { }
 
@@ -88,10 +72,6 @@ public sealed class HotkeyListener : IDisposable
 
     public void Stop() => _cts?.Cancel();
     public void Dispose() => Stop();
-
-    // -----------------------------------------------------------------
-    //  Internal poll loop
-    // -----------------------------------------------------------------
 
     private async Task PollLoopAsync()
     {

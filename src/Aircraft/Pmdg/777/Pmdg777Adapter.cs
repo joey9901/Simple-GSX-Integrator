@@ -20,9 +20,6 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 /// </summary>
 public sealed class Pmdg777Adapter : IAircraftAdapter
 {
-    // -----------------------------------------------------------------
-    //  SimConnect structs
-    // -----------------------------------------------------------------
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct Pmdg777VarsStruct
@@ -46,9 +43,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         public uint Parameter;
     }
 
-    // -----------------------------------------------------------------
-    //  State
-    // -----------------------------------------------------------------
 
     private SimConnect? _sc;
     private Pmdg777VarsStruct _vars;
@@ -61,9 +55,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     private readonly ConcurrentDictionary<uint, DateTime> _lastSent = new();
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
-    // -----------------------------------------------------------------
-    //  IAircraftAdapter – lifecycle
-    // -----------------------------------------------------------------
 
     public void OnSimConnectConnected(SimConnect sc)
     {
@@ -156,9 +147,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         }
     }
 
-    // -----------------------------------------------------------------
-    //  IAircraftAdapter – data
-    // -----------------------------------------------------------------
 
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
@@ -176,9 +164,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         }
     }
 
-    // -----------------------------------------------------------------
-    //  IAircraftAdapter – door queries
-    // -----------------------------------------------------------------
 
     public bool AreAnyDoorsOpen()
         => _doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds);
@@ -186,12 +171,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     public IReadOnlySet<uint> GetOpenDoorIds()
         => _doorTracker.GetOpenIds(Pmdg777Constants.AllDoorIds);
 
-    public void CloseAllOpenDoors()
-    {
-        _ = CloseAllOpenDoorsAsync();
-    }
-
-    private async Task CloseAllOpenDoorsAsync()
+    public async Task CloseAllOpenDoorsAsync()
     {
         var open = Pmdg777Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
 
@@ -218,9 +198,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         SendPmdgEvent(doorId, 1);
     }
 
-    // -----------------------------------------------------------------
-    //  IAircraftAdapter – ground equipment
-    // -----------------------------------------------------------------
 
     public void RemoveGroundEquipment()
     {
@@ -263,9 +240,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         }
     }
 
-    // -----------------------------------------------------------------
-    //  IAircraftAdapter – lifecycle
-    // -----------------------------------------------------------------
 
     public void Dispose()
     {
@@ -274,9 +248,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         Logger.Debug("Pmdg777Adapter: disposed");
     }
 
-    // -----------------------------------------------------------------
-    //  Internal helpers
-    // -----------------------------------------------------------------
 
     /// <summary>Reads the current raw L:var value for a door by its event code.</summary>
     private double GetRawDoorValue(uint evtCode) => evtCode switch

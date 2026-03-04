@@ -7,14 +7,8 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 /// </summary>
 public static class Pmdg777Constants
 {
-    // -----------------------------------------------------------------
-    //  Base – matches THIRD_PARTY_EVENT_ID_MIN in PMDG_777X_SDK.h
-    // -----------------------------------------------------------------
     private const uint BASE = 0x00011000;
 
-    // -----------------------------------------------------------------
-    //  Door event codes  (used in PMDG_777X_Control.Event)
-    // -----------------------------------------------------------------
     public const uint EVT_DOOR_1L = BASE + 14011;   // Cabin door 1 Left (main boarding)
     public const uint EVT_DOOR_1R = BASE + 14012;   // Cabin door 1 Right
     public const uint EVT_DOOR_2L = BASE + 14013;
@@ -32,22 +26,13 @@ public static class Pmdg777Constants
     public const uint EVT_DOOR_AVIONICS = BASE + 14025;   // Avionics / forward access
     public const uint EVT_DOOR_EE_HATCH = BASE + 14026;   // E&E hatch
 
-    // -----------------------------------------------------------------
-    //  Electrical / ground power event codes
-    // -----------------------------------------------------------------
     public const uint EVT_OH_ELEC_GRD_PWR_PRIM = BASE + 8;    // Primary ground power switch
     public const uint EVT_OH_ELEC_GRD_PWR_SEC = BASE + 7;    // Secondary ground power switch
 
-    // -----------------------------------------------------------------
-    //  CDU R event codes (for chock removal via CDU sequence)
-    // -----------------------------------------------------------------
     public const uint EVT_CDU_R_R1 = BASE + 407;
     public const uint EVT_CDU_R_R6 = BASE + 412;
     public const uint EVT_CDU_R_MENU = BASE + 423;
 
-    // -----------------------------------------------------------------
-    //  Door L:var names (PMDG exposes door state as L:vars)
-    // -----------------------------------------------------------------
     public const string LVAR_DOOR_1L = "L:7X7XCabinDoor1L";
     public const string LVAR_DOOR_1R = "L:7X7XCabinDoor1R";
     public const string LVAR_DOOR_2L = "L:7X7XCabinDoor2L";
@@ -65,16 +50,10 @@ public static class Pmdg777Constants
     public const string LVAR_AVIONICS = "L:7X7XavionicsDoor";
     public const string LVAR_EE_HATCH = "L:7X7XEEDoor";
 
-    // -----------------------------------------------------------------
-    //  Ground equipment L:var names
-    // -----------------------------------------------------------------
     public const string LVAR_WHEEL_CHOCKS = "L:7X7X_WheelChocks";
     public const string LVAR_EXT_PWR_SEC = "L:switch_07_b";    // secondary GPU
     public const string LVAR_EXT_PWR_PRIM = "L:switch_08_b";    // primary GPU
 
-    // -----------------------------------------------------------------
-    //  Door → human-readable name mapping
-    // -----------------------------------------------------------------
     public static string GetDoorName(uint evtCode) => evtCode switch
     {
         EVT_DOOR_1L => "Cabin 1L",
@@ -96,9 +75,6 @@ public static class Pmdg777Constants
         _ => $"door_evt_{evtCode}",
     };
 
-    // -----------------------------------------------------------------
-    //  Door lists
-    // -----------------------------------------------------------------
 
     /// <summary>All door event codes paired with their L:var names (for registration order).</summary>
     public static readonly IReadOnlyList<(uint EvtCode, string LVar)> AllDoors =
@@ -132,8 +108,5 @@ public static class Pmdg777Constants
         EVT_DOOR_AVIONICS,  EVT_DOOR_EE_HATCH,
     };
 
-    // -----------------------------------------------------------------
-    //  PMDG SimConnect client data area names (from PMDG_777X_SDK.h)
-    // -----------------------------------------------------------------
     public const string CLIENT_DATA_CONTROL_NAME = "PMDG_777X_Control";
 }

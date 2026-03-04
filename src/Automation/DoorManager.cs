@@ -61,9 +61,6 @@ public sealed class DoorManager
         _adapter = adapter;
     }
 
-    // -----------------------------------------------------------------
-    //  Event handlers
-    // -----------------------------------------------------------------
 
     private void OnBoardingStateChanged(GsxServiceState state)
     {
@@ -81,17 +78,11 @@ public sealed class DoorManager
 
         if (state == GsxServiceState.Requested || state == GsxServiceState.Active)
         {
-            // All non-essential doors must be closed before the tug moves
             _ = EnforceAllDoorsClosedAsync(reason: "pushback requested");
-
-            // Start a short monitor loop that re-closes any door GSX reopens
             StartMonitor(durationMs: 30_000);
         }
     }
 
-    // -----------------------------------------------------------------
-    //  Door-close helpers
-    // -----------------------------------------------------------------
 
     private async Task CloseDoorWithDelayAsync(uint doorId, int delayMs, string reason)
     {
@@ -141,9 +132,6 @@ public sealed class DoorManager
             Logger.Info($"DoorManager: closed {closed} door(s) before {reason}");
     }
 
-    // -----------------------------------------------------------------
-    //  Short re-close monitor (prevents GSX from re-opening doors)
-    // -----------------------------------------------------------------
 
     private void StartMonitor(int durationMs)
     {

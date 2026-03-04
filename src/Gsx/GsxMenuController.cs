@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.FlightSimulator.SimConnect;
+using SimpleGsxIntegrator.Config;
 using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Gsx;
@@ -17,10 +18,6 @@ namespace SimpleGsxIntegrator.Gsx;
 /// </summary>
 public sealed class GsxMenuController
 {
-    // -----------------------------------------------------------------
-    //  SimConnect structs
-    // -----------------------------------------------------------------
-
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct GsxVarSetStruct { public double Value; }
 
@@ -29,26 +26,14 @@ public sealed class GsxMenuController
     private const int MenuChoiceDelayMs = 1200;
     private const int MenuCloseDelayMs = 800;
 
-    // -----------------------------------------------------------------
-    //  State
-    // -----------------------------------------------------------------
-
     private SimConnect? _sc;
     private bool _operatorAutoSelected;
 
-    // -----------------------------------------------------------------
-    //  GSX menu item numbers (1-based, matching visible GSX menu)
-    //  Item order: 1=Deboarding 2=Catering 3=Refueling 4=Boarding 5=Pushback
-    // -----------------------------------------------------------------
     private const int MenuItemDeboarding = 1;
     private const int MenuItemCatering = 2;
     private const int MenuItemRefueling = 3;
     private const int MenuItemBoarding = 4;
     private const int MenuItemPushback = 5;
-
-    // -----------------------------------------------------------------
-    //  SimConnect wiring
-    // -----------------------------------------------------------------
 
     /// <summary>Wire this to <see cref="SimConnectHub.Connected"/>.</summary>
     public void OnSimConnectConnected(SimConnect sc)
@@ -56,12 +41,10 @@ public sealed class GsxMenuController
         _sc = sc;
         _operatorAutoSelected = false;
 
-        // MenuOpen write definition
         sc.AddToDataDefinition(SimDef.GsxMenuOpen, GsxConstants.MenuOpen, null,
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<GsxVarSetStruct>(SimDef.GsxMenuOpen);
 
-        // MenuChoice write definition
         sc.AddToDataDefinition(SimDef.GsxMenuChoice, GsxConstants.MenuChoice, null,
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<GsxVarSetStruct>(SimDef.GsxMenuChoice);
@@ -69,19 +52,11 @@ public sealed class GsxMenuController
         Logger.Debug("GsxMenuController: SimConnect vars registered");
     }
 
-    // -----------------------------------------------------------------
-    //  Service trigger methods
-    // -----------------------------------------------------------------
-
     public Task CallBoardingAsync() => CallServiceAsync("Boarding", MenuItemBoarding);
     public Task CallCateringAsync() => CallServiceAsync("Catering", MenuItemCatering);
     public Task CallRefuelingAsync() => CallServiceAsync("Refueling", MenuItemRefueling);
     public Task CallPushbackAsync() => CallServiceAsync("Pushback", MenuItemPushback, closeAfter: false);
     public Task CallDeboardingAsync() => CallDeboardingSequenceAsync();
-
-    // -----------------------------------------------------------------
-    //  Internal sequence logic
-    // -----------------------------------------------------------------
 
     private async Task CallServiceAsync(string name, int menuItem, bool closeAfter = true)
     {
@@ -150,9 +125,6 @@ public sealed class GsxMenuController
         }
     }
 
-    // -----------------------------------------------------------------
-    //  Primitive L:var writes
-    // -----------------------------------------------------------------
 
     private Task OpenMenuAsync()
     {

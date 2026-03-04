@@ -12,10 +12,6 @@ namespace SimpleGsxIntegrator.Core;
 /// </summary>
 public sealed class FlightStateTracker
 {
-    // -----------------------------------------------------------------
-    //  SimConnect structs
-    // -----------------------------------------------------------------
-
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
     private struct FlightStateStruct
     {
@@ -35,19 +31,11 @@ public sealed class FlightStateTracker
         public double Value;
     }
 
-    // -----------------------------------------------------------------
-    //  Observed state (latest poll)
-    // -----------------------------------------------------------------
-
     private FlightStateStruct _state;
+    private FlightStateStruct _prevState;
     private bool _firstPoll = true;
     private const double MovedThreshold = 3.0; // knots
-
-    // Previous values for edge-detection
-    private bool _prevBeacon;
-    private bool _prevParkingBrake;
-    private bool _prevEngine;
-    private string _prevTitle = string.Empty;
+    private const double AirSpeedThreshold = 50.0; // knots 
 
     // Derived flags
     private bool _enginesHaveRun;
@@ -56,10 +44,6 @@ public sealed class FlightStateTracker
     // Activation L:var tracking
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
-
-    // -----------------------------------------------------------------
-    //  Public read-only state
-    // -----------------------------------------------------------------
 
     public bool BeaconOn => _state.BeaconLight != 0;
     public bool ParkingBrake => _state.ParkingBrake != 0;
@@ -71,9 +55,6 @@ public sealed class FlightStateTracker
     public bool HasEnginesEverRun => _enginesHaveRun;
     public bool HasMoved => _hasMoved;
 
-    // -----------------------------------------------------------------
-    //  Events
-    // -----------------------------------------------------------------
 
     /// <summary>Fires when the beacon light state changes.</summary>
     public event Action<bool>? BeaconChanged;
@@ -84,6 +65,9 @@ public sealed class FlightStateTracker
     /// <summary>Fires when engine combustion state changes.</summary>
     public event Action<bool>? EngineChanged;
 
+    /// <summary>Fires when ground speed changes by more than 0.5 knots.</summary>
+    public event Action<double>? SpeedChanged;
+
     /// <summary>Fires when the aircraft title changes (new aircraft loaded).</summary>
     public event Action<string>? AircraftChanged;
 
@@ -92,10 +76,6 @@ public sealed class FlightStateTracker
     /// expected trigger value.  Payload is the raw double value.
     /// </summary>
     public event Action<double>? ActivationLvarTriggered;
-
-    // -----------------------------------------------------------------
-    //  SimConnect wiring
-    // -----------------------------------------------------------------
 
     /// <summary>Wire this to <see cref="SimConnectHub.Connected"/>.</summary>
     public void OnSimConnectConnected(SimConnect sc)
@@ -167,10 +147,6 @@ public sealed class FlightStateTracker
         }
     }
 
-    // -----------------------------------------------------------------
-    //  Data handling
-    // -----------------------------------------------------------------
-
     /// <summary>Wire this to <see cref="SimConnectHub.SimObjectDataReceived"/>.</summary>
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
@@ -188,21 +164,21 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        // Update derived flags
         if (_state.EngineRunning != 0) _enginesHaveRun = true;
 
-        if (!_hasMoved && _enginesHaveRun && _state.GroundSpeed > MovedThreshold)
-            _hasMoved = true;
+        if (!_hasMoved)
+        {
+            if ((_enginesHaveRun && _state.GroundSpeed > MovedThreshold)
+                || (_state.OnGround < 1 && _state.Airspeed > AirSpeedThreshold))
+                _hasMoved = true;
+        }
 
         // First poll – seed previous values then fire initial-state notifications so the UI
         // populates immediately when the app connects to an already-running simulator.
         if (_firstPoll)
         {
             _firstPoll = false;
-            _prevBeacon = BeaconOn;
-            _prevParkingBrake = ParkingBrake;
-            _prevEngine = EngineOn;
-            _prevTitle = AircraftTitle;
+            _prevState = s;
             Logger.Debug($"FlightStateTracker: initial state – Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}'");
 
             // Push initial state to subscribers (these are "here's the current value" notifications,
@@ -213,36 +189,37 @@ public sealed class FlightStateTracker
             return;
         }
 
-        // Detect title change
-        if (!string.IsNullOrEmpty(AircraftTitle) && AircraftTitle != _prevTitle)
+        if (!string.IsNullOrEmpty(AircraftTitle) && _state.AircraftTitle != _prevState.AircraftTitle)
         {
-            _prevTitle = AircraftTitle;
+            _prevState.AircraftTitle = _state.AircraftTitle;
             Logger.Debug($"FlightStateTracker: aircraft title → '{AircraftTitle}'");
             AircraftChanged?.Invoke(AircraftTitle);
         }
 
-        // Detect beacon change
-        if (BeaconOn != _prevBeacon)
+        if (_state.BeaconLight != _prevState.BeaconLight)
         {
-            _prevBeacon = BeaconOn;
+            _prevState.BeaconLight = _state.BeaconLight;
             Logger.Debug($"FlightStateTracker: beacon → {(BeaconOn ? "ON" : "OFF")}");
             BeaconChanged?.Invoke(BeaconOn);
         }
 
-        // Detect parking brake change
-        if (ParkingBrake != _prevParkingBrake)
+        if (_state.ParkingBrake != _prevState.ParkingBrake)
         {
-            _prevParkingBrake = ParkingBrake;
+            _prevState.ParkingBrake = _state.ParkingBrake;
             Logger.Debug($"FlightStateTracker: parking brake → {(ParkingBrake ? "SET" : "RELEASED")}");
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
 
-        // Detect engine change
-        if (EngineOn != _prevEngine)
+        if (_state.EngineRunning != _prevState.EngineRunning)
         {
-            _prevEngine = EngineOn;
+            _prevState.EngineRunning = _state.EngineRunning;
             Logger.Debug($"FlightStateTracker: engine → {(EngineOn ? "RUNNING" : "OFF")}");
             EngineChanged?.Invoke(EngineOn);
+        }
+        if (Math.Abs(_state.GroundSpeed - _prevState.GroundSpeed) > 0.5)
+        {
+            _prevState.GroundSpeed = _state.GroundSpeed;
+            SpeedChanged?.Invoke(GroundSpeed);
         }
     }
 
@@ -267,7 +244,7 @@ public sealed class FlightStateTracker
         _enginesHaveRun = false;
         _hasMoved = false;
         _firstPoll = true;
-        _prevTitle = string.Empty;
+        _prevState = default;
         _activationLvar = null;
         _lastActivationValue = double.NaN;
         Logger.Debug("FlightStateTracker: session reset");
@@ -278,5 +255,12 @@ public sealed class FlightStateTracker
     {
         _hasMoved = value;
         Logger.Debug($"FlightStateTracker: HasMoved forced to {value}");
+    }
+
+    /// <summary>Forces the HasEnginesEverRun flag (debug helper).</summary>
+    public void ForceEnginesEverRun(bool value)
+    {
+        _enginesHaveRun = value;
+        Logger.Debug($"FlightStateTracker: HasEnginesEverRun forced to {value}");
     }
 }

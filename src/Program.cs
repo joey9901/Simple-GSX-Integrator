@@ -82,6 +82,7 @@ internal static class Program
         _flightState.BeaconChanged += _ => RefreshAircraftStateDetails();
         _flightState.ParkingBrakeChanged += _ => RefreshAircraftStateDetails();
         _flightState.EngineChanged += _ => RefreshAircraftStateDetails();
+        _flightState.SpeedChanged += _ => RefreshAircraftStateDetails();
 
         _gsxMonitor.GsxStarted += () => _mainForm.Invoke(() => _mainForm.SetGsxStatus(true));
         _gsxMonitor.GsxStopped += () => _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
@@ -139,7 +140,6 @@ internal static class Program
         {
             Logger.Warning($"SimConnect not available ({ex.Message}). Will retry when MSFS is running.");
             _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
-            // Retry loop on background thread
             Task.Run(async () =>
             {
                 while (!_manager.IsConnected)
@@ -161,7 +161,6 @@ internal static class Program
     {
         _sc = sc;
 
-        // Register each component's SimConnect definitions / requests.
         _flightState.OnSimConnectConnected(sc);
         _gsxMonitor.OnSimConnectConnected(sc);
         _gsxMenu.OnSimConnectConnected(sc);
@@ -195,7 +194,6 @@ internal static class Program
 
     private static void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
-        // Fan out to all subscribers that care about this request ID.
         _flightState.OnSimObjectData(data);
         _gsxMonitor.OnSimObjectData(data);
         _currentAdapter?.OnSimObjectData(data);
@@ -211,10 +209,6 @@ internal static class Program
 
         CurrentAircraftPath = aircraftPath;
         Logger.Debug($"Aircraft loaded: {aircraftPath}");
-
-        // Update the UI label immediately with the path (FlightStateTracker will
-        // separately provide the human-readable TITLE via AircraftChanged once data arrives).
-        _mainForm.Invoke(() => _mainForm.SetCurrentAircraft(aircraftPath, _automationManager.IsActivated));
 
         LoadAdapterForAircraft(aircraftPath);
     }
@@ -247,9 +241,10 @@ internal static class Program
 
         if (newAdapter != null)
         {
+            Logger.Success("Custom Aircraft Profile Found! -- Doors and Ground Equipment will be managed Automatically");
             if (_sc != null)
             {
-                Logger.Debug($"Registering adapter '{newAdapter.GetType().Name}' with active SimConnect.");
+                Logger.Debug($"Registering Adapter '{newAdapter.GetType().Name}' with Active SimConnect.");
                 newAdapter.OnSimConnectConnected(_sc);
             }
             else
@@ -284,15 +279,18 @@ internal static class Program
         }
     }
 
-    /// <summary>Toggles the hasMoved flag (for testing).</summary>
     public static void ToggleMovementFlag()
     {
         bool current = _flightState.HasMoved;
         _flightState.ForceHasMoved(!current);
         Logger.Info($"hasMoved forced → {!current}");
     }
-
-    /// <summary>Enables or disables hotkey rebinding mode.</summary>
+    public static void ToggleEnginesEverRunFlag()
+    {
+        bool current = _flightState.HasEnginesEverRun;
+        _flightState.ForceEnginesEverRun(!current);
+        Logger.Info($"hasEnginesEverRun forced \u2192 {!current}");
+    }
     public static void SetRebindingMode(bool isRebinding)
     {
         _hotkeys.SetRebinding(isRebinding);
@@ -331,7 +329,7 @@ internal static class Program
             _flightState.ParkingBrake,
             _flightState.EngineOn,
             _flightState.HasMoved,
-            0.0));
+            _flightState.GroundSpeed));
     }
 
     private static void SyncHotkeyLabels()

@@ -20,9 +20,6 @@ public interface IAircraftAdapter : IDisposable
     /// <summary>Called by the hub for every <c>OnRecvSimobjectData</c> event.</summary>
     void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data);
 
-    // -----------------------------------------------------------------
-    //  Door state
-    // -----------------------------------------------------------------
 
     /// <summary>Returns true if any passenger or cargo door is currently open.</summary>
     bool AreAnyDoorsOpen();
@@ -30,15 +27,15 @@ public interface IAircraftAdapter : IDisposable
     /// <summary>Returns the set of door IDs (PMDG event codes) that are open.</summary>
     IReadOnlySet<uint> GetOpenDoorIds();
 
-    /// <summary>Sends a close command for each open door.</summary>
-    void CloseAllOpenDoors();
+    /// <summary>
+    /// Sends a close command for each open door and awaits the inter-door delays.
+    /// The caller should then poll <see cref="AreAnyDoorsOpen"/> to confirm closure.
+    /// </summary>
+    Task CloseAllOpenDoorsAsync();
 
     /// <summary>Sends a close command for the specified door ID.</summary>
     void CloseDoor(uint doorId);
 
-    // -----------------------------------------------------------------
-    //  Ground equipment
-    // -----------------------------------------------------------------
 
     /// <summary>
     /// Removes ground equipment (GPU, chocks) specific to this aircraft.

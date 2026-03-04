@@ -1,8 +1,5 @@
 namespace SimpleGsxIntegrator.Config;
 
-// -----------------------------------------------------------------
-//  Top-level config model
-// -----------------------------------------------------------------
 
 public sealed class AppConfig
 {
@@ -11,9 +8,6 @@ public sealed class AppConfig
     public Dictionary<string, AircraftConfig> Aircraft { get; set; } = new();
 }
 
-// -----------------------------------------------------------------
-//  Hotkeys
-// -----------------------------------------------------------------
 
 public sealed class HotkeyConfig
 {
@@ -31,18 +25,12 @@ public sealed class ParsedHotkey
     public string DisplayName { get; init; } = string.Empty;
 }
 
-// -----------------------------------------------------------------
-//  UI
-// -----------------------------------------------------------------
 
 public sealed class UiConfig
 {
     public bool DarkMode { get; set; } = false;
 }
 
-// -----------------------------------------------------------------
-//  Per-aircraft settings
-// -----------------------------------------------------------------
 
 public sealed class AircraftConfig
 {

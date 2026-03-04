@@ -16,14 +16,6 @@ public sealed class ProcessWatcher : IDisposable
     /// <summary>Fires when MSFS is detected to have exited.</summary>
     public event Action? MsfsExited;
 
-    // -----------------------------------------------------------------
-    //  Public API
-    // -----------------------------------------------------------------
-
-    /// <summary>
-    /// If MSFS is currently running, begins monitoring for its exit.
-    /// Has no effect if MSFS is not running.
-    /// </summary>
     public void StartIfMsfsRunning()
     {
         if (!IsMsfsRunning())
@@ -43,10 +35,6 @@ public sealed class ProcessWatcher : IDisposable
     }
 
     public void Dispose() => _cts?.Cancel();
-
-    // -----------------------------------------------------------------
-    //  Internal
-    // -----------------------------------------------------------------
 
     private async Task MonitorLoopAsync()
     {

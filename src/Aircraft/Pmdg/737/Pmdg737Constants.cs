@@ -8,9 +8,6 @@ public static class Pmdg737Constants
 {
     private const uint BASE = 0x00011000;
 
-    // -----------------------------------------------------------------
-    //  Door event codes
-    // -----------------------------------------------------------------
     public const uint EVT_DOOR_FWD_L = BASE + 14005;  // Forward Left Cabin  (1L)
     public const uint EVT_DOOR_FWD_R = BASE + 14006;  // Forward Right Cabin (1R)
     public const uint EVT_DOOR_AFT_L = BASE + 14007;  // Aft Left Cabin      (2L)
@@ -25,14 +22,8 @@ public static class Pmdg737Constants
     public const uint EVT_DOOR_CARGO_MAIN = BASE + 14015;  // Main Cargo
     public const uint EVT_DOOR_EQUIPMENT_HATCH = BASE + 14016;  // Equipment Hatch
 
-    // -----------------------------------------------------------------
-    //  Ground power
-    // -----------------------------------------------------------------
     public const uint EVT_OH_ELEC_GRD_PWR_SWITCH = BASE + 17;
 
-    // -----------------------------------------------------------------
-    //  CDU (right) event codes — chock removal: MENU → R5 → R1 → R6
-    // -----------------------------------------------------------------
     public const uint EVT_CDU_R_L1 = BASE + 606;
     public const uint EVT_CDU_R_L2 = BASE + 607;
     public const uint EVT_CDU_R_L3 = BASE + 608;
@@ -47,9 +38,6 @@ public static class Pmdg737Constants
     public const uint EVT_CDU_R_R6 = BASE + 617;
     public const uint EVT_CDU_R_MENU = BASE + 623;
 
-    // -----------------------------------------------------------------
-    //  L:var names  (must match AddToDataDefinition order in adapter)
-    // -----------------------------------------------------------------
     public const string LVAR_DOOR_FWD_L = "L:FwdLeftCabinDoor";
     public const string LVAR_DOOR_AFT_L = "L:AftLeftCabinDoor";
     public const string LVAR_DOOR_FWD_R = "L:FwdRightCabinDoor";
@@ -64,14 +52,8 @@ public static class Pmdg737Constants
     public const string LVAR_EQUIPMENT_HATCH = "L:EEDoor";
     public const string LVAR_WHEEL_CHOCKS = "L:NGXWheelChocks";
 
-    // -----------------------------------------------------------------
-    //  SimConnect control channel name
-    // -----------------------------------------------------------------
     public const string CLIENT_DATA_CONTROL_NAME = "PMDG_NG3_Control";
 
-    // -----------------------------------------------------------------
-    //  Door name map
-    // -----------------------------------------------------------------
     public static string GetDoorName(uint evtCode) => evtCode switch
     {
         EVT_DOOR_FWD_L => "Forward Left Cabin",
@@ -89,9 +71,6 @@ public static class Pmdg737Constants
         _ => $"door_evt_{evtCode}",
     };
 
-    // -----------------------------------------------------------------
-    //  All monitored doors (event code used as identifier for close/query)
-    // -----------------------------------------------------------------
     public static readonly IReadOnlyList<uint> AllDoorIds = new uint[]
     {
         EVT_DOOR_FWD_L,

@@ -7,22 +7,13 @@ namespace SimpleGsxIntegrator.Config;
 /// </summary>
 public static class ConfigManager
 {
-    // -----------------------------------------------------------------
-    //  Paths
-    // -----------------------------------------------------------------
 
     private static readonly string ConfigDir = Path.Combine(AppContext.BaseDirectory, "config");
     private static readonly string ConfigPath = Path.Combine(ConfigDir, "simplegsx.ini");
 
-    // -----------------------------------------------------------------
-    //  Cached config
-    // -----------------------------------------------------------------
 
     private static AppConfig _config = Load();
 
-    // -----------------------------------------------------------------
-    //  Public API
-    // -----------------------------------------------------------------
 
     public static AppConfig GetConfig() => _config;
 
@@ -56,9 +47,6 @@ public static class ConfigManager
         WriteFile(config);
     }
 
-    // -----------------------------------------------------------------
-    //  INI parsing
-    // -----------------------------------------------------------------
 
     private static AppConfig Load()
     {
@@ -179,9 +167,6 @@ public static class ConfigManager
         => s.Equals("true", StringComparison.OrdinalIgnoreCase);
 }
 
-// -----------------------------------------------------------------
-//  Hotkey parser (standalone utility)
-// -----------------------------------------------------------------
 
 public static class HotkeyParser
 {

@@ -21,15 +21,9 @@ namespace SimpleGsxIntegrator.Aircraft;
 /// </summary>
 internal sealed class DoorStateTracker
 {
-    // -----------------------------------------------------------------
-    //  Public types
-    // -----------------------------------------------------------------
 
     public enum DoorState { Unknown, Open, Closed }
 
-    // -----------------------------------------------------------------
-    //  Constants
-    // -----------------------------------------------------------------
 
     /// <summary>
     /// Raw values at or below this are treated as "effectively zero / fully closed".
@@ -38,21 +32,12 @@ internal sealed class DoorStateTracker
     /// </summary>
     private const double ZeroThreshold = 1e-4;
 
-    // -----------------------------------------------------------------
-    //  Internal entry
-    // -----------------------------------------------------------------
 
     private readonly record struct DoorEntry(double LastRaw, DoorState State);
 
-    // -----------------------------------------------------------------
-    //  State
-    // -----------------------------------------------------------------
 
     private readonly Dictionary<uint, DoorEntry> _doors = new();
 
-    // -----------------------------------------------------------------
-    //  Public API
-    // -----------------------------------------------------------------
 
     /// <summary>
     /// Feed the latest raw L:var reading for a door. Call once per SimConnect
@@ -80,23 +65,23 @@ internal sealed class DoorStateTracker
 
         if (rawValue > entry.LastRaw + ZeroThreshold)
         {
-            // Value is increasing → door is opening or swinging open.
+            // Value is increasing → door is opening.
             newState = DoorState.Open;
         }
         else if (rawValue < entry.LastRaw - ZeroThreshold)
         {
             // Value is decreasing → door is closing.
             // It is only Closed once it reaches effectively-zero.
-            newState = isZero ? DoorState.Closed : DoorState.Open;
+            newState = DoorState.Closed;
         }
         else
         {
-            // Value is stable → carry the existing state over.
-            newState = entry.State;
+            // Value is stable → if effectively zero, confirm closed; otherwise carry existing state.
+            newState = isZero ? DoorState.Closed : entry.State;
         }
 
         if (newState != entry.State)
-            Logger.Info($"DoorTracker [{doorName}]: {entry.State} → {newState} (raw={rawValue:F4})");
+            Logger.Debug($"DoorTracker [{doorName}]: {entry.State} → {newState} (raw={rawValue:F4})");
 
         _doors[doorId] = new DoorEntry(rawValue, newState);
     }

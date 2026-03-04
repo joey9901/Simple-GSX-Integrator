@@ -6,17 +6,9 @@ namespace SimpleGsxIntegrator.Gsx;
 
 /// <summary>
 /// Monitors all GSX service-state L:vars via SimConnect.
-/// Exposes current state as properties and raises strongly-typed events on state changes.
-///
-/// Registration wires into <see cref="SimConnectHub.Connected"/>; data arrives via
-/// <see cref="SimConnectHub.SimObjectDataReceived"/>.
 /// </summary>
 public sealed class GsxMonitor
 {
-    // -----------------------------------------------------------------
-    //  SimConnect struct
-    // -----------------------------------------------------------------
-
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
     private struct GsxStateStruct
     {
@@ -31,10 +23,6 @@ public sealed class GsxMonitor
         public double CateringState;
     }
 
-    // -----------------------------------------------------------------
-    //  State
-    // -----------------------------------------------------------------
-
     private bool _gsxRunning;
     private GsxServiceState _boarding = GsxServiceState.Unknown;
     private GsxServiceState _deboarding = GsxServiceState.Unknown;
@@ -42,10 +30,6 @@ public sealed class GsxMonitor
     private GsxServiceState _refueling = GsxServiceState.Unknown;
     private GsxServiceState _catering = GsxServiceState.Unknown;
     private int _pushbackProgress;
-
-    // -----------------------------------------------------------------
-    //  Public state  (snapshot properties)
-    // -----------------------------------------------------------------
 
     public bool IsGsxRunning => _gsxRunning;
     public GsxServiceState Boarding => _boarding;
@@ -59,27 +43,14 @@ public sealed class GsxMonitor
     /// </summary>
     public int PushbackProgress => _pushbackProgress;
 
-    // -----------------------------------------------------------------
-    //  Events
-    // -----------------------------------------------------------------
-
-    /// <summary>Fires when the GSX Couatl engine starts (GSX becomes active).</summary>
     public event Action? GsxStarted;
-
-    /// <summary>Fires when the GSX Couatl engine stops.</summary>
     public event Action? GsxStopped;
-
     public event Action<GsxServiceState>? BoardingStateChanged;
     public event Action<GsxServiceState>? DeboardingStateChanged;
     public event Action<GsxServiceState>? PushbackStateChanged;
     public event Action<GsxServiceState>? RefuelingStateChanged;
     public event Action<GsxServiceState>? CateringStateChanged;
 
-    // -----------------------------------------------------------------
-    //  SimConnect wiring
-    // -----------------------------------------------------------------
-
-    /// <summary>Wire this to <see cref="SimConnectHub.Connected"/>.</summary>
     public void OnSimConnectConnected(SimConnect sc)
     {
         void Add(string lvar)
@@ -109,11 +80,6 @@ public sealed class GsxMonitor
         Logger.Debug("GsxMonitor: SimConnect vars registered");
     }
 
-    // -----------------------------------------------------------------
-    //  Data handling
-    // -----------------------------------------------------------------
-
-    /// <summary>Wire this to <see cref="SimConnectHub.SimObjectDataReceived"/>.</summary>
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID != (uint)SimReq.GsxState) return;
@@ -124,7 +90,6 @@ public sealed class GsxMonitor
 
     private void ProcessGsxState(GsxStateStruct raw)
     {
-        // ---- GSX running state ----
         bool nowRunning = raw.CouatlStarted > 0;
         if (nowRunning != _gsxRunning)
         {
@@ -135,7 +100,6 @@ public sealed class GsxMonitor
                 GsxStopped?.Invoke();
         }
 
-        // ---- Service states ----
         UpdateState(ref _boarding, ref BoardingStateChanged, raw.BoardingState);
         UpdateState(ref _deboarding, ref DeboardingStateChanged, raw.DeboardingState);
         UpdateState(ref _pushback, ref PushbackStateChanged, raw.DepartureState);
