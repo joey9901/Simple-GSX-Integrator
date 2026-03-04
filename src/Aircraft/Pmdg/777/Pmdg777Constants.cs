@@ -31,6 +31,7 @@ public static class Pmdg777Constants
 
     public const uint EVT_CDU_R_R1 = BASE + 407;
     public const uint EVT_CDU_R_R6 = BASE + 412;
+    public const uint EVT_CDU_R_L2 = BASE + 402;
     public const uint EVT_CDU_R_MENU = BASE + 423;
 
     public const string LVAR_DOOR_1L = "L:7X7XCabinDoor1L";

@@ -177,7 +177,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
 
         if (open.Count == 0) return;
 
-        Logger.Info($"Pmdg777Adapter: closing {open.Count} open door(s)");
+        Logger.Info($"Pmdg777Adapter: Closing {open.Count} open door(s)");
 
         foreach (uint evtCode in open)
         {
@@ -190,11 +190,11 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     {
         if (!_doorTracker.IsOpen(doorId))
         {
-            Logger.Debug($"Pmdg777Adapter: {Pmdg777Constants.GetDoorName(doorId)} is already closed");
+            Logger.Debug($"Pmdg777Adapter: {Pmdg777Constants.GetDoorName(doorId)} is already Closed");
             return;
         }
 
-        Logger.Info($"Pmdg777Adapter: closing {Pmdg777Constants.GetDoorName(doorId)}");
+        Logger.Info($"Pmdg777Adapter: Closing {Pmdg777Constants.GetDoorName(doorId)}");
         SendPmdgEvent(doorId, 1);
     }
 
@@ -202,6 +202,30 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     public void RemoveGroundEquipment()
     {
         _ = RemoveGroundEquipmentAsync();
+    }
+
+    public async Task PlaceGroundEquipmentAndChocks()
+    {
+        try
+        {
+            if (_vars.WheelChocks >= 0.5)
+            {
+                Logger.Debug("Pmdg777Adapter: Chocks not set - skipping CDU Sequence");
+                return;
+            }
+
+            Logger.Info("Pmdg777Adapter: Placing Chocks and GPU via CDU Sequence");
+
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_L2, 1);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Pmdg777Adapter: RemoveGroundEquipment failed: {ex}");
+        }
     }
 
     private async Task RemoveGroundEquipmentAsync()
@@ -215,23 +239,16 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
             // Remove chocks via CDU sequence (only if chocks are actually set)
             if (_vars.WheelChocks <= 0.5)
             {
-                Logger.Debug("Pmdg777Adapter: chocks not set - skipping CDU sequence");
+                Logger.Debug("Pmdg777Adapter: Chocks not set - skipping CDU Sequence");
                 return;
             }
 
-            Logger.Info("Pmdg777Adapter: removing chocks via CDU sequence");
+            Logger.Info("Pmdg777Adapter: Removing Chocks via CDU Sequence");
 
-            // CDU sequence: MENU → R6 (FS Actions) → R1 (Ground Connections) → R6 (Remove Chocks)
             // Use SendPmdgEventNow (bypasses debounce) so the repeated R6 press is never suppressed.
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1);
-            await Task.Delay(500);
-
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1);
-            await Task.Delay(500);
-
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1);
-            await Task.Delay(500);
-
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
             SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1);
         }
         catch (Exception ex)

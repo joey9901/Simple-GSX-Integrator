@@ -41,4 +41,9 @@ public interface IAircraftAdapter : IDisposable
     /// Removes ground equipment (GPU, chocks) specific to this aircraft.
     /// </summary>
     void RemoveGroundEquipment();
+
+    /// <summary>
+    /// Places ground equipment (GPU) specific to this aircraft.
+    /// </summary>
+    Task PlaceGroundEquipmentAndChocks();
 }

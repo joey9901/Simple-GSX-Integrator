@@ -243,8 +243,6 @@ public sealed class FlightStateTracker
     {
         _enginesHaveRun = false;
         _hasMoved = false;
-        _firstPoll = true;
-        _prevState = default;
         _activationLvar = null;
         _lastActivationValue = double.NaN;
         Logger.Debug("FlightStateTracker: session reset");

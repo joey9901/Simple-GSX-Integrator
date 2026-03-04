@@ -162,11 +162,11 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
 
         if (open.Count == 0)
         {
-            Logger.Debug("Pmdg737Adapter: all doors already closed");
+            Logger.Debug("Pmdg737Adapter: all doors already Closed");
             return;
         }
 
-        Logger.Info($"Pmdg737Adapter: closing {open.Count} open door(s)");
+        Logger.Info($"Pmdg737Adapter: Closing {open.Count} open door(s)");
 
         foreach (uint evtCode in open)
         {
@@ -197,11 +197,11 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     {
         if (!_doorTracker.IsOpen(doorId))
         {
-            Logger.Debug($"Pmdg737Adapter: {Pmdg737Constants.GetDoorName(doorId)} is already closed");
+            Logger.Debug($"Pmdg737Adapter: {Pmdg737Constants.GetDoorName(doorId)} is already Closed");
             return;
         }
 
-        Logger.Info($"Pmdg737Adapter: closing {Pmdg737Constants.GetDoorName(doorId)}");
+        Logger.Info($"Pmdg737Adapter: Closing {Pmdg737Constants.GetDoorName(doorId)}");
         SendPmdgEvent(doorId, 1);
     }
 
@@ -211,28 +211,46 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         _ = RemoveGroundEquipmentAsync();
     }
 
+    public async Task PlaceGroundEquipmentAndChocks()
+    {
+        try
+        {
+            if (_vars.WheelChocks >= 0.5)
+            {
+                Logger.Debug("Pmdg737Adapter: Chocks not set - skipping CDU Sequence");
+                return;
+            }
+
+            Logger.Info("Pmdg737Adapter: Placing Chocks and GPU via CDU Sequence");
+
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(1000);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Pmdg737Adapter: RemoveGroundEquipment failed: {ex}");
+        }
+    }
+
     private async Task RemoveGroundEquipmentAsync()
     {
         try
         {
             if (_vars.WheelChocks <= 0.5)
             {
-                Logger.Debug("Pmdg737Adapter: chocks not set – skipping CDU sequence");
+                Logger.Debug("Pmdg737Adapter: Chocks not set – skipping CDU Sequence");
                 return;
             }
 
-            Logger.Info("Pmdg737Adapter: removing chocks via CDU sequence (MENU → R5 → R1 → R6)");
+            Logger.Info("Pmdg737Adapter: Removing Chocks via CDU Sequence");
 
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1);
-            await Task.Delay(500);
-
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1);
-            await Task.Delay(500);
-
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1);
-            await Task.Delay(500);
-
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
         }
         catch (Exception ex)
         {

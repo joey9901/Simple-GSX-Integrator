@@ -31,6 +31,7 @@ public sealed class AutomationManager
     private readonly DoorManager _doorManager;
 
     private bool _activated;
+    private string? _currentAircraftTitle;
     private bool _refuelingDone;
     private bool _cateringDone;
     private bool _boardingDone;
@@ -52,8 +53,6 @@ public sealed class AutomationManager
     private DateTime _lastPushbackCall = DateTime.MinValue;
     private DateTime _lastDeboardingCall = DateTime.MinValue;
     private static readonly TimeSpan ServiceCallCooldown = TimeSpan.FromSeconds(10);
-
-    private readonly object _sequenceLock = new();
 
     public event Action<bool>? ActivationChanged;
     public event Action<string>? AircraftChanged;
@@ -148,6 +147,15 @@ public sealed class AutomationManager
     {
         Logger.Debug($"Aircraft changed: {title}");
 
+        // Only reset when switching from a previously-loaded aircraft.
+        // On initial connection _currentAircraftTitle is null, so there is nothing to reset.
+        if (_currentAircraftTitle != null)
+        {
+            if (_activated) ToggleActivation();
+            ResetSession();
+        }
+        _currentAircraftTitle = title;
+
         var cfg = ConfigManager.GetAircraftConfig(title);
         AircraftChanged?.Invoke(title);
 
@@ -192,13 +200,9 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested:
-                Logger.Success("Boarding: Requested");
-                break;
+            case GsxServiceState.Requested: Logger.Success("Boarding: Requested"); break;
 
-            case GsxServiceState.Active:
-                Logger.Success("Boarding: Active");
-                break;
+            case GsxServiceState.Active: Logger.Success("Boarding: Active"); break;
 
             case GsxServiceState.Completed when !_boardingDone:
                 _boardingDone = true;
@@ -215,9 +219,8 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Active:
-                Logger.Success("Deboarding: Active");
-                break;
+            case GsxServiceState.Requested: Logger.Success("Deboarding: Requested"); break;
+            case GsxServiceState.Active: Logger.Success("Deboarding: Active"); break;
 
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;
@@ -234,7 +237,10 @@ public sealed class AutomationManager
         switch (state)
         {
             case GsxServiceState.Requested: Logger.Success("Pushback: Requested"); break;
-            case GsxServiceState.Active: Logger.Success("Pushback: Active"); break;
+            case GsxServiceState.Active:
+                _pushbackDone = true; // GSX doesn't always set pushback state to completed so we set pushhback done here
+                Logger.Success("Pushback: Active");
+                break;
 
             case GsxServiceState.Completed:
                 _pushbackDone = true;
@@ -247,9 +253,8 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Active:
-                Logger.Success("Refueling: Active");
-                break;
+            case GsxServiceState.Requested: Logger.Success("Refueling: Requested"); break;
+            case GsxServiceState.Active: Logger.Success("Refueling: Active"); break;
 
             case GsxServiceState.Completed:
                 _refuelingDone = true;
@@ -263,13 +268,13 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Active:
-                Logger.Success("Catering: Active");
-                break;
+            case GsxServiceState.Requested: Logger.Success("Catering: Requested"); break;
+            case GsxServiceState.Active: Logger.Success("Catering: Active"); break;
 
             case GsxServiceState.Completed:
                 _cateringDone = true;
                 Logger.Success("Catering: Complete");
+                if (_activated) EvaluateRefueling();
                 if (_activated) EvaluateBoarding();
                 break;
         }
@@ -297,11 +302,13 @@ public sealed class AutomationManager
 
         var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
         if (!cfg.RefuelBeforeBoarding) return;
+        if (cfg.CateringOnNewFlight && !_cateringDone) return;
 
-        TryCallService("Refueling",
-            _gsxMonitor.Refueling,
-            ref _lastRefuelingCall,
-            () => _ = _gsxMenu.CallRefuelingAsync());
+        _ = TryCallServiceAsync("Refueling", _gsxMonitor.Refueling,
+            () => _lastRefuelingCall, t => _lastRefuelingCall = t,
+            () => _gsxMenu.CallRefuelingAsync(),
+            () => _gsxMonitor.Refueling,
+            () => EvaluateRefueling());
     }
 
     private void EvaluateCatering()
@@ -313,10 +320,11 @@ public sealed class AutomationManager
         var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
         if (!cfg.CateringOnNewFlight) return;
 
-        TryCallService("Catering",
-            _gsxMonitor.Catering,
-            ref _lastCateringCall,
-            () => _ = _gsxMenu.CallCateringAsync());
+        _ = TryCallServiceAsync("Catering", _gsxMonitor.Catering,
+            () => _lastCateringCall, t => _lastCateringCall = t,
+            () => _gsxMenu.CallCateringAsync(),
+            () => _gsxMonitor.Catering,
+            () => EvaluateCatering());
     }
 
     private void EvaluateBoarding()
@@ -332,104 +340,69 @@ public sealed class AutomationManager
         if (cfg.RefuelBeforeBoarding && !_refuelingDone) return;
         if (cfg.CateringOnNewFlight && !_cateringDone) return;
 
-        TryCallService("Boarding",
-            _gsxMonitor.Boarding,
-            ref _lastBoardingCall,
-            () => _ = _gsxMenu.CallBoardingAsync());
+        _ = TryCallServiceAsync("Boarding", _gsxMonitor.Boarding,
+            () => _lastBoardingCall, t => _lastBoardingCall = t,
+            () => _gsxMenu.CallBoardingAsync(),
+            () => _gsxMonitor.Boarding,
+            () => EvaluateBoarding());
     }
 
     /// <summary>
-    /// Evaluates whether to initiate pushback (beacon ON + boarding done + doors closeable).
+    /// Evaluates whether to initiate pushback (beacon ON + no active boarding/deboarding).
     /// </summary>
     private void EvaluatePushback()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
-        if (!_flightState.BeaconOn) return;
-        if (_flightState.HasMoved) return;
+        if (!_flightState.BeaconOn || _flightState.HasMoved) return;
         if (_pushbackDone || _pushbackAttempted) return;
 
-        // Don't push back if boarding/deboarding is still actively running.
-        // Beacon must be ON (checked above) – that signals the crew is ready to depart,
-        // regardless of whether this session tracked boarding completing.
         if (_gsxMonitor.Boarding == GsxServiceState.Active ||
             _gsxMonitor.Boarding == GsxServiceState.Requested ||
             _gsxMonitor.Deboarding == GsxServiceState.Active ||
             _gsxMonitor.Deboarding == GsxServiceState.Requested) return;
 
-        if ((DateTime.Now - _lastPushbackCall) < ServiceCallCooldown) return;
+        if (_gsxMonitor.Pushback != GsxServiceState.Callable) return;
+
         _pushbackAttempted = true;
 
-        Logger.Debug("AutomationManager: pre-pushback sequence initiated");
+        _ = TryCallServiceAsync("Pushback", _gsxMonitor.Pushback,
+            () => _lastPushbackCall, t => _lastPushbackCall = t,
+            async () => { await PrepareForPushbackAsync(); await _gsxMenu.CallPushbackAsync(); },
+            () => _gsxMonitor.Pushback,
+            () => { _pushbackAttempted = false; EvaluatePushback(); });
+    }
 
-        _ = Task.Run(async () =>
+    /// <summary>
+    /// Closes all open doors and removes ground equipment before pushback.
+    /// </summary>
+    private async Task PrepareForPushbackAsync()
+    {
+        var adapter = _doorManager.CurrentAdapter;
+        if (adapter == null)
         {
-            try
-            {
-                // 1. Close all open doors via the adapter before asking GSX to move the plane.
-                //    Capture current adapter reference so it can't be swapped out mid-sequence.
-                var adapter = _doorManager.CurrentAdapter;
-                if (adapter != null)
-                {
-                    Logger.Debug("AutomationManager: closing all open doors before pushback");
-                    await adapter.CloseAllOpenDoorsAsync();
+            Logger.Debug("AutomationManager: no adapter – skipping door close before pushback");
+            await Task.Delay(2_000);
+            return;
+        }
 
-                    // Poll until L:vars confirm all doors are closed (max 60 s).
-                    // This prevents GSX from re-opening a door if we
-                    // call pushback while a door is still swinging shut.
-                    var deadline = DateTime.UtcNow.AddSeconds(60);
-                    while (adapter.AreAnyDoorsOpen() && DateTime.UtcNow < deadline)
-                    {
-                        Logger.Debug("AutomationManager: waiting for doors to close…");
-                        await Task.Delay(2_000);
-                    }
+        Logger.Debug("AutomationManager: closing all open doors before pushback");
+        await adapter.CloseAllOpenDoorsAsync();
 
-                    if (adapter.AreAnyDoorsOpen())
-                        Logger.Warning("AutomationManager: doors still open after 60 s – proceeding with pushback anyway");
-                    else
-                        Logger.Info("AutomationManager: All Doors Confirmed Closed");
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (adapter.AreAnyDoorsOpen() && DateTime.UtcNow < deadline)
+        {
+            Logger.Debug("AutomationManager: waiting for doors to close…");
+            await Task.Delay(2_000);
+        }
 
-                    Logger.Info("AutomationManager: Removing Ground Equipment");
-                    adapter.RemoveGroundEquipment();
-                    await Task.Delay(2_000);   // allow GPU/chock removal animations
-                }
-                else
-                {
-                    Logger.Debug("AutomationManager: no adapter – skipping door close before pushback");
-                    await Task.Delay(2_000);
-                }
+        if (adapter.AreAnyDoorsOpen())
+            Logger.Warning("AutomationManager: doors still open after 60 s – proceeding with pushback anyway");
+        else
+            Logger.Info("AutomationManager: All Doors Confirmed Closed");
 
-                _lastPushbackCall = DateTime.Now;
-                await _gsxMenu.CallPushbackAsync();
-
-                // Wait up to 30 s for GSX to acknowledge the pushback request.
-                // If the state never leaves Callable/Unknown the call was likely dropped
-                // (e.g. wrong menu position, GSX not ready). Clear the attempt flag and
-                // re-evaluate so we can try again on the next trigger.
-                var ackDeadline = DateTime.UtcNow.AddSeconds(30);
-                while (DateTime.UtcNow < ackDeadline)
-                {
-                    var s = _gsxMonitor.Pushback;
-                    if (s == GsxServiceState.Requested || s == GsxServiceState.Active || s == GsxServiceState.Completed)
-                    {
-                        Logger.Debug("AutomationManager: GSX acknowledged pushback request");
-                        break;
-                    }
-                    await Task.Delay(2_000);
-                }
-
-                if (_gsxMonitor.Pushback == GsxServiceState.Callable || _gsxMonitor.Pushback == GsxServiceState.Unknown)
-                {
-                    Logger.Warning("AutomationManager: GSX did not acknowledge pushback within 30 s – will retry");
-                    _pushbackAttempted = false;
-                    _lastPushbackCall = DateTime.MinValue;
-                    EvaluatePushback();
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"AutomationManager: pushback sequence failed: {ex.Message}");
-            }
-        });
+        Logger.Info("AutomationManager: Removing Ground Equipment");
+        adapter.RemoveGroundEquipment();
+        await Task.Delay(2_000);
     }
 
     /// <summary>
@@ -444,22 +417,40 @@ public sealed class AutomationManager
         if (!_flightState.OnGround || _flightState.BeaconOn) return;
         if (_flightState.GroundSpeed > 0.5) return;
 
-        TryCallService("Deboarding",
-            _gsxMonitor.Deboarding,
-            ref _lastDeboardingCall,
-            () => _ = _gsxMenu.CallDeboardingAsync());
+        _ = TryCallServiceAsync("Deboarding", _gsxMonitor.Deboarding,
+            () => _lastDeboardingCall, t => _lastDeboardingCall = t,
+            async () => { await PrepareForDeboardingAsync(); await _gsxMenu.CallDeboardingAsync(); },
+            () => _gsxMonitor.Deboarding,
+            () => EvaluateDeboarding());
     }
 
     /// <summary>
-    /// Tries to call a service, checking that:
+    /// Places ground equipment and chocks before deboarding, ensuring the CDU sequence
+    /// completes before GSX opens its own menu.
+    /// </summary>
+    private async Task PrepareForDeboardingAsync()
+    {
+        var adapter = _doorManager.CurrentAdapter;
+        if (adapter == null) return;
+
+        await adapter.PlaceGroundEquipmentAndChocks();
+    }
+
+    /// <summary>
+    /// Tries to call a GSX service, checking that:
     ///   • Its GSX state is <see cref="GsxServiceState.Callable"/>
     ///   • The per-service cooldown has elapsed
+    /// After firing the trigger, polls up to 30 s for GSX acknowledgement.
+    /// If GSX does not respond, resets the cooldown and invokes <paramref name="onTimeout"/>.
     /// </summary>
-    private void TryCallService(
+    private async Task TryCallServiceAsync(
         string name,
         GsxServiceState currentState,
-        ref DateTime lastCall,
-        Action trigger)
+        Func<DateTime> getLastCall,
+        Action<DateTime> setLastCall,
+        Func<Task> trigger,
+        Func<GsxServiceState> getState,
+        Action? onTimeout = null)
     {
         if (currentState != GsxServiceState.Callable)
         {
@@ -467,15 +458,39 @@ public sealed class AutomationManager
             return;
         }
 
-        if ((DateTime.Now - lastCall) < ServiceCallCooldown)
+        if ((DateTime.Now - getLastCall()) < ServiceCallCooldown)
         {
             Logger.Debug($"AutomationManager: {name} call throttled (cooldown)");
             return;
         }
 
-        lastCall = DateTime.Now;
+        setLastCall(DateTime.Now);
         Logger.Debug($"AutomationManager: triggering {name}");
-        trigger();
+
+        try
+        {
+            await trigger();
+
+            var ackDeadline = DateTime.UtcNow.AddSeconds(30);
+            while (DateTime.UtcNow < ackDeadline)
+            {
+                var s = getState();
+                if (s != GsxServiceState.Callable && s != GsxServiceState.Unknown)
+                {
+                    Logger.Debug($"AutomationManager: GSX acknowledged {name}");
+                    return;
+                }
+                await Task.Delay(2_000);
+            }
+
+            Logger.Warning($"AutomationManager: GSX did not acknowledge {name} within 30 s \u2013 will retry");
+            setLastCall(DateTime.MinValue);
+            onTimeout?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"AutomationManager: {name} failed: {ex.Message}");
+        }
     }
 
     /// <summary>
