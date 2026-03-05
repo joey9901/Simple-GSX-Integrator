@@ -217,7 +217,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         {
             if (_vars.WheelChocks >= 0.5)
             {
-                Logger.Debug("Pmdg737Adapter: Chocks not set - skipping CDU Sequence");
+                Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
                 return;
             }
 
@@ -231,7 +231,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
         catch (Exception ex)
         {
-            Logger.Error($"Pmdg737Adapter: RemoveGroundEquipment failed: {ex}");
+            Logger.Error($"Pmdg737Adapter: PlaceGroundEquipmentAndChocks failed: {ex}");
         }
     }
 
@@ -241,7 +241,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         {
             if (_vars.WheelChocks <= 0.5)
             {
-                Logger.Debug("Pmdg737Adapter: Chocks not set – skipping CDU Sequence");
+                Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
                 return;
             }
 

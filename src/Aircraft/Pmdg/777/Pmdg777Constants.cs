@@ -21,8 +21,8 @@ public static class Pmdg777Constants
     public const uint EVT_DOOR_5R = BASE + 14020;
     public const uint EVT_DOOR_CARGO_FWD = BASE + 14021;   // Forward lower cargo
     public const uint EVT_DOOR_CARGO_AFT = BASE + 14022;   // Aft lower cargo
-    public const uint EVT_DOOR_CARGO_MAIN = BASE + 14023;   // Main deck cargo (freighter)
-    public const uint EVT_DOOR_CARGO_BULK = BASE + 14024;   // Bulk cargo
+    public const uint EVT_DOOR_CARGO_BULK = BASE + 14023;   // Bulk cargo
+    public const uint EVT_DOOR_CARGO_MAIN = BASE + 14024;   // Main deck cargo (freighter)
     public const uint EVT_DOOR_AVIONICS = BASE + 14025;   // Avionics / forward access
     public const uint EVT_DOOR_EE_HATCH = BASE + 14026;   // E&E hatch
 

@@ -210,7 +210,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         {
             if (_vars.WheelChocks >= 0.5)
             {
-                Logger.Debug("Pmdg777Adapter: Chocks not set - skipping CDU Sequence");
+                Logger.Debug("Pmdg777Adapter: Chocks already Set - skipping CDU Sequence");
                 return;
             }
 
@@ -224,7 +224,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         }
         catch (Exception ex)
         {
-            Logger.Error($"Pmdg777Adapter: RemoveGroundEquipment failed: {ex}");
+            Logger.Error($"Pmdg777Adapter: PlaceGroundEquipmentAndChocks failed: {ex}");
         }
     }
 
@@ -239,7 +239,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
             // Remove chocks via CDU sequence (only if chocks are actually set)
             if (_vars.WheelChocks <= 0.5)
             {
-                Logger.Debug("Pmdg777Adapter: Chocks not set - skipping CDU Sequence");
+                Logger.Debug("Pmdg777Adapter: Chocks already Removed - skipping CDU Sequence");
                 return;
             }
 
