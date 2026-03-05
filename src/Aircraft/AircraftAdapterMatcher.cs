@@ -6,15 +6,14 @@ namespace SimpleGsxIntegrator.Aircraft;
 /// <summary>
 /// Creates the correct <see cref="IAircraftAdapter"/> for a given aircraft.
 ///
-/// Aircraft matching uses the full aircraft path returned by SimConnect's
-/// <c>AircraftLoaded</c> system-state request and/or the aircraft title string.
+/// Aircraft matching uses the full aircraft path returned by SimConnect
 /// Add new entries here when adding support for additional aircraft.
 /// </summary>
-public static class AircraftAdapterFactory
+public static class AircraftAdapterMatcher
 {
     private record AdapterRegistration(
         Func<string, bool> Matches,
-        Func<IAircraftAdapter> Factory,
+        Func<IAircraftAdapter> Matcher,
         string FriendlyName);
 
     private static readonly IReadOnlyList<AdapterRegistration> Registrations =
@@ -34,7 +33,7 @@ public static class AircraftAdapterFactory
         };
 
     /// <summary>
-    /// Returns an adapter for the given aircraft path/title, or <c>null</c> if no
+    /// Returns an adapter for the given aircraft path/title, or null if no
     /// registered adapter matches (aircraft runs without door/equipment integration).
     /// </summary>
     public static IAircraftAdapter? Create(string aircraftPathOrTitle)
@@ -46,12 +45,12 @@ public static class AircraftAdapterFactory
         {
             if (reg.Matches(aircraftPathOrTitle))
             {
-                Logger.Debug($"AircraftAdapterFactory: matched adapter '{reg.FriendlyName}' for '{aircraftPathOrTitle}'");
-                return reg.Factory();
+                Logger.Debug($"AircraftAdapterMatcher: matched adapter '{reg.FriendlyName}' for '{aircraftPathOrTitle}'");
+                return reg.Matcher();
             }
         }
 
-        Logger.Debug($"AircraftAdapterFactory: no adapter matched for '{aircraftPathOrTitle}' – running without aircraft integration");
+        Logger.Debug($"AircraftAdapterMatcher: no adapter matched for '{aircraftPathOrTitle}' – running without aircraft integration");
         return null;
     }
 }

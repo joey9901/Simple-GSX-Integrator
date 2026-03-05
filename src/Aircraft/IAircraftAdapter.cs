@@ -4,24 +4,17 @@ using SimpleGsxIntegrator.Core;
 namespace SimpleGsxIntegrator.Aircraft;
 
 /// <summary>
-/// Aircraft-specific integration contract.
-///
-/// Each adapter registers its own SimConnect vars (via the SimConnect instance
-/// received in <see cref="OnSimConnectConnected"/>) and processes data via
-/// <see cref="OnSimObjectData"/>.  All actual SimConnect communication routes
-/// through the <see cref="SimConnectHub"/> – adapters never hold their own
-/// connection or run their own message pump.
+/// Aircraft-specific integration.
 /// </summary>
 public interface IAircraftAdapter : IDisposable
 {
     /// <summary>Called once when SimConnect connects. Register all vars here.</summary>
     void OnSimConnectConnected(SimConnect sc);
 
-    /// <summary>Called by the hub for every <c>OnRecvSimobjectData</c> event.</summary>
+    /// <summary>Called by the simconnectmanager for every <c>OnRecvSimobjectData</c> event.</summary>
     void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data);
 
-
-    /// <summary>Returns true if any passenger or cargo door is currently open.</summary>
+    /// <summary>Returns true if any door is currently open.</summary>
     bool AreAnyDoorsOpen();
 
     /// <summary>Returns the set of door IDs (PMDG event codes) that are open.</summary>
@@ -36,6 +29,11 @@ public interface IAircraftAdapter : IDisposable
     /// <summary>Sends a close command for the specified door ID.</summary>
     void CloseDoor(uint doorId);
 
+    /// <summary>
+    /// The door ID (event code) for the primary boarding door on this aircraft.
+    /// Used by <see cref="SimpleGsxIntegrator.Automation.DoorManager"/> to close it after boarding completes.
+    /// </summary>
+    uint MainBoardingDoorId { get; }
 
     /// <summary>
     /// Removes ground equipment (GPU, chocks) specific to this aircraft.
@@ -43,7 +41,7 @@ public interface IAircraftAdapter : IDisposable
     void RemoveGroundEquipment();
 
     /// <summary>
-    /// Places ground equipment (GPU) specific to this aircraft.
+    /// Places ground equipment (GPU, chocks) specific to this aircraft.
     /// </summary>
     Task PlaceGroundEquipmentAndChocks();
 }

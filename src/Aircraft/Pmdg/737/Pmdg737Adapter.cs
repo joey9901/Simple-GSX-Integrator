@@ -49,6 +49,8 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
 
+    public uint MainBoardingDoorId => Pmdg737Constants.EVT_DOOR_FWD_L;
+
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;

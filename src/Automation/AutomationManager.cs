@@ -11,17 +11,8 @@ namespace SimpleGsxIntegrator.Automation;
 /// <see cref="FlightStateTracker"/> and <see cref="GsxMonitor"/> and
 /// determines when to trigger GSX ground services.
 ///
-/// Design principles:
-///   • All external triggers (beacon, engine, GSX state changes) are edge-detected
-///     events, not polled conditions. This avoids the race conditions and repeated
-///     trigger spam in the previous implementation.
-///   • Service completion flags are maintained internally so a GSX restart does not
-///     cause previously-completed services to fire again.
-///   • Guard conditions are evaluated before every service call using the latest
-///     state snapshot reported by <see cref="FlightStateTracker"/> and <see cref="GsxMonitor"/>.
-///   • Thread safety: all state mutations happen inside Task.Run callbacks that
-///     are naturally serialised by the SimConnect event dispatch order;
-///     a lightweight lock protects multi-step sequences.
+/// Service completion flags are maintained internally so a GSX restart does not
+/// cause previously-completed services to fire again.
 /// </summary>
 public sealed class AutomationManager
 {
@@ -39,8 +30,10 @@ public sealed class AutomationManager
     private bool _deboardingDone;
 
     /// <summary>
-    /// Set once boarding-triggered-pushback has been attempted to prevent the
-    /// beacon-ON event from triggering pushback multiple times.
+    /// Set once pushback has been attempted.
+    /// This aims to stop boarding being called if user forgot to turn on APU
+    /// and loses power, causing the beacon to turn OFF
+    /// (can only occur if boarding was not performed)
     /// </summary>
     private bool _pushbackAttempted;
 
@@ -75,20 +68,18 @@ public sealed class AutomationManager
 
     /// <summary>
     /// Stores the SimConnect instance for passing to adapters / activation L:var registration.
-    /// Wire this to <see cref="SimConnectHub.Connected"/>.
     /// </summary>
     public void OnSimConnectConnected(SimConnect sc) => _sc = sc;
 
     /// <summary>
     /// Toggles system activation on/off. Fires <see cref="ActivationChanged"/> event.
-    /// When activating, immediately evaluates GSX initial states to catch up.
     /// </summary>
     public void ToggleActivation()
     {
         _activated = !_activated;
         Logger.Debug(_activated
-            ? "SYSTEM ACTIVATED – GSX automation enabled"
-            : "SYSTEM DEACTIVATED – GSX automation disabled");
+            ? "SYSTEM ACTIVATED - GSX automation enabled"
+            : "SYSTEM DEACTIVATED - GSX automation disabled");
 
         ActivationChanged?.Invoke(_activated);
 
@@ -100,9 +91,9 @@ public sealed class AutomationManager
     }
 
     /// <summary>
-    /// Resets all session flags (useful for turnaround or debugging).
+    /// Resets all session flags (for turnaround and debugging / testing).
     /// </summary>
-    public void ResetSession()
+    public void ResetSession(bool printLog = true)
     {
         _refuelingDone = false;
         _cateringDone = false;
@@ -118,7 +109,8 @@ public sealed class AutomationManager
         _lastDeboardingCall = DateTime.MinValue;
 
         _flightState.ResetSession();
-        Logger.Success("Session reset – all service flags cleared");
+        if (printLog)
+            Logger.Success("Session reset - all service flags cleared");
     }
 
     private void SetupEvents()
@@ -152,7 +144,7 @@ public sealed class AutomationManager
         if (_currentAircraftTitle != null)
         {
             if (_activated) ToggleActivation();
-            ResetSession();
+            ResetSession(printLog: false);
         }
         _currentAircraftTitle = title;
 
@@ -173,7 +165,7 @@ public sealed class AutomationManager
         if (string.IsNullOrEmpty(cfg.ActivationLvar)) return;
         if (Math.Abs(value - cfg.ActivationValue) < 0.001)
         {
-            Logger.Debug($"AutomationManager: activation L:var hit target value {value} – toggling system");
+            Logger.Debug($"AutomationManager: activation L:var hit target value {value} - toggling system");
             ToggleActivation();
         }
     }
@@ -193,7 +185,7 @@ public sealed class AutomationManager
 
     private void OnGsxStopped()
     {
-        Logger.Debug("GSX stopped – automation paused until GSX restarts");
+        Logger.Debug("GSX stopped - automation paused until GSX restarts");
     }
 
     private void OnBoardingStateChanged(GsxServiceState state)
@@ -225,7 +217,7 @@ public sealed class AutomationManager
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;
                 Logger.Success("Deboarding: Complete");
-                Logger.Debug("Deboarding Complete – Resetting Session and deactivating system");
+                Logger.Debug("Deboarding Complete - Resetting Session and deactivating system");
                 ResetSession();
                 if (_activated) ToggleActivation();
                 break;
@@ -281,9 +273,9 @@ public sealed class AutomationManager
     }
 
     /// <summary>
-    /// Central dispatch: evaluates all services in priority order.
+    /// Evaluates all services in priority order.
     /// Each evaluate method is fully self-guarded and returns immediately if
-    /// its preconditions are not met, so calling all of them is always safe.
+    /// its preconditions are not met
     /// </summary>
     private void EvaluateServices()
     {
@@ -347,9 +339,6 @@ public sealed class AutomationManager
             () => EvaluateBoarding());
     }
 
-    /// <summary>
-    /// Evaluates whether to initiate pushback (beacon ON + no active boarding/deboarding).
-    /// </summary>
     private void EvaluatePushback()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
@@ -380,7 +369,7 @@ public sealed class AutomationManager
         var adapter = _doorManager.CurrentAdapter;
         if (adapter == null)
         {
-            Logger.Debug("AutomationManager: no adapter – skipping door close before pushback");
+            Logger.Debug("AutomationManager: no adapter - skipping door close before pushback");
             await Task.Delay(2_000);
             return;
         }
@@ -396,7 +385,7 @@ public sealed class AutomationManager
         }
 
         if (adapter.AreAnyDoorsOpen())
-            Logger.Warning("AutomationManager: doors still open after 60 s – proceeding with pushback anyway");
+            Logger.Warning("AutomationManager: doors still open after 60 s - proceeding with pushback anyway");
         else
             Logger.Info("AutomationManager: All Doors Confirmed Closed");
 
@@ -503,27 +492,27 @@ public sealed class AutomationManager
         if (_gsxMonitor.Refueling == GsxServiceState.Completed && !_refuelingDone)
         {
             _refuelingDone = true;
-            Logger.Debug("AutomationManager: sync – refueling already completed");
+            Logger.Debug("AutomationManager: sync - refueling already completed");
         }
         if (_gsxMonitor.Catering == GsxServiceState.Completed && !_cateringDone)
         {
             _cateringDone = true;
-            Logger.Debug("AutomationManager: sync – catering already completed");
+            Logger.Debug("AutomationManager: sync - catering already completed");
         }
         if (_gsxMonitor.Boarding == GsxServiceState.Completed && !_boardingDone)
         {
             _boardingDone = true;
-            Logger.Debug("AutomationManager: sync – boarding already completed");
+            Logger.Debug("AutomationManager: sync - boarding already completed");
         }
         if (_gsxMonitor.Pushback == GsxServiceState.Completed && !_pushbackDone)
         {
             _pushbackDone = true;
-            Logger.Debug("AutomationManager: sync – pushback already completed");
+            Logger.Debug("AutomationManager: sync - pushback already completed");
         }
         if (_gsxMonitor.Deboarding == GsxServiceState.Completed && !_deboardingDone)
         {
             _deboardingDone = true;
-            Logger.Debug("AutomationManager: sync – deboarding already completed");
+            Logger.Debug("AutomationManager: sync - deboarding already completed");
         }
     }
 

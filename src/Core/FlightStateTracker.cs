@@ -5,10 +5,7 @@ namespace SimpleGsxIntegrator.Core;
 
 /// <summary>
 /// Monitors core aircraft SimConnect variables (beacon, parking brake, engines, speed, title)
-/// and maintains derived state such as <see cref="HasEnginesEverRun"/> and <see cref="HasMoved"/>.
-/// 
-/// Registration happens in <see cref="OnSimConnectConnected"/> which is wired to
-/// <see cref="SimConnectHub.Connected"/> – the hub is the only component that owns SimConnect.
+/// and maintains internal state such as <see cref="HasEnginesEverRun"/> and <see cref="HasMoved"/>.
 /// </summary>
 public sealed class FlightStateTracker
 {
@@ -18,6 +15,9 @@ public sealed class FlightStateTracker
         public int BeaconLight;
         public int ParkingBrake;
         public int EngineRunning;   // GENERAL ENG COMBUSTION:1
+        // Note that there is an extremely rare edge case where if engine 2 is used 
+        // for taxi and for some reason the user wants to return to gate for 
+        // deboarding, deboarding won't be called since HasEnginesEverRun is false
         public int OnGround;
         public double GroundSpeed;     // knots
         public double Airspeed;
@@ -37,11 +37,9 @@ public sealed class FlightStateTracker
     private const double MovedThreshold = 3.0; // knots
     private const double AirSpeedThreshold = 50.0; // knots 
 
-    // Derived flags
     private bool _enginesHaveRun;
     private bool _hasMoved;
 
-    // Activation L:var tracking
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
 
@@ -56,28 +54,18 @@ public sealed class FlightStateTracker
     public bool HasMoved => _hasMoved;
 
 
-    /// <summary>Fires when the beacon light state changes.</summary>
     public event Action<bool>? BeaconChanged;
 
-    /// <summary>Fires when the parking brake state changes.</summary>
     public event Action<bool>? ParkingBrakeChanged;
 
-    /// <summary>Fires when engine combustion state changes.</summary>
     public event Action<bool>? EngineChanged;
 
-    /// <summary>Fires when ground speed changes by more than 0.5 knots.</summary>
     public event Action<double>? SpeedChanged;
 
-    /// <summary>Fires when the aircraft title changes (new aircraft loaded).</summary>
     public event Action<string>? AircraftChanged;
 
-    /// <summary>
-    /// Fires when the activation L:var (per-aircraft config) transitions to its
-    /// expected trigger value.  Payload is the raw double value.
-    /// </summary>
     public event Action<double>? ActivationLvarTriggered;
 
-    /// <summary>Wire this to <see cref="SimConnectHub.Connected"/>.</summary>
     public void OnSimConnectConnected(SimConnect sc)
     {
         RegisterFlightStateVars(sc);
@@ -147,7 +135,6 @@ public sealed class FlightStateTracker
         }
     }
 
-    /// <summary>Wire this to <see cref="SimConnectHub.SimObjectDataReceived"/>.</summary>
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID == (uint)SimReq.FlightState)
@@ -181,8 +168,6 @@ public sealed class FlightStateTracker
             _prevState = s;
             Logger.Debug($"FlightStateTracker: initial state – Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}'");
 
-            // Push initial state to subscribers (these are "here's the current value" notifications,
-            // not edge-triggered changes, so they won't confuse automation logic).
             if (!string.IsNullOrEmpty(AircraftTitle))
                 AircraftChanged?.Invoke(AircraftTitle);
 
@@ -227,7 +212,7 @@ public sealed class FlightStateTracker
     {
         if (double.IsNaN(_lastActivationValue))
         {
-            _lastActivationValue = value; // Seed without firing
+            _lastActivationValue = value;
             return;
         }
 
@@ -238,7 +223,7 @@ public sealed class FlightStateTracker
         }
     }
 
-    /// <summary>Resets all session-specific derived flags (call on aircraft change or manual reset).</summary>
+    /// <summary>Resets all session-specific internal flags.</summary>
     public void ResetSession()
     {
         _enginesHaveRun = false;

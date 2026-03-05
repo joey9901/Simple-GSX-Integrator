@@ -14,8 +14,8 @@ Automated GSX Integration for Microsoft Flight Simulator 2024/2020. This Tool Au
   - Custom L:Var Trigger for System Activation
 
 ## Limitations
- - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) are NOT part of this Project
- - Due to SimVar Limitations, Handling Operator choice is limited to the first option
+ - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) are NOT part of this project
+ - This is an external app and not a WASM module, this means that PMDG aircraft integration is limited (no door arming, no progressive refueling / boarding). This is done so no SDK parameters have to be set in PMDG aircraft options .ini files.
 
 ## Installation
 

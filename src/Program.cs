@@ -226,7 +226,7 @@ internal static class Program
     {
         if (string.IsNullOrEmpty(aircraftPathOrTitle)) return;
 
-        var newAdapter = AircraftAdapterFactory.Create(aircraftPathOrTitle);
+        var newAdapter = AircraftAdapterMatcher.Create(aircraftPathOrTitle);
 
         // Skip if we already have the same adapter type running to avoid double-registration.
         // (Both the SystemState path and the TITLE SimVar change can fire for the same aircraft.)

@@ -40,7 +40,6 @@ public static class ConfigManager
         WriteFile(_config);
     }
 
-    /// <summary>Persists a modified <see cref="AppConfig"/> and updates the in-memory cache.</summary>
     public static void Save(AppConfig config)
     {
         _config = config;

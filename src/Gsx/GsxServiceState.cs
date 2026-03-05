@@ -6,24 +6,17 @@ namespace SimpleGsxIntegrator.Gsx;
 /// </summary>
 public enum GsxServiceState
 {
-    /// <summary>State not yet read or indeterminate.</summary>
     Unknown = 0,
 
-    /// <summary>Service is available and can be called.</summary>
     Callable = 1,
 
-    /// <summary>Service is not available at the current position/gate.</summary>
     NotAvailable = 2,
 
-    /// <summary>Service was skipped / bypassed.</summary>
     Bypassed = 3,
 
-    /// <summary>Service has been requested; truck is en route.</summary>
     Requested = 4,
 
-    /// <summary>Service is actively running.</summary>
     Active = 5,
 
-    /// <summary>Service has completed successfully.</summary>
     Completed = 6,
 }

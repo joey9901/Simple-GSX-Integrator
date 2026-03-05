@@ -56,6 +56,8 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
 
+    public uint MainBoardingDoorId => Pmdg777Constants.EVT_DOOR_1L;
+
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
@@ -232,10 +234,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     {
         try
         {
-            // Disconnect GPU(s) if connected
-            if (_vars.ExtPwrSec > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_SEC, 1);
-            if (_vars.ExtPwrPrim > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_PRIM, 1);
-
             // Remove chocks via CDU sequence (only if chocks are actually set)
             if (_vars.WheelChocks <= 0.5)
             {
@@ -243,9 +241,13 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
                 return;
             }
 
+            // This presses the OVHD GPU buttons to turn OFF GPU (NOT DISCONNECT)
+            if (_vars.ExtPwrSec > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_SEC, 1);
+            if (_vars.ExtPwrPrim > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_PRIM, 1);
+
             Logger.Info("Pmdg777Adapter: Removing Chocks via CDU Sequence");
 
-            // Use SendPmdgEventNow (bypasses debounce) so the repeated R6 press is never suppressed.
+            // CDU Sequence to remove chocks AND GPU
             SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
             SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
             SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
