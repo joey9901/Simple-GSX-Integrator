@@ -31,9 +31,23 @@ internal static class Program
     /// </summary>
     public static string CurrentAircraftPath { get; private set; } = string.Empty;
 
+    private static Mutex? _singleInstanceMutex;
+
     [STAThread]
     private static void Main()
     {
+        _singleInstanceMutex = new Mutex(initiallyOwned: true, "SimpleGSXIntegrator_SingleInstance", out bool createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show(
+                "Simple GSX Integrator is already running.",
+                "Already Running",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            _singleInstanceMutex.Dispose();
+            return;
+        }
+
         ApplicationConfiguration.Initialize();
 
         var cfg = ConfigManager.GetConfig();
@@ -51,6 +65,8 @@ internal static class Program
         _hotkeys = new HotkeyListener(cfg.Hotkeys.ActivationKey, cfg.Hotkeys.ResetKey);
         _procWatcher = new ProcessWatcher();
         _hotkeys.Start();
+
+        _procWatcher.StartIfMsfsRunning();
 
         _manager.Connected += OnSimConnectConnected;
         _manager.Disconnected += OnSimConnectDisconnected;
@@ -110,7 +126,6 @@ internal static class Program
         _mainForm.Invoke(() => SyncHotkeyLabels());
 
         TryConnectSimConnect();
-        Logger.Success("Application Ready!");
 
         _simConnectTimer = new System.Windows.Forms.Timer { Interval = 50, Enabled = true };
         _simConnectTimer.Tick += (_, _) =>
@@ -138,7 +153,7 @@ internal static class Program
         }
         catch (COMException ex)
         {
-            Logger.Warning($"SimConnect not available ({ex.Message}). Will retry when MSFS is running.");
+            Logger.Debug($"SimConnect not available ({ex.Message}). Will retry when MSFS is running.");
             _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
             Task.Run(async () =>
             {
@@ -149,7 +164,7 @@ internal static class Program
                     {
                         _manager.Connect(_mainForm.Handle);
                         _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(true));
-                        Logger.Success("SimConnect reconnected.");
+                        Logger.Debug("SimConnect reconnected.");
                     }
                     catch { /* still not available */ }
                 }
@@ -160,6 +175,8 @@ internal static class Program
     private static void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
+
+        _procWatcher.StartIfMsfsRunning();
 
         _flightState.OnSimConnectConnected(sc);
         _gsxMonitor.OnSimConnectConnected(sc);

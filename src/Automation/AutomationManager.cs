@@ -343,6 +343,7 @@ public sealed class AutomationManager
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (!_flightState.BeaconOn || _flightState.HasMoved) return;
+        if (!_flightState.ParkingBrake) return;
         if (_pushbackDone || _pushbackAttempted) return;
 
         if (_gsxMonitor.Boarding == GsxServiceState.Active ||

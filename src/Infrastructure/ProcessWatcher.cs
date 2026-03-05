@@ -18,13 +18,16 @@ public sealed class ProcessWatcher : IDisposable
 
     public void StartIfMsfsRunning()
     {
+        // Already watching - don't start a second loop.
+        if (_cts != null) return;
+
         if (!IsMsfsRunning())
         {
-            Logger.Debug("ProcessWatcher: MSFS not running at startup – process watch skipped");
+            Logger.Debug("ProcessWatcher: MSFS not running - process watch deferred");
             return;
         }
 
-        Logger.Debug("ProcessWatcher: MSFS detected at startup – will exit when MSFS closes");
+        Logger.Debug("ProcessWatcher: MSFS detected - will exit when MSFS closes");
         Start();
     }
 
