@@ -218,11 +218,11 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
 
             Logger.Info("Pmdg777Adapter: Placing Chocks and GPU via CDU Sequence");
 
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_L2, 1);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R1, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_L2, 1);
         }
         catch (Exception ex)
         {
@@ -248,10 +248,10 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
             Logger.Info("Pmdg777Adapter: Removing Chocks via CDU Sequence");
 
             // CDU Sequence to remove chocks AND GPU
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_R_R6, 1);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_MENU, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R1, 1); await Task.Delay(500);
+            SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1);
         }
         catch (Exception ex)
         {

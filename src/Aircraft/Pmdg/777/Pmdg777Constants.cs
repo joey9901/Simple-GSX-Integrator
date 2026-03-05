@@ -29,10 +29,17 @@ public static class Pmdg777Constants
     public const uint EVT_OH_ELEC_GRD_PWR_PRIM = BASE + 8;    // Primary ground power switch
     public const uint EVT_OH_ELEC_GRD_PWR_SEC = BASE + 7;    // Secondary ground power switch
 
+    // Right CDU (kept for reference)
     public const uint EVT_CDU_R_R1 = BASE + 407;
     public const uint EVT_CDU_R_R6 = BASE + 412;
     public const uint EVT_CDU_R_L2 = BASE + 402;
     public const uint EVT_CDU_R_MENU = BASE + 423;
+
+    // Center (3rd / observer) CDU  –  offset = 653 - 328 = 325 over left CDU base
+    public const uint EVT_CDU_C_R1 = BASE + 659;   // CDU_EVT_OFFSET_C + EVT_CDU_L_R1 (325+334)
+    public const uint EVT_CDU_C_R6 = BASE + 664;   // CDU_EVT_OFFSET_C + EVT_CDU_L_R6 (325+339)
+    public const uint EVT_CDU_C_L2 = BASE + 654;   // CDU_EVT_OFFSET_C + EVT_CDU_L_L2 (325+329)
+    public const uint EVT_CDU_C_MENU = BASE + 675;   // CDU_EVT_OFFSET_C + EVT_CDU_L_MENU (325+350)
 
     public const string LVAR_DOOR_1L = "L:7X7XCabinDoor1L";
     public const string LVAR_DOOR_1R = "L:7X7XCabinDoor1R";
