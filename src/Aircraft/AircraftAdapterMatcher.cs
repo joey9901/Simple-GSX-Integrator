@@ -1,27 +1,27 @@
-using Microsoft.FlightSimulator.SimConnect;
+using SimpleGsxIntegrator.Aircraft.A330;
 using SimpleGsxIntegrator.Aircraft.Pmdg;
 
 namespace SimpleGsxIntegrator.Aircraft;
 
 /// <summary>
-/// Creates the correct <see cref="IAircraftAdapter"/> for a given aircraft.
-///
-/// Aircraft matching uses the full aircraft path returned by SimConnect
-/// Add new entries here when adding support for additional aircraft.
+/// Resolves the correct <see cref="IAircraftAdapter"/> for a given aircraft path or title.
+/// Add new entries to <see cref="SupportedAdapters"/> when adding support for additional aircraft.
+/// Add entries to <see cref="KnownNativeIntegrations"/> for aircraft that have their own GSX
+/// integration and need no adapter.
 /// </summary>
 public static class AircraftAdapterMatcher
 {
-    private record AdapterRegistration(
-        Func<string, bool> Matches,
-        Func<IAircraftAdapter> Matcher,
-        string FriendlyName);
+    private record AdapterEntry(
+        Func<string, bool> IsMatch,
+        Func<IAircraftAdapter> CreateAdapter,
+        string DisplayName);
 
-    private static readonly IReadOnlyList<AdapterRegistration> Registrations =
-        new AdapterRegistration[]
+    private static readonly IReadOnlyList<AdapterEntry> SupportedAdapters =
+        new AdapterEntry[]
         {
             new(
                 path => !string.IsNullOrEmpty(path) &&
-                        (path.Contains("PMDG 777",  StringComparison.OrdinalIgnoreCase)),
+                        path.Contains("PMDG 777", StringComparison.OrdinalIgnoreCase),
                 () => new Pmdg777Adapter(),
                 "PMDG 777"),
 
@@ -30,27 +30,50 @@ public static class AircraftAdapterMatcher
                         path.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase),
                 () => new Pmdg737Adapter(),
                 "PMDG 737"),
+            new(
+                path => !string.IsNullOrEmpty(path) &&
+                        path.Contains("microsoft-a330", StringComparison.OrdinalIgnoreCase),
+                () => new IniA330Adapter(),
+                "Microsoft/iniBuilds A330"),
         };
 
     /// <summary>
-    /// Returns an adapter for the given aircraft path/title, or null if no
-    /// registered adapter matches (aircraft runs without door/equipment integration).
+    /// Aircraft that have their own native GSX integration – no adapter needed.
     /// </summary>
-    public static IAircraftAdapter? Create(string aircraftPathOrTitle)
+    private static readonly IReadOnlyList<(Func<string, bool> IsMatch, string DisplayName)> KnownNativeIntegrations =
+        new (Func<string, bool>, string)[]
+        {
+            (path => !string.IsNullOrEmpty(path) &&
+                    path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase), "iniBuilds"),
+        };
+
+    public enum MatchKind { Adapter, NativeIntegration, Unknown }
+
+    public record MatchResult(MatchKind Kind, IAircraftAdapter? Adapter, string? DisplayName);
+
+    /// <summary>
+    /// Resolves an adapter for the given aircraft path or title.
+    /// Check <see cref="MatchResult.Kind"/> to distinguish between a matched adapter,
+    /// a known aircraft with native GSX integration, and an unrecognised aircraft.
+    /// </summary>
+    public static MatchResult Resolve(string aircraftPathOrTitle)
     {
         if (string.IsNullOrEmpty(aircraftPathOrTitle))
-            return null;
+            return new MatchResult(MatchKind.Unknown, null, null);
 
-        foreach (var reg in Registrations)
+        // Check specific adapters first – they take priority over generic native-integration matches.
+        foreach (var entry in SupportedAdapters)
         {
-            if (reg.Matches(aircraftPathOrTitle))
-            {
-                Logger.Debug($"AircraftAdapterMatcher: matched adapter '{reg.FriendlyName}' for '{aircraftPathOrTitle}'");
-                return reg.Matcher();
-            }
+            if (entry.IsMatch(aircraftPathOrTitle))
+                return new MatchResult(MatchKind.Adapter, entry.CreateAdapter(), entry.DisplayName);
         }
 
-        Logger.Debug($"AircraftAdapterMatcher: no adapter matched for '{aircraftPathOrTitle}' – running without aircraft integration");
-        return null;
+        foreach (var (isMatch, displayName) in KnownNativeIntegrations)
+        {
+            if (isMatch(aircraftPathOrTitle))
+                return new MatchResult(MatchKind.NativeIntegration, null, displayName);
+        }
+
+        return new MatchResult(MatchKind.Unknown, null, null);
     }
 }

@@ -89,7 +89,7 @@ internal static class Program
             RefreshAircraftStateDetails();
             // For mid-session aircraft switches, re-request the full AircraftLoaded path from
             // SimConnect (which has the .cfg path we need for adapter matching).
-            // Do NOT call LoadAdapterForAircraft(title) here – the TITLE SimVar is just a short
+            // Do NOT call LoadAdapterForAircraft(title) here - the TITLE SimVar is just a short
             // display name (e.g. "777F") that won't match adapter patterns.
             try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
             catch { /* sim may be momentarily unavailable */ }
@@ -116,7 +116,7 @@ internal static class Program
 
         _procWatcher.MsfsExited += () =>
         {
-            Logger.Warning("MSFS process no longer detected – exiting.");
+            Logger.Warning("MSFS process no longer detected - exiting.");
             _mainForm.Invoke(() => Application.Exit());
         };
 
@@ -243,35 +243,41 @@ internal static class Program
     {
         if (string.IsNullOrEmpty(aircraftPathOrTitle)) return;
 
-        var newAdapter = AircraftAdapterMatcher.Create(aircraftPathOrTitle);
+        var match = AircraftAdapterMatcher.Resolve(aircraftPathOrTitle);
 
         // Skip if we already have the same adapter type running to avoid double-registration.
         // (Both the SystemState path and the TITLE SimVar change can fire for the same aircraft.)
-        if (newAdapter?.GetType() == _currentAdapter?.GetType() && _currentAdapter != null)
+        if (match.Adapter?.GetType() == _currentAdapter?.GetType() && _currentAdapter != null)
         {
             Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPathOrTitle}', skipping.");
             return;
         }
 
-        _currentAdapter = newAdapter;
-        _doorManager.SetAdapter(newAdapter);
+        _currentAdapter = match.Adapter;
+        _doorManager.SetAdapter(match.Adapter);
 
-        if (newAdapter != null)
+        switch (match.Kind)
         {
-            Logger.Success("Custom Aircraft Profile Found! -- Doors and Ground Equipment will be managed Automatically");
-            if (_sc != null)
-            {
-                Logger.Debug($"Registering Adapter '{newAdapter.GetType().Name}' with Active SimConnect.");
-                newAdapter.OnSimConnectConnected(_sc);
-            }
-            else
-            {
-                Logger.Debug($"Adapter '{newAdapter.GetType().Name}' created but SimConnect not yet connected; will register on next connect.");
-            }
-        }
-        else
-        {
-            Logger.Info("No adapter registered for this aircraft; running in basic mode.");
+            case AircraftAdapterMatcher.MatchKind.Adapter:
+                Logger.Success($"Custom Aircraft Profile Found! ({match.DisplayName}) -- Doors and Ground Equipment will be managed Automatically");
+                if (_sc != null)
+                {
+                    Logger.Debug($"Registering Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
+                    match.Adapter.OnSimConnectConnected(_sc);
+                }
+                else
+                {
+                    Logger.Debug($"Adapter '{match.Adapter!.GetType().Name}' created but SimConnect not yet connected; will register on next connect.");
+                }
+                break;
+
+            case AircraftAdapterMatcher.MatchKind.NativeIntegration:
+                Logger.Info($"{match.DisplayName} detected - this aircraft has native GSX integration, no adapter needed.");
+                break;
+
+            case AircraftAdapterMatcher.MatchKind.Unknown:
+                Logger.Info("No aircraft profile found for this aircraft; running in basic mode.");
+                break;
         }
     }
 

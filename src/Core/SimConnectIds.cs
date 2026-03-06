@@ -18,6 +18,9 @@ internal enum SimDef : uint
 
     Pmdg737Vars = 400,
     Pmdg737Control = 401,
+
+    A330Chocks = 500,   // A:COVER ON:0 — wheel chocks
+    A330Gpu = 501,      // L:INI_GPU_AVAIL — GPU
 }
 
 internal enum SimReq : uint
@@ -32,6 +35,9 @@ internal enum SimReq : uint
     Pmdg777Vars = 300,
 
     Pmdg737Vars = 400,
+
+    /// <summary>Used by A330Adapter.EnumerateInputEvents to discover door/chock event hashes.</summary>
+    A330InputEventEnum = 500,
 }
 
 /// <summary>PMDG 777 client-data area IDs (from PMDG_777X_SDK.h).</summary>
