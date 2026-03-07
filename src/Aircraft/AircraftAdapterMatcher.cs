@@ -44,34 +44,59 @@ public static class AircraftAdapterMatcher
         new (Func<string, bool>, string)[]
         {
             (path => !string.IsNullOrEmpty(path) &&
-                    path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase), "iniBuilds"),
+                    path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) &&
+                    path.Contains("A340", StringComparison.OrdinalIgnoreCase),
+                    "iniBuilds A340"),
+            (path => !string.IsNullOrEmpty(path) &&
+                    path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) &&
+                    path.Contains("A350", StringComparison.OrdinalIgnoreCase),
+                    "iniBuilds A350"),
+            (path => !string.IsNullOrEmpty(path) &&
+                    path.Contains("FNX_", StringComparison.OrdinalIgnoreCase), "Fenix"),
         };
 
-    public enum MatchKind { Adapter, NativeIntegration, Unknown }
+    private static readonly IReadOnlyList<(Func<string, bool> IsMatch, string DisplayName)> KnownNonFunctionalIntegrations =
+        new (Func<string, bool>, string)[]
+        {
+            (path => !string.IsNullOrEmpty(path) &&
+                    path.Contains("FlyByWire", StringComparison.OrdinalIgnoreCase) &&
+                    path.Contains("A380", StringComparison.OrdinalIgnoreCase), "FlyByWire A380"),
+            (path => !string.IsNullOrEmpty(path) &&
+                    path.Contains("Maddog", StringComparison.OrdinalIgnoreCase),
+                    "Maddog"),
+        };
+
+    public enum MatchKind { Adapter, NativeIntegration, NonFunctional, Unknown }
 
     public record MatchResult(MatchKind Kind, IAircraftAdapter? Adapter, string? DisplayName);
 
     /// <summary>
-    /// Resolves an adapter for the given aircraft path or title.
+    /// Resolves an adapter for the given aircraft path.
     /// Check <see cref="MatchResult.Kind"/> to distinguish between a matched adapter,
     /// a known aircraft with native GSX integration, and an unrecognised aircraft.
     /// </summary>
-    public static MatchResult Resolve(string aircraftPathOrTitle)
+    public static MatchResult Resolve(string aircraftPath)
     {
-        if (string.IsNullOrEmpty(aircraftPathOrTitle))
+        if (string.IsNullOrEmpty(aircraftPath))
             return new MatchResult(MatchKind.Unknown, null, null);
 
         // Check specific adapters first – they take priority over generic native-integration matches.
         foreach (var entry in SupportedAdapters)
         {
-            if (entry.IsMatch(aircraftPathOrTitle))
+            if (entry.IsMatch(aircraftPath))
                 return new MatchResult(MatchKind.Adapter, entry.CreateAdapter(), entry.DisplayName);
         }
 
         foreach (var (isMatch, displayName) in KnownNativeIntegrations)
         {
-            if (isMatch(aircraftPathOrTitle))
+            if (isMatch(aircraftPath))
                 return new MatchResult(MatchKind.NativeIntegration, null, displayName);
+        }
+
+        foreach (var (isMatch, displayName) in KnownNonFunctionalIntegrations)
+        {
+            if (isMatch(aircraftPath))
+                return new MatchResult(MatchKind.NonFunctional, null, displayName);
         }
 
         return new MatchResult(MatchKind.Unknown, null, null);

@@ -245,6 +245,8 @@ internal static class Program
 
         var match = AircraftAdapterMatcher.Resolve(aircraftPathOrTitle);
 
+        Logger.Info("Aircraft Path or Title: " + aircraftPathOrTitle);
+
         // Skip if we already have the same adapter type running to avoid double-registration.
         // (Both the SystemState path and the TITLE SimVar change can fire for the same aircraft.)
         if (match.Adapter?.GetType() == _currentAdapter?.GetType() && _currentAdapter != null)
@@ -259,7 +261,7 @@ internal static class Program
         switch (match.Kind)
         {
             case AircraftAdapterMatcher.MatchKind.Adapter:
-                Logger.Success($"Custom Aircraft Profile Found! ({match.DisplayName}) -- Doors and Ground Equipment will be managed Automatically");
+                Logger.Success($"Custom Profile for {match.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
                 if (_sc != null)
                 {
                     Logger.Debug($"Registering Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
@@ -272,11 +274,15 @@ internal static class Program
                 break;
 
             case AircraftAdapterMatcher.MatchKind.NativeIntegration:
-                Logger.Info($"{match.DisplayName} detected - this aircraft has native GSX integration, no adapter needed.");
+                Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
+                break;
+
+            case AircraftAdapterMatcher.MatchKind.NonFunctional:
+                Logger.Warning($"{match.DisplayName} Detected. This Aircraft was Tested and found to be Non-Functional.");
                 break;
 
             case AircraftAdapterMatcher.MatchKind.Unknown:
-                Logger.Info("No aircraft profile found for this aircraft; running in basic mode.");
+                Logger.Info("No Custom Profile found for this Aircraft.\nDoors and Ground Equipment will NOT be managed Automatically. Native GSX support is Unknown.");
                 break;
         }
     }

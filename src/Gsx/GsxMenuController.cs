@@ -21,7 +21,6 @@ public sealed class GsxMenuController
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct GsxVarSetStruct { public double Value; }
 
-    // Delays validated against Any2GSX reference implementation
     private const int MenuOpenDelayMs = 1500;
     private const int MenuChoiceDelayMs = 1200;
     private const int MenuCloseDelayMs = 800;
