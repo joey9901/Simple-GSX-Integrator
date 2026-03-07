@@ -61,9 +61,6 @@ public static class AircraftAdapterMatcher
             (path => !string.IsNullOrEmpty(path) &&
                     path.Contains("FlyByWire", StringComparison.OrdinalIgnoreCase) &&
                     path.Contains("A380", StringComparison.OrdinalIgnoreCase), "FlyByWire A380"),
-            (path => !string.IsNullOrEmpty(path) &&
-                    path.Contains("Maddog", StringComparison.OrdinalIgnoreCase),
-                    "Maddog"),
         };
 
     public enum MatchKind { Adapter, NativeIntegration, NonFunctional, Unknown }

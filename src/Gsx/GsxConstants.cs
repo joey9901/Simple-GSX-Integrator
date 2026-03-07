@@ -2,7 +2,7 @@ namespace SimpleGsxIntegrator.Gsx;
 
 public static class GsxConstants
 {
-    public const string CouatlStarted = "L:FSDT_GSX_COUATL_STARTED";
+    public const string CouatlStarted = "L:FSDT_GSX_STATE";
 
     public const string MenuOpen = "L:FSDT_GSX_MENU_OPEN";
     public const string MenuChoice = "L:FSDT_GSX_MENU_CHOICE";
