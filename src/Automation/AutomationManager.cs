@@ -101,6 +101,7 @@ public sealed class AutomationManager
         _flightState.AircraftChanged += OnAircraftChanged;
         _flightState.ActivationLvarTriggered += OnActivationLvarTriggered;
         _flightState.EngineChanged += OnEngineChanged;
+        _flightState.SpawnedAtGate += OnSpawnedAtGate;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
@@ -115,6 +116,15 @@ public sealed class AutomationManager
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         EvaluateServices();
+    }
+
+    private void OnSpawnedAtGate()
+    {
+        if (_currentAdapter != null)
+        {
+            Logger.Debug($"AutomationManager: Spawned at Gate, Calling OnSpawned on '{_currentAdapter.GetType().Name}'");
+            _ = _currentAdapter.OnSpawned();
+        }
     }
 
     private void OnAircraftChanged(string title)

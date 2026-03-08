@@ -264,6 +264,12 @@ internal static class Program
 
         _automationManager.SetCurrentAdapter(match.Adapter);
 
+        if (_sc != null)
+        {
+            var overrides = match.Adapter?.GetSimVarOverrides() ?? new Dictionary<SimVarOverride, string>();
+            _flightState.SetSimVarOverrides(_sc, overrides);
+        }
+
         switch (match.Kind)
         {
             case AircraftAdapterMatcher.MatchKind.Adapter:
@@ -275,7 +281,7 @@ internal static class Program
                 }
                 else
                 {
-                    Logger.Debug($"Adapter '{match.Adapter!.GetType().Name}' created but SimConnect not yet connected; will register on next connect.");
+                    Logger.Debug($"Adapter '{match.Adapter!.GetType().Name}' created but SimConnect not yet connected.");
                 }
                 break;
 

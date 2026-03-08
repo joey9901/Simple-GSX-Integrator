@@ -15,8 +15,10 @@ internal enum SimDef : uint
     Pmdg737Vars = 400,
     Pmdg737Control = 401,
 
-    A330Chocks = 500,   // A:COVER ON:0 — wheel chocks
-    A330Gpu = 501,      // L:INI_GPU_AVAIL — GPU
+    A330Chocks = 500,       // A:COVER ON:0 — wheel chocks
+    A330Gpu = 501,          // L:INI_GPU_AVAIL — GPU
+    A330EngineCover = 502,  // A:COVER ON:1 — engine covers
+    A330PitotCover = 503,   // A:COVER ON:2 — pitot covers
 }
 
 internal enum SimReq : uint

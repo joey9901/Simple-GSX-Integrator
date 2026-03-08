@@ -4,9 +4,16 @@ namespace SimpleGsxIntegrator.Aircraft;
 
 public interface IAircraftAdapter : IDisposable
 {
+    IReadOnlyDictionary<SimVarOverride, string> GetSimVarOverrides()
+    {
+        return new Dictionary<SimVarOverride, string>();
+    }
+
     void OnSimConnectConnected(SimConnect sc);
 
     void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data);
+
+    Task OnSpawned() { return Task.CompletedTask; }
 
     async Task OnBeforePushbackAsync() { await Task.Delay(2_000); }
     Task OnBeforeDeboardingAsync() { return Task.CompletedTask; }

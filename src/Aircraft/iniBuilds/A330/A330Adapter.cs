@@ -15,7 +15,6 @@ public sealed class IniA330Adapter : IAircraftAdapter
     private readonly Dictionary<string, ulong> _nameToHash = new();
     private readonly Dictionary<ulong, string> _hashToName = new();
 
-    // Live state: event name → current double value (0=closed/removed, 1=open/placed)
     private readonly Dictionary<string, double> _values = new();
 
     private enum EvtId : uint { SetExit = 100 }
@@ -58,6 +57,14 @@ public sealed class IniA330Adapter : IAircraftAdapter
         sc.AddToDataDefinition(SimDef.A330Gpu,
             A330Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A330Gpu);
+
+        sc.AddToDataDefinition(SimDef.A330EngineCover,
+            A330Constants.AVar_EngineCover, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A330EngineCover);
+
+        sc.AddToDataDefinition(SimDef.A330PitotCover,
+            A330Constants.AVar_PitotCover, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A330PitotCover);
 
         sc.MapClientEventToSimEvent(EvtId.SetExit, "SET_AIRCRAFT_EXIT");
 
@@ -119,31 +126,6 @@ public sealed class IniA330Adapter : IAircraftAdapter
             Logger.Debug($"IniA330Adapter: '{name}' changed → {value:F1}");
     }
 
-    private async Task CloseAllOpenDoorsAsync()
-    {
-        var open = A330Constants.AllDoorIds.Where(IsDoorOpen).ToList();
-        if (open.Count == 0) return;
-
-        Logger.Info($"IniA330Adapter: Closing {open.Count} open door(s)");
-        foreach (uint doorId in open)
-        {
-            CloseExit(doorId);
-            await Task.Delay(300);
-        }
-    }
-
-    private void CloseDoor(uint doorId)
-    {
-        if (!IsDoorOpen(doorId))
-        {
-            Logger.Debug($"IniA330Adapter: {GetDoorName(doorId)} already closed");
-            return;
-        }
-
-        Logger.Info($"IniA330Adapter: closing {GetDoorName(doorId)}");
-        CloseExit(doorId);
-    }
-
     private void RemoveGroundEquipment()
     {
         if (_sc == null) return;
@@ -161,6 +143,15 @@ public sealed class IniA330Adapter : IAircraftAdapter
         WriteSimVar(SimDef.A330Chocks, 1.0);
         Logger.Debug("IniA330Adapter: placing GPU (L:INI_GPU_AVAIL = 1)");
         WriteSimVar(SimDef.A330Gpu, 1.0);
+        return Task.CompletedTask;
+    }
+
+    public Task OnSpawned()
+    {
+        Logger.Debug("IniA330Adapter: removing engine covers (COVER ON:1 = 0)");
+        WriteSimVar(SimDef.A330EngineCover, 0.0);
+        Logger.Debug("IniA330Adapter: removing pitot covers (COVER ON:2 = 0)");
+        WriteSimVar(SimDef.A330PitotCover, 0.0);
         return Task.CompletedTask;
     }
 

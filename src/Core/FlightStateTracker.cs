@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.FlightSimulator.SimConnect;
+using SimpleGsxIntegrator.Aircraft;
 
 namespace SimpleGsxIntegrator.Core;
 
@@ -15,6 +16,7 @@ public sealed class FlightStateTracker
         // for taxi and for some reason the user wants to return to gate for 
         // deboarding, deboarding won't be called since HasEnginesEverRun is false
         public int OnGround;
+        public int UserInputEnabled;
         public double GroundSpeed;     // knots
         public double Airspeed;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
@@ -36,22 +38,43 @@ public sealed class FlightStateTracker
     private bool _enginesHaveRun;
     private bool _hasMoved;
 
+    private bool _onSpawnedHandled;
+
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
 
+    private const uint OverrideIdBase = 600;
+    private readonly Dictionary<SimVarOverride, double> _activeOverrides = new();
+    private readonly Dictionary<SimVarOverride, string> _registeredOverrides = new();
+
     public bool BeaconOn
     {
-        get { return _state.BeaconLight != 0; }
+        get
+        {
+            if (_activeOverrides.TryGetValue(SimVarOverride.BeaconLight, out double ov) && !double.IsNaN(ov))
+                return ov != 0;
+            return _state.BeaconLight != 0;
+        }
     }
 
     public bool ParkingBrake
     {
-        get { return _state.ParkingBrake != 0; }
+        get
+        {
+            if (_activeOverrides.TryGetValue(SimVarOverride.ParkingBrake, out double ov) && !double.IsNaN(ov))
+                return ov != 0;
+            return _state.ParkingBrake != 0;
+        }
     }
 
     public bool EngineOn
     {
-        get { return _state.EngineRunning != 0; }
+        get
+        {
+            if (_activeOverrides.TryGetValue(SimVarOverride.EngineRunning, out double ov) && !double.IsNaN(ov))
+                return ov != 0;
+            return _state.EngineRunning != 0;
+        }
     }
 
     public bool OnGround
@@ -86,6 +109,7 @@ public sealed class FlightStateTracker
     public event Action<double>? SpeedChanged;
     public event Action<string>? AircraftChanged;
     public event Action<double>? ActivationLvarTriggered;
+    public event Action? SpawnedAtGate;
 
     public void OnSimConnectConnected(SimConnect sc)
     {
@@ -98,6 +122,7 @@ public sealed class FlightStateTracker
         AddFlightStateVar(sc, "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
         AddFlightStateVar(sc, "AIRSPEED INDICATED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
         AddFlightStateVar(sc, "TITLE", null, SIMCONNECT_DATATYPE.STRING256);
@@ -154,6 +179,50 @@ public sealed class FlightStateTracker
         }
     }
 
+    public void SetSimVarOverrides(SimConnect sc, IReadOnlyDictionary<SimVarOverride, string> overrides)
+    {
+        _activeOverrides.Clear();
+
+        foreach (var (overrideVar, lvarName) in overrides)
+        {
+            var simDef = (SimDef)(OverrideIdBase + (uint)overrideVar);
+            var simReq = (SimReq)(OverrideIdBase + (uint)overrideVar);
+
+            if (_registeredOverrides.TryGetValue(overrideVar, out string? existing))
+            {
+                if (string.Equals(existing, lvarName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _activeOverrides[overrideVar] = double.NaN;
+                    Logger.Debug($"FlightStateTracker: override {overrideVar} already registered → '{lvarName}'");
+                    continue;
+                }
+
+                Logger.Warning($"FlightStateTracker: override {overrideVar} already registered as '{existing}', cannot change to '{lvarName}'");
+                continue;
+            }
+
+            try
+            {
+                sc.AddToDataDefinition(simDef, lvarName, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+                sc.RegisterDataDefineStruct<ActivationLvarStruct>(simDef);
+                sc.RequestDataOnSimObject(
+                    simReq, simDef,
+                    SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                    SIMCONNECT_PERIOD.SECOND,
+                    SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+                    0, 0, 0);
+
+                _registeredOverrides[overrideVar] = lvarName;
+                _activeOverrides[overrideVar] = double.NaN;
+                Logger.Debug($"FlightStateTracker: override registered - {overrideVar} → '{lvarName}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"FlightStateTracker: failed to register override {overrideVar} ('{lvarName}'): {ex.Message}");
+            }
+        }
+    }
+
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID == (uint)SimReq.FlightState)
@@ -163,6 +232,11 @@ public sealed class FlightStateTracker
         else if (data.dwRequestID == (uint)SimReq.ActivationLvar)
         {
             ProcessActivationLvar(((ActivationLvarStruct)data.dwData[0]).Value);
+        }
+        else if (data.dwRequestID >= OverrideIdBase && data.dwRequestID < OverrideIdBase + 100)
+        {
+            var overrideVar = (SimVarOverride)(data.dwRequestID - OverrideIdBase);
+            ProcessOverrideVar(overrideVar, ((ActivationLvarStruct)data.dwData[0]).Value);
         }
     }
 
@@ -179,16 +253,18 @@ public sealed class FlightStateTracker
                 _hasMoved = true;
         }
 
-        // First poll – seed previous values then fire initial-state notifications so the UI
+        // First poll - seed previous values then fire initial-state notifications so the UI
         // populates immediately when the app connects to an already-running simulator.
         if (_firstPoll)
         {
             _firstPoll = false;
             _prevState = s;
-            Logger.Debug($"FlightStateTracker: initial state – Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}'");
+            Logger.Debug($"FlightStateTracker: initial state - Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}'");
 
             if (!string.IsNullOrEmpty(AircraftTitle))
+            {
                 AircraftChanged?.Invoke(AircraftTitle);
+            }
 
             return;
         }
@@ -200,26 +276,41 @@ public sealed class FlightStateTracker
             AircraftChanged?.Invoke(AircraftTitle);
         }
 
-        if (_state.BeaconLight != _prevState.BeaconLight)
+        bool inMenu = _state.UserInputEnabled != 0; // 1 is in menu 0 is in flight
+        bool atGate = _state.OnGround != 0 && _state.EngineRunning == 0;
+
+        if (!inMenu && atGate && !_onSpawnedHandled)
+        {
+            _onSpawnedHandled = true;
+            Logger.Debug($"FlightStateTracker: ");
+            SpawnedAtGate?.Invoke();
+        }
+        else if (inMenu)
+        {
+            _onSpawnedHandled = false;
+        }
+
+        if (_state.BeaconLight != _prevState.BeaconLight && !_activeOverrides.ContainsKey(SimVarOverride.BeaconLight))
         {
             _prevState.BeaconLight = _state.BeaconLight;
             Logger.Debug($"FlightStateTracker: beacon → {(BeaconOn ? "ON" : "OFF")}");
             BeaconChanged?.Invoke(BeaconOn);
         }
 
-        if (_state.ParkingBrake != _prevState.ParkingBrake)
+        if (_state.ParkingBrake != _prevState.ParkingBrake && !_activeOverrides.ContainsKey(SimVarOverride.ParkingBrake))
         {
             _prevState.ParkingBrake = _state.ParkingBrake;
             Logger.Debug($"FlightStateTracker: parking brake → {(ParkingBrake ? "SET" : "RELEASED")}");
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
 
-        if (_state.EngineRunning != _prevState.EngineRunning)
+        if (_state.EngineRunning != _prevState.EngineRunning && !_activeOverrides.ContainsKey(SimVarOverride.EngineRunning))
         {
             _prevState.EngineRunning = _state.EngineRunning;
             Logger.Debug($"FlightStateTracker: engine → {(EngineOn ? "RUNNING" : "OFF")}");
             EngineChanged?.Invoke(EngineOn);
         }
+
         if (Math.Abs(_state.GroundSpeed - _prevState.GroundSpeed) > 0.5)
         {
             _prevState.GroundSpeed = _state.GroundSpeed;
@@ -242,12 +333,53 @@ public sealed class FlightStateTracker
         }
     }
 
+    private void ProcessOverrideVar(SimVarOverride overrideVar, double value)
+    {
+        if (!_activeOverrides.TryGetValue(overrideVar, out double previous))
+            return;
+
+        _activeOverrides[overrideVar] = value;
+
+        if (double.IsNaN(previous))
+        {
+            Logger.Debug($"FlightStateTracker: override {overrideVar} initial → {value != 0} (raw={value:F4})");
+            FireOverrideEvent(overrideVar, value != 0);
+            return;
+        }
+
+        bool wasOn = previous != 0;
+        bool isOn = value != 0;
+
+        if (isOn != wasOn)
+        {
+            Logger.Debug($"FlightStateTracker: override {overrideVar} → {isOn} (raw={value:F4})");
+            FireOverrideEvent(overrideVar, isOn);
+        }
+    }
+
+    private void FireOverrideEvent(SimVarOverride overrideVar, bool state)
+    {
+        switch (overrideVar)
+        {
+            case SimVarOverride.ParkingBrake:
+                ParkingBrakeChanged?.Invoke(state);
+                break;
+            case SimVarOverride.BeaconLight:
+                BeaconChanged?.Invoke(state);
+                break;
+            case SimVarOverride.EngineRunning:
+                EngineChanged?.Invoke(state);
+                break;
+        }
+    }
+
     public void ResetSession()
     {
         _enginesHaveRun = false;
         _hasMoved = false;
         _activationLvar = null;
         _lastActivationValue = double.NaN;
+        _activeOverrides.Clear();
         Logger.Debug("FlightStateTracker: session reset");
     }
 
