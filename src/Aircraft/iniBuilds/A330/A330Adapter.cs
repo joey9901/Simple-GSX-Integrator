@@ -38,8 +38,6 @@ public sealed class IniA330Adapter : IAircraftAdapter
         A330Constants.IE_CARGO_AFT
     ];
 
-    public uint MainBoardingDoorId => A330Constants.DoorId1L;
-
     public void OnSimConnectConnected(SimConnect sc)
     {
         // Detach handlers from any previous SimConnect instance
@@ -126,18 +124,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
             Logger.Debug($"IniA330Adapter: '{name}' changed → {value:F1}");
     }
 
-    public bool AreAnyDoorsOpen()
-        => A330Constants.AllDoorIds.Any(IsDoorOpen);
-
-    public IReadOnlySet<uint> GetOpenDoorIds()
-    {
-        var result = new HashSet<uint>();
-        foreach (uint id in A330Constants.AllDoorIds)
-            if (IsDoorOpen(id)) result.Add(id);
-        return result;
-    }
-
-    public async Task CloseAllOpenDoorsAsync()
+    private async Task CloseAllOpenDoorsAsync()
     {
         var open = A330Constants.AllDoorIds.Where(IsDoorOpen).ToList();
         if (open.Count == 0) return;
@@ -150,7 +137,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
         }
     }
 
-    public void CloseDoor(uint doorId)
+    private void CloseDoor(uint doorId)
     {
         if (!IsDoorOpen(doorId))
         {
@@ -162,7 +149,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
         CloseExit(doorId);
     }
 
-    public void RemoveGroundEquipment()
+    private void RemoveGroundEquipment()
     {
         if (_sc == null) return;
         Logger.Debug("IniA330Adapter: removing chocks (L:COVER ON:0 = 0)");
@@ -171,7 +158,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
         WriteSimVar(SimDef.A330Gpu, 0.0);
     }
 
-    public Task PlaceGroundEquipmentAndChocks()
+    private Task PlaceGroundEquipmentAndChocks()
     {
         if (_sc == null) return Task.CompletedTask;
         Logger.Info("IniA330Adapter: Placing Chocks and GPU");
@@ -180,6 +167,17 @@ public sealed class IniA330Adapter : IAircraftAdapter
         Logger.Debug("IniA330Adapter: placing GPU (L:INI_GPU_AVAIL = 1)");
         WriteSimVar(SimDef.A330Gpu, 1.0);
         return Task.CompletedTask;
+    }
+
+    public Task OnBeforePushbackAsync()
+    {
+        RemoveGroundEquipment();
+        return Task.CompletedTask;
+    }
+
+    public Task OnBeforeDeboardingAsync()
+    {
+        return PlaceGroundEquipmentAndChocks();
     }
 
     public void Dispose()

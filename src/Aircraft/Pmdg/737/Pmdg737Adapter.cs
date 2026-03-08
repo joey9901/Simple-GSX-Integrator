@@ -49,8 +49,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
 
-    public uint MainBoardingDoorId => Pmdg737Constants.EVT_DOOR_FWD_L;
-
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
@@ -145,13 +143,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     }
 
 
-    public bool AreAnyDoorsOpen()
-        => _doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds);
-
-    public IReadOnlySet<uint> GetOpenDoorIds()
-        => _doorTracker.GetOpenIds(Pmdg737Constants.AllDoorIds);
-
-    public async Task CloseAllOpenDoorsAsync()
+    private async Task CloseAllOpenDoorsAsync()
     {
         var open = Pmdg737Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
 
@@ -161,7 +153,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
             return;
         }
 
-        Logger.Info($"Pmdg737Adapter: Closing {open.Count} open door(s)");
+        Logger.Debug($"Pmdg737Adapter: Closing {open.Count} open door(s)");
 
         foreach (uint evtCode in open)
         {
@@ -188,7 +180,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
     }
 
-    public void CloseDoor(uint doorId)
+    private void CloseDoor(uint doorId)
     {
         if (!_doorTracker.IsOpen(doorId))
         {
@@ -201,12 +193,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     }
 
 
-    public void RemoveGroundEquipment()
-    {
-        _ = RemoveGroundEquipmentAsync();
-    }
-
-    public async Task PlaceGroundEquipmentAndChocks()
+    private async Task PlaceGroundEquipmentAndChocks()
     {
         if (_vars.WheelChocks >= 0.5)
         {
@@ -239,6 +226,36 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
     }
 
+    public async Task OnBeforePushbackAsync()
+    {
+        await RemoveGroundEquipmentAsync();
+        await CloseAllOpenDoorsAsync();
+
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds) && DateTime.UtcNow < deadline)
+        {
+            // Wait longer than the debounce window so the next CloseAllOpenDoorsAsync
+            // call is actually sent (and any still-opening door has finished animating).
+            await Task.Delay(5_000);
+            await CloseAllOpenDoorsAsync();
+        }
+
+        if (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds))
+            Logger.Warning("Pmdg737Adapter: Doors still open after 60s - proceeding with pushback");
+        else
+            Logger.Info("Pmdg737Adapter: All doors confirmed closed");
+    }
+
+    public Task OnBeforeDeboardingAsync()
+    {
+        return PlaceGroundEquipmentAndChocks();
+    }
+
+    public async Task OnBoardingCompleted()
+    {
+        await Task.Delay(15_000);
+        await CloseAllOpenDoorsAsync();
+    }
 
     public void Dispose()
     {
@@ -253,19 +270,19 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     {
         switch (evtCode)
         {
-            case Pmdg737Constants.EVT_DOOR_FWD_L:            return _vars.FwdLeftCabinDoor;
-            case Pmdg737Constants.EVT_DOOR_AFT_L:            return _vars.AftLeftCabinDoor;
-            case Pmdg737Constants.EVT_DOOR_FWD_R:            return _vars.FwdRightCabinDoor;
-            case Pmdg737Constants.EVT_DOOR_AFT_R:            return _vars.AftRightCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_FWD_L: return _vars.FwdLeftCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_AFT_L: return _vars.AftLeftCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_FWD_R: return _vars.FwdRightCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_AFT_R: return _vars.AftRightCabinDoor;
             case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L2: return _vars.OverwingAftLeftExit;
             case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R2: return _vars.OverwingAftRightExit;
-            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L:  return _vars.OverwingFwdLeftExit;
-            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R:  return _vars.OverwingFwdRightExit;
-            case Pmdg737Constants.EVT_DOOR_CARGO_FWD:        return _vars.FwdLwrCargoDoor;
-            case Pmdg737Constants.EVT_DOOR_CARGO_AFT:        return _vars.AftLwrCargoDoor;
-            case Pmdg737Constants.EVT_DOOR_CARGO_MAIN:       return _vars.MainCargoDoor;
-            case Pmdg737Constants.EVT_DOOR_EQUIPMENT_HATCH:  return _vars.EquipmentHatchDoor;
-            default:                                         return double.NaN;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L: return _vars.OverwingFwdLeftExit;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R: return _vars.OverwingFwdRightExit;
+            case Pmdg737Constants.EVT_DOOR_CARGO_FWD: return _vars.FwdLwrCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_CARGO_AFT: return _vars.AftLwrCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_CARGO_MAIN: return _vars.MainCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_EQUIPMENT_HATCH: return _vars.EquipmentHatchDoor;
+            default: return double.NaN;
         }
     }
 

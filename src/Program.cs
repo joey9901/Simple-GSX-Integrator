@@ -15,14 +15,11 @@ internal static class Program
     private static FlightStateTracker _flightState = null!;
     private static GsxMonitor _gsxMonitor = null!;
     private static GsxMenuController _gsxMenu = null!;
-    private static DoorManager _doorManager = null!;
     private static AutomationManager _automationManager = null!;
     private static HotkeyListener _hotkeys = null!;
     private static ProcessWatcher _procWatcher = null!;
     private static MainForm _mainForm = null!;
     private static System.Windows.Forms.Timer _simConnectTimer = null!;
-
-    private static IAircraftAdapter? _currentAdapter;
 
     private static SimConnect? _sc;
 
@@ -59,8 +56,7 @@ internal static class Program
         _flightState = new FlightStateTracker();
         _gsxMonitor = new GsxMonitor();
         _gsxMenu = new GsxMenuController();
-        _doorManager = new DoorManager(_gsxMonitor);
-        _automationManager = new AutomationManager(_flightState, _gsxMonitor, _gsxMenu, _doorManager);
+        _automationManager = new AutomationManager(_flightState, _gsxMonitor, _gsxMenu);
 
         _hotkeys = new HotkeyListener(cfg.Hotkeys.ActivationKey, cfg.Hotkeys.ResetKey);
         _procWatcher = new ProcessWatcher();
@@ -147,7 +143,7 @@ internal static class Program
 
         // If an adapter was already selected (e.g. hub reconnect after aircraft already known),
         // give it the new SimConnect instance so it can register its definitions.
-        _currentAdapter?.OnSimConnectConnected(sc);
+        _automationManager.CurrentAdapter?.OnSimConnectConnected(sc);
 
         // Request the currently loaded aircraft path so we can choose the right adapter.
         try
@@ -166,8 +162,7 @@ internal static class Program
         _simConnectTimer?.Stop();
         _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
         _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
-        _currentAdapter = null;
-        _doorManager.SetAdapter(null);
+        _automationManager.SetCurrentAdapter(null);
         Logger.Warning("SimConnect disconnected.");
     }
 
@@ -175,7 +170,7 @@ internal static class Program
     {
         _flightState.OnSimObjectData(data);
         _gsxMonitor.OnSimObjectData(data);
-        _currentAdapter?.OnSimObjectData(data);
+        _automationManager.CurrentAdapter?.OnSimObjectData(data);
     }
 
     private static void OnSystemStateReceived(SIMCONNECT_RECV_SYSTEM_STATE data)
@@ -268,14 +263,13 @@ internal static class Program
         Logger.Debug("Aircraft path: " + aircraftPath);
 
         // Skip if we already have the same adapter type running to avoid double-registration.
-        if (match.Adapter?.GetType() == _currentAdapter?.GetType() && _currentAdapter != null)
+        if (match.Adapter?.GetType() == _automationManager.CurrentAdapter?.GetType() && _automationManager.CurrentAdapter != null)
         {
             Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPath}', skipping.");
             return;
         }
 
-        _currentAdapter = match.Adapter;
-        _doorManager.SetAdapter(match.Adapter);
+        _automationManager.SetCurrentAdapter(match.Adapter);
 
         switch (match.Kind)
         {

@@ -19,7 +19,8 @@ public sealed class AutomationManager
     private readonly FlightStateTracker _flightState;
     private readonly GsxMonitor _gsxMonitor;
     private readonly GsxMenuController _gsxMenu;
-    private readonly DoorManager _doorManager;
+
+    private IAircraftAdapter? _currentAdapter;
 
     private bool _activated;
     private string? _currentAircraftTitle;
@@ -45,13 +46,11 @@ public sealed class AutomationManager
     public AutomationManager(
         FlightStateTracker flightState,
         GsxMonitor gsxMonitor,
-        GsxMenuController gsxMenu,
-        DoorManager doorManager)
+        GsxMenuController gsxMenu)
     {
         _flightState = flightState;
         _gsxMonitor = gsxMonitor;
         _gsxMenu = gsxMenu;
-        _doorManager = doorManager;
 
         SetupEvents();
     }
@@ -67,6 +66,16 @@ public sealed class AutomationManager
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
+    }
+
+    public IAircraftAdapter? CurrentAdapter
+    {
+        get { return _currentAdapter; }
+    }
+
+    public void SetCurrentAdapter(IAircraftAdapter? adapter)
+    {
+        _currentAdapter = adapter;
     }
 
     /// <summary>
@@ -184,12 +193,17 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested: Logger.Success("Boarding: Requested"); break;
-            case GsxServiceState.Active: Logger.Success("Boarding: Active"); break;
-
+            case GsxServiceState.Requested:
+                Logger.Success("Boarding: Requested");
+                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingRequested();
+                break;
+            case GsxServiceState.Active:
+                Logger.Success("Boarding: Active");
+                break;
             case GsxServiceState.Completed when !_boardingDone:
                 _boardingDone = true;
                 Logger.Success("Boarding: Complete");
+                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingCompleted();
                 break;
         }
     }
@@ -198,12 +212,17 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested: Logger.Success("Deboarding: Requested"); break;
-            case GsxServiceState.Active: Logger.Success("Deboarding: Active"); break;
-
+            case GsxServiceState.Requested:
+                Logger.Success("Deboarding: Requested");
+                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingRequested();
+                break;
+            case GsxServiceState.Active:
+                Logger.Success("Deboarding: Active");
+                break;
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;
                 Logger.Success("Deboarding: Complete");
+                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingCompleted();
                 Logger.Debug("Deboarding Complete - Resetting Session and deactivating system");
                 ResetSession();
                 if (_activated) ToggleActivation();
@@ -215,15 +234,18 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested: Logger.Success("Pushback: Requested"); break;
+            case GsxServiceState.Requested:
+                Logger.Success("Pushback: Requested");
+                if (_currentAdapter != null) _ = _currentAdapter.OnPushbackRequested();
+                break;
             case GsxServiceState.Active:
-                _pushbackDone = true; // GSX doesn't always set pushback state to completed so we set pushhback done here
+                _pushbackDone = true; // GSX doesn't always set pushback state to completed so we set pushback done here
                 Logger.Success("Pushback: Active");
                 break;
-
             case GsxServiceState.Completed:
                 _pushbackDone = true;
                 Logger.Success("Pushback: Complete");
+                if (_currentAdapter != null) _ = _currentAdapter.OnPushbackCompleted();
                 break;
         }
     }
@@ -232,12 +254,17 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested: Logger.Success("Refueling: Requested"); break;
-            case GsxServiceState.Active: Logger.Success("Refueling: Active"); break;
-
+            case GsxServiceState.Requested:
+                Logger.Success("Refueling: Requested");
+                if (_currentAdapter != null) _ = _currentAdapter.OnRefuelingRequested();
+                break;
+            case GsxServiceState.Active:
+                Logger.Success("Refueling: Active");
+                break;
             case GsxServiceState.Completed:
                 _refuelingDone = true;
                 Logger.Success("Refueling: Complete");
+                if (_currentAdapter != null) _ = _currentAdapter.OnRefuelingCompleted();
                 if (_activated) EvaluateBoarding();
                 break;
         }
@@ -247,12 +274,17 @@ public sealed class AutomationManager
     {
         switch (state)
         {
-            case GsxServiceState.Requested: Logger.Success("Catering: Requested"); break;
-            case GsxServiceState.Active: Logger.Success("Catering: Active"); break;
-
+            case GsxServiceState.Requested:
+                Logger.Success("Catering: Requested");
+                if (_currentAdapter != null) _ = _currentAdapter.OnCateringRequested();
+                break;
+            case GsxServiceState.Active:
+                Logger.Success("Catering: Active");
+                break;
             case GsxServiceState.Completed:
                 _cateringDone = true;
                 Logger.Success("Catering: Complete");
+                if (_currentAdapter != null) _ = _currentAdapter.OnCateringCompleted();
                 if (_activated) EvaluateRefueling();
                 if (_activated) EvaluateBoarding();
                 break;
@@ -347,7 +379,11 @@ public sealed class AutomationManager
 
     private async Task TriggerPushbackAsync()
     {
-        await (_doorManager.CurrentAdapter?.PrepareForPushbackAsync() ?? Task.Delay(2_000));
+        if (_currentAdapter != null)
+            await _currentAdapter.OnBeforePushbackAsync();
+        else
+            await Task.Delay(2_000);
+
         await _gsxMenu.CallPushbackAsync();
     }
 
@@ -371,7 +407,9 @@ public sealed class AutomationManager
 
     private async Task TriggerDeboardingAsync()
     {
-        await (_doorManager.CurrentAdapter?.PrepareForDeboardingAsync() ?? Task.CompletedTask);
+        if (_currentAdapter != null)
+            await _currentAdapter.OnBeforeDeboardingAsync();
+
         await _gsxMenu.CallDeboardingAsync();
     }
 
