@@ -141,7 +141,7 @@ public class AircraftConfigForm : Form
             Location = new Point(405, 265),
             Size = new Size(85, 30)
         };
-        btnCancel.Click += (s, e) => this.Close();
+        btnCancel.Click += BtnCancel_Click;
 
         this.Controls.AddRange(new Control[]
         {
@@ -169,6 +169,11 @@ public class AircraftConfigForm : Form
         chkAutoCloseDoors.Checked = config.AutoCloseDoors;
         txtActivationLvar.Text = config.ActivationLvar?.Replace("L:", "") ?? string.Empty;
         try { nudActivationValue.Value = (decimal)config.ActivationValue; } catch { nudActivationValue.Value = 1; }
+    }
+
+    private void BtnCancel_Click(object? sender, EventArgs e)
+    {
+        this.Close();
     }
 
     private void ButtonSaveClick(object? sender, EventArgs e)

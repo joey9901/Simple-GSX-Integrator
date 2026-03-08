@@ -191,9 +191,9 @@ public partial class MainForm : Form
             Cursor = Cursors.Hand,
             TabStop = false
         };
-        txtActivationKey.Click += (s, e) => OnHotkeyTextBoxClick(txtActivationKey, _originalActivationKey, "Activation");
-        txtActivationKey.PreviewKeyDown += (s, e) => OnHotkeyPreviewKeyDown(e);
-        txtActivationKey.KeyDown += (s, e) => OnHotkeyKeyDown(txtActivationKey, e, "Activation");
+        txtActivationKey.Click += TxtActivationKey_Click;
+        txtActivationKey.PreviewKeyDown += TxtActivationKey_PreviewKeyDown;
+        txtActivationKey.KeyDown += TxtActivationKey_KeyDown;
 
         var lblResetKey = new Label
         {
@@ -211,9 +211,9 @@ public partial class MainForm : Form
             Cursor = Cursors.Hand,
             TabStop = false
         };
-        txtResetKey.Click += (s, e) => OnHotkeyTextBoxClick(txtResetKey, _originalResetKey, "Reset");
-        txtResetKey.PreviewKeyDown += (s, e) => OnHotkeyPreviewKeyDown(e);
-        txtResetKey.KeyDown += (s, e) => OnHotkeyKeyDown(txtResetKey, e, "Reset");
+        txtResetKey.Click += TxtResetKey_Click;
+        txtResetKey.PreviewKeyDown += TxtResetKey_PreviewKeyDown;
+        txtResetKey.KeyDown += TxtResetKey_KeyDown;
 
         var lblAircraftHeader = new Label
         {
@@ -336,7 +336,7 @@ public partial class MainForm : Form
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
-        btnPrintState.Click += (s, e) => Program.PrintCurrentState();
+        btnPrintState.Click += BtnPrintState_Click;
 
         btnToggleMovement = new Button
         {
@@ -345,7 +345,7 @@ public partial class MainForm : Form
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
-        btnToggleMovement.Click += (s, e) => Program.ToggleMovementFlag();
+        btnToggleMovement.Click += BtnToggleMovement_Click;
 
         btnToggleEnginesRun = new Button
         {
@@ -354,7 +354,7 @@ public partial class MainForm : Form
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
-        btnToggleEnginesRun.Click += (s, e) => Program.ToggleEnginesEverRunFlag();
+        btnToggleEnginesRun.Click += BtnToggleEnginesRun_Click;
 
         this.Controls.AddRange(new Control[]
         {
@@ -376,6 +376,51 @@ public partial class MainForm : Form
         ApplyTheme();
 
         Task.Run(async () => await CheckForUpdatesAsync());
+    }
+
+    private void TxtActivationKey_Click(object? sender, EventArgs e)
+    {
+        OnHotkeyTextBoxClick(txtActivationKey, _originalActivationKey, "Activation");
+    }
+
+    private void TxtActivationKey_PreviewKeyDown(object? sender, PreviewKeyDownEventArgs e)
+    {
+        OnHotkeyPreviewKeyDown(e);
+    }
+
+    private void TxtActivationKey_KeyDown(object? sender, KeyEventArgs e)
+    {
+        OnHotkeyKeyDown(txtActivationKey, e, "Activation");
+    }
+
+    private void TxtResetKey_Click(object? sender, EventArgs e)
+    {
+        OnHotkeyTextBoxClick(txtResetKey, _originalResetKey, "Reset");
+    }
+
+    private void TxtResetKey_PreviewKeyDown(object? sender, PreviewKeyDownEventArgs e)
+    {
+        OnHotkeyPreviewKeyDown(e);
+    }
+
+    private void TxtResetKey_KeyDown(object? sender, KeyEventArgs e)
+    {
+        OnHotkeyKeyDown(txtResetKey, e, "Reset");
+    }
+
+    private void BtnPrintState_Click(object? sender, EventArgs e)
+    {
+        Program.PrintCurrentState();
+    }
+
+    private void BtnToggleMovement_Click(object? sender, EventArgs e)
+    {
+        Program.ToggleMovementFlag();
+    }
+
+    private void BtnToggleEnginesRun_Click(object? sender, EventArgs e)
+    {
+        Program.ToggleEnginesEverRunFlag();
     }
 
     private void BtnAircraftConfig_Click(object? sender, EventArgs e)
@@ -727,22 +772,7 @@ public partial class MainForm : Form
 
                 Logger.Info("Starting update download...");
 
-                var progress = new Progress<int>(percent =>
-                {
-                    if (InvokeRequired)
-                    {
-                        Invoke(() =>
-                        {
-                            prgUpdateProgress.Value = percent;
-                            lblUpdateMessage.Text = $"Downloading update... {percent}%";
-                        });
-                    }
-                    else
-                    {
-                        prgUpdateProgress.Value = percent;
-                        lblUpdateMessage.Text = $"Downloading update... {percent}%";
-                    }
-                });
+                var progress = new Progress<int>(OnUpdateProgressChanged);
 
                 var zipPath = await UpdateChecker.DownloadUpdateAsync(url, progress);
 
@@ -772,5 +802,17 @@ public partial class MainForm : Form
                 prgUpdateProgress.Visible = false;
             }
         }
+    }
+
+    private void OnUpdateProgressChanged(int percent)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(() => OnUpdateProgressChanged(percent));
+            return;
+        }
+
+        prgUpdateProgress.Value = percent;
+        lblUpdateMessage.Text = $"Downloading update... {percent}%";
     }
 }

@@ -212,18 +212,21 @@ public sealed class IniA330Adapter : IAircraftAdapter
         return name != null && _values.TryGetValue(name, out double v) && v > 0.5;
     }
 
-    private static string? DoorEventName(uint doorId) => doorId switch
+    private static string? DoorEventName(uint doorId)
     {
-        A330Constants.DoorId1L => A330Constants.IE_DOOR_1L,
-        A330Constants.DoorId1R => A330Constants.IE_DOOR_1R,
-        A330Constants.DoorId2L => A330Constants.IE_DOOR_2L,
-        A330Constants.DoorId2R => A330Constants.IE_DOOR_2R,
-        A330Constants.DoorIdCargoFwd => A330Constants.IE_CARGO_FWD,
-        A330Constants.DoorId3L => A330Constants.IE_DOOR_3L,
-        A330Constants.DoorId3R => A330Constants.IE_DOOR_3R,
-        A330Constants.DoorIdCargoAft => A330Constants.IE_CARGO_AFT,
-        _ => null,
-    };
+        switch (doorId)
+        {
+            case A330Constants.DoorId1L: return A330Constants.IE_DOOR_1L;
+            case A330Constants.DoorId1R: return A330Constants.IE_DOOR_1R;
+            case A330Constants.DoorId2L: return A330Constants.IE_DOOR_2L;
+            case A330Constants.DoorId2R: return A330Constants.IE_DOOR_2R;
+            case A330Constants.DoorIdCargoFwd: return A330Constants.IE_CARGO_FWD;
+            case A330Constants.DoorId3L: return A330Constants.IE_DOOR_3L;
+            case A330Constants.DoorId3R: return A330Constants.IE_DOOR_3R;
+            case A330Constants.DoorIdCargoAft: return A330Constants.IE_CARGO_AFT;
+            default: return null;
+        }
+    }
 
     private void CloseExit(uint doorId)
     {
@@ -244,16 +247,19 @@ public sealed class IniA330Adapter : IAircraftAdapter
         }
     }
 
-    private static string GetDoorName(uint doorId) => doorId switch
+    private static string GetDoorName(uint doorId)
     {
-        A330Constants.DoorId1L => "Door 1L",
-        A330Constants.DoorId1R => "Door 1R",
-        A330Constants.DoorId2L => "Door 2L",
-        A330Constants.DoorId2R => "Door 2R",
-        A330Constants.DoorIdCargoFwd => "Cargo Fwd",
-        A330Constants.DoorId3L => "Door 3L",
-        A330Constants.DoorId3R => "Door 3R",
-        A330Constants.DoorIdCargoAft => "Cargo Aft",
-        _ => $"Door {doorId}",
-    };
+        switch (doorId)
+        {
+            case A330Constants.DoorId1L: return "Door 1L";
+            case A330Constants.DoorId1R: return "Door 1R";
+            case A330Constants.DoorId2L: return "Door 2L";
+            case A330Constants.DoorId2R: return "Door 2R";
+            case A330Constants.DoorIdCargoFwd: return "Cargo Fwd";
+            case A330Constants.DoorId3L: return "Door 3L";
+            case A330Constants.DoorId3R: return "Door 3R";
+            case A330Constants.DoorIdCargoAft: return "Cargo Aft";
+            default: return $"Door {doorId}";
+        }
+    }
 }

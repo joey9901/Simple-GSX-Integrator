@@ -26,11 +26,38 @@ public static class Theme
         public static Color ButtonText = Color.FromArgb(220, 220, 220);
     }
 
-    public static Color Background => IsDarkMode ? Dark.Background : Light.Background;
-    public static Color Surface => IsDarkMode ? Dark.Surface : Light.Surface;
-    public static Color Text => IsDarkMode ? Dark.Text : Light.Text;
-    public static Color TextSecondary => IsDarkMode ? Dark.TextSecondary : Light.TextSecondary;
-    public static Color Border => IsDarkMode ? Dark.Border : Light.Border;
-    public static Color ButtonBackground => IsDarkMode ? Dark.ButtonBackground : Light.ButtonBackground;
-    public static Color ButtonText => IsDarkMode ? Dark.ButtonText : Light.ButtonText;
+    public static Color Background
+    {
+        get { return IsDarkMode ? Dark.Background : Light.Background; }
+    }
+
+    public static Color Surface
+    {
+        get { return IsDarkMode ? Dark.Surface : Light.Surface; }
+    }
+
+    public static Color Text
+    {
+        get { return IsDarkMode ? Dark.Text : Light.Text; }
+    }
+
+    public static Color TextSecondary
+    {
+        get { return IsDarkMode ? Dark.TextSecondary : Light.TextSecondary; }
+    }
+
+    public static Color Border
+    {
+        get { return IsDarkMode ? Dark.Border : Light.Border; }
+    }
+
+    public static Color ButtonBackground
+    {
+        get { return IsDarkMode ? Dark.ButtonBackground : Light.ButtonBackground; }
+    }
+
+    public static Color ButtonText
+    {
+        get { return IsDarkMode ? Dark.ButtonText : Light.ButtonText; }
+    }
 }

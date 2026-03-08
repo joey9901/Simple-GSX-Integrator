@@ -26,12 +26,35 @@ public sealed class GsxMonitor
     private GsxServiceState _refuelingState = GsxServiceState.Unknown;
     private GsxServiceState _cateringState = GsxServiceState.Unknown;
 
-    public bool IsGsxRunning => _gsxRunning;
-    public GsxServiceState BoardingState => _boardingState;
-    public GsxServiceState DeboardingState => _deboardingState;
-    public GsxServiceState PushbackState => _pushbackState;
-    public GsxServiceState RefuelingState => _refuelingState;
-    public GsxServiceState CateringState => _cateringState;
+    public bool IsGsxRunning
+    {
+        get { return _gsxRunning; }
+    }
+
+    public GsxServiceState BoardingState
+    {
+        get { return _boardingState; }
+    }
+
+    public GsxServiceState DeboardingState
+    {
+        get { return _deboardingState; }
+    }
+
+    public GsxServiceState PushbackState
+    {
+        get { return _pushbackState; }
+    }
+
+    public GsxServiceState RefuelingState
+    {
+        get { return _refuelingState; }
+    }
+
+    public GsxServiceState CateringState
+    {
+        get { return _cateringState; }
+    }
 
     public event Action? GsxStarted;
     public event Action? GsxStopped;
@@ -43,18 +66,14 @@ public sealed class GsxMonitor
 
     public void OnSimConnectConnected(SimConnect sc)
     {
-        void Add(string lvar)
-            => sc.AddToDataDefinition(SimDef.GsxState, lvar, null,
-                SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-        Add(GsxConstants.CouatlStarted);
-        Add(GsxConstants.MenuOpen);
-        Add(GsxConstants.MenuChoice);
-        Add(GsxConstants.BoardingState);
-        Add(GsxConstants.DeboardingState);
-        Add(GsxConstants.PushbackState);
-        Add(GsxConstants.RefuelingState);
-        Add(GsxConstants.CateringState);
+        AddGsxVar(sc, GsxConstants.CouatlStarted);
+        AddGsxVar(sc, GsxConstants.MenuOpen);
+        AddGsxVar(sc, GsxConstants.MenuChoice);
+        AddGsxVar(sc, GsxConstants.BoardingState);
+        AddGsxVar(sc, GsxConstants.DeboardingState);
+        AddGsxVar(sc, GsxConstants.PushbackState);
+        AddGsxVar(sc, GsxConstants.RefuelingState);
+        AddGsxVar(sc, GsxConstants.CateringState);
 
         sc.RegisterDataDefineStruct<GsxStateStruct>(SimDef.GsxState);
 
@@ -67,6 +86,12 @@ public sealed class GsxMonitor
             0, 0, 0);
 
         Logger.Debug("GsxMonitor: SimConnect vars registered");
+    }
+
+    private void AddGsxVar(SimConnect sc, string lvar)
+    {
+        sc.AddToDataDefinition(SimDef.GsxState, lvar, null,
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
     }
 
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)

@@ -56,27 +56,29 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
 
     private void RegisterLVars(SimConnect sc)
     {
-        void Add(string lvar)
-            => sc.AddToDataDefinition(SimDef.Pmdg737Vars, lvar, "Number",
-                SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
         // Doors (order must match Pmdg737VarsStruct field order)
-        Add(Pmdg737Constants.LVAR_DOOR_FWD_L);
-        Add(Pmdg737Constants.LVAR_DOOR_AFT_L);
-        Add(Pmdg737Constants.LVAR_DOOR_FWD_R);
-        Add(Pmdg737Constants.LVAR_DOOR_AFT_R);
-        Add(Pmdg737Constants.LVAR_OVERWING_AFT_L);
-        Add(Pmdg737Constants.LVAR_OVERWING_AFT_R);
-        Add(Pmdg737Constants.LVAR_OVERWING_FWD_L);
-        Add(Pmdg737Constants.LVAR_OVERWING_FWD_R);
-        Add(Pmdg737Constants.LVAR_CARGO_FWD);
-        Add(Pmdg737Constants.LVAR_CARGO_AFT);
-        Add(Pmdg737Constants.LVAR_CARGO_MAIN);
-        Add(Pmdg737Constants.LVAR_EQUIPMENT_HATCH);
-        Add(Pmdg737Constants.LVAR_WHEEL_CHOCKS);
+        AddLVar(sc, Pmdg737Constants.LVAR_DOOR_FWD_L);
+        AddLVar(sc, Pmdg737Constants.LVAR_DOOR_AFT_L);
+        AddLVar(sc, Pmdg737Constants.LVAR_DOOR_FWD_R);
+        AddLVar(sc, Pmdg737Constants.LVAR_DOOR_AFT_R);
+        AddLVar(sc, Pmdg737Constants.LVAR_OVERWING_AFT_L);
+        AddLVar(sc, Pmdg737Constants.LVAR_OVERWING_AFT_R);
+        AddLVar(sc, Pmdg737Constants.LVAR_OVERWING_FWD_L);
+        AddLVar(sc, Pmdg737Constants.LVAR_OVERWING_FWD_R);
+        AddLVar(sc, Pmdg737Constants.LVAR_CARGO_FWD);
+        AddLVar(sc, Pmdg737Constants.LVAR_CARGO_AFT);
+        AddLVar(sc, Pmdg737Constants.LVAR_CARGO_MAIN);
+        AddLVar(sc, Pmdg737Constants.LVAR_EQUIPMENT_HATCH);
+        AddLVar(sc, Pmdg737Constants.LVAR_WHEEL_CHOCKS);
 
         sc.RegisterDataDefineStruct<Pmdg737VarsStruct>(SimDef.Pmdg737Vars);
         Logger.Debug("Pmdg737Adapter: L:var definitions registered");
+    }
+
+    private void AddLVar(SimConnect sc, string lvar)
+    {
+        sc.AddToDataDefinition(SimDef.Pmdg737Vars, lvar, "Number",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
     }
 
     private void RegisterControlChannel(SimConnect sc)

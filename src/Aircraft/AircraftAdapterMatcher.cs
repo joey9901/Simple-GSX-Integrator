@@ -27,10 +27,23 @@ public static class AircraftAdapterMatcher
     }
 
     private static bool Has(string path, params string[] keywords)
-        => keywords.All(k => path.Contains(k, StringComparison.OrdinalIgnoreCase));
+    {
+        return keywords.All(k => path.Contains(k, StringComparison.OrdinalIgnoreCase));
+    }
 
-    private static MatchResult Adapter(string name, IAircraftAdapter adapter) => new(MatchKind.Adapter, adapter, name);
-    private static MatchResult Native(string name) => new(MatchKind.NativeIntegration, null, name);
-    private static MatchResult NonFunctional(string name) => new(MatchKind.NonFunctional, null, name);
+    private static MatchResult Adapter(string name, IAircraftAdapter adapter)
+    {
+        return new(MatchKind.Adapter, adapter, name);
+    }
+
+    private static MatchResult Native(string name)
+    {
+        return new(MatchKind.NativeIntegration, null, name);
+    }
+
+    private static MatchResult NonFunctional(string name)
+    {
+        return new(MatchKind.NonFunctional, null, name);
+    }
     private static readonly MatchResult Unknown = new(MatchKind.Unknown, null, null);
 }

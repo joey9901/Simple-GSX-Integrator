@@ -51,35 +51,37 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
 
     private void RegisterLVars(SimConnect sc)
     {
-        void Add(string lvar)
-            => sc.AddToDataDefinition(SimDef.Pmdg777Vars, lvar, "Number",
-                SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
         // Doors (order must match Pmdg777VarsStruct field order)
-        Add(Pmdg777Constants.LVAR_DOOR_1L);
-        Add(Pmdg777Constants.LVAR_DOOR_1R);
-        Add(Pmdg777Constants.LVAR_DOOR_2L);
-        Add(Pmdg777Constants.LVAR_DOOR_2R);
-        Add(Pmdg777Constants.LVAR_DOOR_3L);
-        Add(Pmdg777Constants.LVAR_DOOR_3R);
-        Add(Pmdg777Constants.LVAR_DOOR_4L);
-        Add(Pmdg777Constants.LVAR_DOOR_4R);
-        Add(Pmdg777Constants.LVAR_DOOR_5L);
-        Add(Pmdg777Constants.LVAR_DOOR_5R);
-        Add(Pmdg777Constants.LVAR_CARGO_FWD);
-        Add(Pmdg777Constants.LVAR_CARGO_AFT);
-        Add(Pmdg777Constants.LVAR_CARGO_MAIN);
-        Add(Pmdg777Constants.LVAR_CARGO_BULK);
-        Add(Pmdg777Constants.LVAR_AVIONICS);
-        Add(Pmdg777Constants.LVAR_EE_HATCH);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_1L);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_1R);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_2L);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_2R);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_3L);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_3R);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_4L);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_4R);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_5L);
+        AddLVar(sc, Pmdg777Constants.LVAR_DOOR_5R);
+        AddLVar(sc, Pmdg777Constants.LVAR_CARGO_FWD);
+        AddLVar(sc, Pmdg777Constants.LVAR_CARGO_AFT);
+        AddLVar(sc, Pmdg777Constants.LVAR_CARGO_MAIN);
+        AddLVar(sc, Pmdg777Constants.LVAR_CARGO_BULK);
+        AddLVar(sc, Pmdg777Constants.LVAR_AVIONICS);
+        AddLVar(sc, Pmdg777Constants.LVAR_EE_HATCH);
 
         // Ground equipment
-        Add(Pmdg777Constants.LVAR_WHEEL_CHOCKS);
-        Add(Pmdg777Constants.LVAR_EXT_PWR_SEC);
-        Add(Pmdg777Constants.LVAR_EXT_PWR_PRIM);
+        AddLVar(sc, Pmdg777Constants.LVAR_WHEEL_CHOCKS);
+        AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_SEC);
+        AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_PRIM);
 
         sc.RegisterDataDefineStruct<Pmdg777VarsStruct>(SimDef.Pmdg777Vars);
         Logger.Debug("Pmdg777Adapter: L:var definitions registered");
+    }
+
+    private void AddLVar(SimConnect sc, string lvar)
+    {
+        sc.AddToDataDefinition(SimDef.Pmdg777Vars, lvar, "Number",
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
     }
 
     private void RegisterControlChannel(SimConnect sc)

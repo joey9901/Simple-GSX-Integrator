@@ -50,22 +50,25 @@ public static class Pmdg737Constants
 
     public const string CLIENT_DATA_CONTROL_NAME = "PMDG_NG3_Control";
 
-    public static string GetDoorName(uint evtCode) => evtCode switch
+    public static string GetDoorName(uint evtCode)
     {
-        EVT_DOOR_FWD_L => "Forward Left Cabin",
-        EVT_DOOR_FWD_R => "Forward Right Cabin",
-        EVT_DOOR_AFT_L => "Aft Left Cabin",
-        EVT_DOOR_AFT_R => "Aft Right Cabin",
-        EVT_DOOR_OVERWING_EXIT_L => "Overwing Fwd Left Emergency Exit",
-        EVT_DOOR_OVERWING_EXIT_R => "Overwing Fwd Right Emergency Exit",
-        EVT_DOOR_OVERWING_EXIT_L2 => "Overwing Aft Left Emergency Exit",
-        EVT_DOOR_OVERWING_EXIT_R2 => "Overwing Aft Right Emergency Exit",
-        EVT_DOOR_CARGO_FWD => "Forward Cargo",
-        EVT_DOOR_CARGO_AFT => "Aft Cargo",
-        EVT_DOOR_CARGO_MAIN => "Main Cargo",
-        EVT_DOOR_EQUIPMENT_HATCH => "Equipment Hatch",
-        _ => $"door_evt_{evtCode}",
-    };
+        switch (evtCode)
+        {
+            case EVT_DOOR_FWD_L: return "Forward Left Cabin";
+            case EVT_DOOR_FWD_R: return "Forward Right Cabin";
+            case EVT_DOOR_AFT_L: return "Aft Left Cabin";
+            case EVT_DOOR_AFT_R: return "Aft Right Cabin";
+            case EVT_DOOR_OVERWING_EXIT_L: return "Overwing Fwd Left Emergency Exit";
+            case EVT_DOOR_OVERWING_EXIT_R: return "Overwing Fwd Right Emergency Exit";
+            case EVT_DOOR_OVERWING_EXIT_L2: return "Overwing Aft Left Emergency Exit";
+            case EVT_DOOR_OVERWING_EXIT_R2: return "Overwing Aft Right Emergency Exit";
+            case EVT_DOOR_CARGO_FWD: return "Forward Cargo";
+            case EVT_DOOR_CARGO_AFT: return "Aft Cargo";
+            case EVT_DOOR_CARGO_MAIN: return "Main Cargo";
+            case EVT_DOOR_EQUIPMENT_HATCH: return "Equipment Hatch";
+            default: return $"door_evt_{evtCode}";
+        }
+    }
 
     public static readonly IReadOnlyList<uint> AllDoorIds =
     [

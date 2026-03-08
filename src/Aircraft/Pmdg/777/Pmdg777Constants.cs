@@ -57,26 +57,29 @@ public static class Pmdg777Constants
     public const string LVAR_EXT_PWR_SEC = "L:switch_07_b";    // secondary GPU
     public const string LVAR_EXT_PWR_PRIM = "L:switch_08_b";    // primary GPU
 
-    public static string GetDoorName(uint evtCode) => evtCode switch
+    public static string GetDoorName(uint evtCode)
     {
-        EVT_DOOR_1L => "Cabin 1L",
-        EVT_DOOR_1R => "Cabin 1R",
-        EVT_DOOR_2L => "Cabin 2L",
-        EVT_DOOR_2R => "Cabin 2R",
-        EVT_DOOR_3L => "Cabin 3L",
-        EVT_DOOR_3R => "Cabin 3R",
-        EVT_DOOR_4L => "Cabin 4L",
-        EVT_DOOR_4R => "Cabin 4R",
-        EVT_DOOR_5L => "Cabin 5L",
-        EVT_DOOR_5R => "Cabin 5R",
-        EVT_DOOR_CARGO_FWD => "Fwd Cargo",
-        EVT_DOOR_CARGO_AFT => "Aft Cargo",
-        EVT_DOOR_CARGO_MAIN => "Main Cargo",
-        EVT_DOOR_CARGO_BULK => "Bulk Cargo",
-        EVT_DOOR_AVIONICS => "Avionics Access",
-        EVT_DOOR_EE_HATCH => "E&E Hatch",
-        _ => $"door_evt_{evtCode}",
-    };
+        switch (evtCode)
+        {
+            case EVT_DOOR_1L: return "Cabin 1L";
+            case EVT_DOOR_1R: return "Cabin 1R";
+            case EVT_DOOR_2L: return "Cabin 2L";
+            case EVT_DOOR_2R: return "Cabin 2R";
+            case EVT_DOOR_3L: return "Cabin 3L";
+            case EVT_DOOR_3R: return "Cabin 3R";
+            case EVT_DOOR_4L: return "Cabin 4L";
+            case EVT_DOOR_4R: return "Cabin 4R";
+            case EVT_DOOR_5L: return "Cabin 5L";
+            case EVT_DOOR_5R: return "Cabin 5R";
+            case EVT_DOOR_CARGO_FWD: return "Fwd Cargo";
+            case EVT_DOOR_CARGO_AFT: return "Aft Cargo";
+            case EVT_DOOR_CARGO_MAIN: return "Main Cargo";
+            case EVT_DOOR_CARGO_BULK: return "Bulk Cargo";
+            case EVT_DOOR_AVIONICS: return "Avionics Access";
+            case EVT_DOOR_EE_HATCH: return "E&E Hatch";
+            default: return $"door_evt_{evtCode}";
+        }
+    }
 
 
     public static readonly IReadOnlyList<uint> AllDoorIds =

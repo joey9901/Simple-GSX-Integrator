@@ -366,7 +366,7 @@ public sealed class AutomationManager
         await _gsxMenu.CallPushbackAsync();
     }
 
-    public void EvaluateDeboarding()
+    private void EvaluateDeboarding()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_deboardingDone) return;

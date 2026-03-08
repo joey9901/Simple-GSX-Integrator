@@ -49,7 +49,9 @@ public sealed class ProcessWatcher : IDisposable
     }
 
     public static bool IsMsfsRunning()
-        => System.Diagnostics.Process.GetProcesses()
+    {
+        return System.Diagnostics.Process.GetProcesses()
             .Any(p => ProcessNames.Any(n =>
                 p.ProcessName.Contains(n, StringComparison.OrdinalIgnoreCase)));
+    }
 }

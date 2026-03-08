@@ -22,6 +22,7 @@ public sealed class GsxMenuController
     private const int MenuItemRefueling = 3;
     private const int MenuItemBoarding = 4;
     private const int MenuItemPushback = 5;
+    private const int DeboardingConfirmItem = 2;
 
     public void OnSimConnectConnected(SimConnect sc)
     {
@@ -39,11 +40,30 @@ public sealed class GsxMenuController
         Logger.Debug("GsxMenuController: SimConnect vars registered");
     }
 
-    public Task CallBoardingAsync() => CallServiceAsync("Boarding", MenuItemBoarding);
-    public Task CallCateringAsync() => CallServiceAsync("Catering", MenuItemCatering);
-    public Task CallRefuelingAsync() => CallServiceAsync("Refueling", MenuItemRefueling);
-    public Task CallPushbackAsync() => CallServiceAsync("Pushback", MenuItemPushback, closeAfter: false);
-    public Task CallDeboardingAsync() => CallDeboardingSequenceAsync();
+    public Task CallBoardingAsync()
+    {
+        return CallServiceAsync("Boarding", MenuItemBoarding);
+    }
+
+    public Task CallCateringAsync()
+    {
+        return CallServiceAsync("Catering", MenuItemCatering);
+    }
+
+    public Task CallRefuelingAsync()
+    {
+        return CallServiceAsync("Refueling", MenuItemRefueling);
+    }
+
+    public Task CallPushbackAsync()
+    {
+        return CallServiceAsync("Pushback", MenuItemPushback, closeAfter: false);
+    }
+
+    public Task CallDeboardingAsync()
+    {
+        return CallDeboardingSequenceAsync();
+    }
 
     private async Task CallServiceAsync(string name, int menuItem, bool closeAfter = true)
     {
@@ -55,20 +75,20 @@ public sealed class GsxMenuController
 
         Logger.Info($"GSX: Calling {name}");
 
-        await CloseMenuAsync();
+        CloseMenu();
         await Task.Delay(MenuOpenDelayMs);
 
-        await OpenMenuAsync();
+        OpenMenu();
         await Task.Delay(MenuOpenDelayMs);
 
-        await SelectItemAsync(menuItem);
+        SelectItem(menuItem);
         await Task.Delay(MenuChoiceDelayMs);
 
         AutoSelectOperator();
         await Task.Delay(MenuChoiceDelayMs);
 
         if (closeAfter)
-            await CloseMenuAsync();
+            CloseMenu();
     }
     private async Task CallDeboardingSequenceAsync()
     {
@@ -76,39 +96,36 @@ public sealed class GsxMenuController
 
         Logger.Info("GSX: Calling Deboarding");
 
-        await CloseMenuAsync();
+        CloseMenu();
         await Task.Delay(MenuOpenDelayMs);
 
-        await OpenMenuAsync();
+        OpenMenu();
         await Task.Delay(MenuOpenDelayMs);
 
-        await SelectItemAsync(MenuItemDeboarding);
+        SelectItem(MenuItemDeboarding);
         await Task.Delay(MenuChoiceDelayMs);
 
-        await SelectItemAsync(2);
+        SelectItem(DeboardingConfirmItem);
         await Task.Delay(MenuCloseDelayMs);
 
-        await CloseMenuAsync();
+        CloseMenu();
     }
 
 
-    private Task OpenMenuAsync()
+    private void OpenMenu()
     {
         WriteVar(SimDef.GsxMenuOpen, 1.0);
-        return Task.CompletedTask;
     }
 
-    private Task CloseMenuAsync()
+    private void CloseMenu()
     {
         WriteVar(SimDef.GsxMenuOpen, 0.0);
-        return Task.CompletedTask;
     }
 
-    private Task SelectItemAsync(int item)
+    private void SelectItem(int item)
     {
         // GSX expects 0-based index
         WriteVar(SimDef.GsxMenuChoice, (double)(item - 1));
-        return Task.CompletedTask;
     }
 
     private void AutoSelectOperator()
@@ -134,5 +151,8 @@ public sealed class GsxMenuController
         }
     }
 
-    public void ResetOperatorSelection() => _operatorAutoSelected = false;
+    public void ResetOperatorSelection()
+    {
+        _operatorAutoSelected = false;
+    }
 }

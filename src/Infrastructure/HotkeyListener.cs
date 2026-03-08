@@ -41,9 +41,15 @@ public sealed class HotkeyListener : IDisposable
         _resetHotkey = reset;
     }
 
-    public void SetActivationKey(string hotkeyString) => _activationHotkey = HotkeyParser.Parse(hotkeyString);
+    public void SetActivationKey(string hotkeyString)
+    {
+        _activationHotkey = HotkeyParser.Parse(hotkeyString);
+    }
 
-    public void SetResetKey(string hotkeyString) => _resetHotkey = HotkeyParser.Parse(hotkeyString);
+    public void SetResetKey(string hotkeyString)
+    {
+        _resetHotkey = HotkeyParser.Parse(hotkeyString);
+    }
 
     public void Start()
     {
@@ -57,8 +63,15 @@ public sealed class HotkeyListener : IDisposable
         if (!rebinding) _rebindCooldownTicks = 3;
     }
 
-    public void Stop() => _cts?.Cancel();
-    public void Dispose() => Stop();
+    public void Stop()
+    {
+        _cts?.Cancel();
+    }
+
+    public void Dispose()
+    {
+        Stop();
+    }
 
     private async Task PollLoopAsync()
     {

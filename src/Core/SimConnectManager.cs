@@ -19,19 +19,37 @@ public sealed class SimConnectManager : IDisposable
     {
         _sc = new SimConnect("SimpleGSXIntegrator", windowHandle, 0, null, 0);
 
-        _sc.OnRecvSimobjectData += (_, d) => SimObjectDataReceived?.Invoke(d);
-        _sc.OnRecvSystemState += (_, d) => SystemStateReceived?.Invoke(d);
-        _sc.OnRecvQuit += (_, _) => OnQuit();
+        _sc.OnRecvSimobjectData += OnRecvSimObjectData;
+        _sc.OnRecvSystemState += OnRecvSystemState;
+        _sc.OnRecvQuit += OnRecvQuit;
 
         Connected?.Invoke(_sc);
     }
 
-    public void PumpMessages() => _sc?.ReceiveMessage();
+    public void PumpMessages()
+    {
+        _sc?.ReceiveMessage();
+    }
 
     public void Dispose()
     {
         _sc?.Dispose();
         _sc = null;
+    }
+
+    private void OnRecvSimObjectData(SimConnect _, SIMCONNECT_RECV_SIMOBJECT_DATA data)
+    {
+        SimObjectDataReceived?.Invoke(data);
+    }
+
+    private void OnRecvSystemState(SimConnect _, SIMCONNECT_RECV_SYSTEM_STATE data)
+    {
+        SystemStateReceived?.Invoke(data);
+    }
+
+    private void OnRecvQuit(SimConnect _, SIMCONNECT_RECV data)
+    {
+        OnQuit();
     }
 
     private void OnQuit()

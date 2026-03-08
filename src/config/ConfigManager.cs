@@ -158,7 +158,9 @@ public static class ConfigManager
     }
 
     private static bool ParseBool(string s)
-        => s.Equals("true", StringComparison.OrdinalIgnoreCase);
+    {
+        return s.Equals("true", StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 

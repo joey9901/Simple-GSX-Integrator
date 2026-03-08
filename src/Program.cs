@@ -71,10 +71,10 @@ internal static class Program
 
         _flightState.AircraftChanged += OnAircraftTitleChanged;
 
-        _flightState.BeaconChanged += _ => RefreshAircraftStateDetails();
-        _flightState.ParkingBrakeChanged += _ => RefreshAircraftStateDetails();
-        _flightState.EngineChanged += _ => RefreshAircraftStateDetails();
-        _flightState.SpeedChanged += _ => RefreshAircraftStateDetails();
+        _flightState.BeaconChanged += OnBeaconChangedForDisplay;
+        _flightState.ParkingBrakeChanged += OnParkingBrakeChangedForDisplay;
+        _flightState.EngineChanged += OnEngineChangedForDisplay;
+        _flightState.SpeedChanged += OnSpeedChangedForDisplay;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
@@ -348,6 +348,11 @@ internal static class Program
         SyncHotkeyLabels();
         Logger.Info($"Hotkey '{hotkeyType}' updated to '{hotkeyString}'.");
     }
+
+    private static void OnBeaconChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
+    private static void OnParkingBrakeChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
+    private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
+    private static void OnSpeedChangedForDisplay(double _) { RefreshAircraftStateDetails(); }
 
     private static void RefreshAircraftStateDetails()
     {

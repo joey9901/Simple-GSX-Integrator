@@ -47,11 +47,19 @@ internal sealed class DoorStateTracker
     }
 
     public DoorState GetState(uint doorId)
-        => _doors.TryGetValue(doorId, out var e) ? e.State : DoorState.Unknown;
+    {
+        return _doors.TryGetValue(doorId, out var e) ? e.State : DoorState.Unknown;
+    }
 
-    public bool IsOpen(uint doorId) => GetState(doorId) == DoorState.Open;
+    public bool IsOpen(uint doorId)
+    {
+        return GetState(doorId) == DoorState.Open;
+    }
 
-    public bool IsAnyOpen(IReadOnlyList<uint> doorIds) => doorIds.Any(IsOpen);
+    public bool IsAnyOpen(IReadOnlyList<uint> doorIds)
+    {
+        return doorIds.Any(IsOpen);
+    }
 
     public IReadOnlySet<uint> GetOpenIds(IReadOnlyList<uint> doorIds)
     {
@@ -61,5 +69,8 @@ internal sealed class DoorStateTracker
         return result;
     }
 
-    public void Reset() => _doors.Clear();
+    public void Reset()
+    {
+        _doors.Clear();
+    }
 }

@@ -39,15 +39,45 @@ public sealed class FlightStateTracker
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
 
-    public bool BeaconOn => _state.BeaconLight != 0;
-    public bool ParkingBrake => _state.ParkingBrake != 0;
-    public bool EngineOn => _state.EngineRunning != 0;
-    public bool OnGround => _state.OnGround != 0;
-    public double GroundSpeed => _state.GroundSpeed;
-    public string AircraftTitle => _state.AircraftTitle ?? string.Empty;
+    public bool BeaconOn
+    {
+        get { return _state.BeaconLight != 0; }
+    }
 
-    public bool HasEnginesEverRun => _enginesHaveRun;
-    public bool HasMoved => _hasMoved;
+    public bool ParkingBrake
+    {
+        get { return _state.ParkingBrake != 0; }
+    }
+
+    public bool EngineOn
+    {
+        get { return _state.EngineRunning != 0; }
+    }
+
+    public bool OnGround
+    {
+        get { return _state.OnGround != 0; }
+    }
+
+    public double GroundSpeed
+    {
+        get { return _state.GroundSpeed; }
+    }
+
+    public string AircraftTitle
+    {
+        get { return _state.AircraftTitle ?? string.Empty; }
+    }
+
+    public bool HasEnginesEverRun
+    {
+        get { return _enginesHaveRun; }
+    }
+
+    public bool HasMoved
+    {
+        get { return _hasMoved; }
+    }
 
 
     public event Action<bool>? BeaconChanged;
@@ -64,16 +94,13 @@ public sealed class FlightStateTracker
 
     private void RegisterFlightStateVars(SimConnect sc)
     {
-        void Add(string name, string? unit, SIMCONNECT_DATATYPE type)
-            => sc.AddToDataDefinition(SimDef.FlightState, name, unit, type, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-
-        Add("LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
-        Add("BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
-        Add("GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
-        Add("SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
-        Add("GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
-        Add("AIRSPEED INDICATED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
-        Add("TITLE", null, SIMCONNECT_DATATYPE.STRING256);
+        AddFlightStateVar(sc, "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
+        AddFlightStateVar(sc, "AIRSPEED INDICATED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
+        AddFlightStateVar(sc, "TITLE", null, SIMCONNECT_DATATYPE.STRING256);
 
         sc.RegisterDataDefineStruct<FlightStateStruct>(SimDef.FlightState);
 
@@ -86,6 +113,11 @@ public sealed class FlightStateTracker
             0, 0, 0);
 
         Logger.Debug("FlightStateTracker: SimConnect vars registered");
+    }
+
+    private void AddFlightStateVar(SimConnect sc, string name, string? unit, SIMCONNECT_DATATYPE type)
+    {
+        sc.AddToDataDefinition(SimDef.FlightState, name, unit, type, 0.0f, SimConnect.SIMCONNECT_UNUSED);
     }
 
     public void SetActivationLvar(SimConnect sc, string lvarName)
