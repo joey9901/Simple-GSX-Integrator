@@ -2,53 +2,60 @@ namespace SimpleGsxIntegrator.Aircraft;
 
 internal sealed class DoorStateTracker
 {
-
     public enum DoorState { Unknown, Open, Closed }
 
-    private const double ZeroThreshold = 1e-4;
+    private const double ClosedThreshold = 1e-4;
 
-    private readonly record struct DoorEntry(double LastRaw, DoorState State);
+    private readonly record struct DoorSnapshot(double Value, DoorState State);
 
-    private readonly Dictionary<uint, DoorEntry> _doors = new();
+    private readonly Dictionary<uint, DoorSnapshot> _doors = new();
 
-    public void Update(uint doorId, double rawValue, string doorName = "")
+    public void Update(uint doorId, double value, string doorName = "")
     {
-        if (double.IsNaN(rawValue)) return;
+        if (double.IsNaN(value))
+            return;
 
-        bool isZero = rawValue <= ZeroThreshold;
-
-        if (!_doors.TryGetValue(doorId, out var entry))
+        if (!_doors.TryGetValue(doorId, out var previous))
         {
-            var initial = isZero ? DoorState.Closed : DoorState.Open;
-            _doors[doorId] = new DoorEntry(rawValue, initial);
-            Logger.Debug($"DoorTracker [{doorName}]: initial → {initial} (raw={rawValue:F4})");
+            RegisterNewDoor(doorId, value, doorName);
             return;
         }
 
-        DoorState newState;
+        var newState = DetermineState(value, previous);
 
-        if (rawValue > entry.LastRaw)
-        {
-            newState = DoorState.Open;
-        }
-        else if (rawValue < entry.LastRaw)
-        {
-            newState = DoorState.Closed;
-        }
-        else
-        {
-            newState = isZero ? DoorState.Closed : entry.State;
-        }
+        if (newState != previous.State)
+            Logger.Debug($"DoorTracker [{doorName}]: {previous.State} → {newState} (raw={value:F4})");
 
-        if (newState != entry.State)
-            Logger.Debug($"DoorTracker [{doorName}]: {entry.State} → {newState} (raw={rawValue:F4})");
+        _doors[doorId] = new DoorSnapshot(value, newState);
+    }
 
-        _doors[doorId] = new DoorEntry(rawValue, newState);
+    private void RegisterNewDoor(uint doorId, double value, string doorName)
+    {
+        var state = value <= ClosedThreshold ? DoorState.Closed : DoorState.Open;
+        _doors[doorId] = new DoorSnapshot(value, state);
+        Logger.Debug($"DoorTracker [{doorName}]: initial → {state} (raw={value:F4})");
+    }
+
+    private static DoorState DetermineState(double value, DoorSnapshot previous)
+    {
+        if (value > previous.Value)
+            return DoorState.Open;
+
+        if (value < previous.Value)
+            return DoorState.Closed;
+
+        if (value <= ClosedThreshold)
+            return DoorState.Closed;
+
+        return previous.State;
     }
 
     public DoorState GetState(uint doorId)
     {
-        return _doors.TryGetValue(doorId, out var e) ? e.State : DoorState.Unknown;
+        if (_doors.TryGetValue(doorId, out var snapshot))
+            return snapshot.State;
+
+        return DoorState.Unknown;
     }
 
     public bool IsOpen(uint doorId)
@@ -58,7 +65,10 @@ internal sealed class DoorStateTracker
 
     public bool IsAnyOpen(IReadOnlyList<uint> doorIds)
     {
-        return doorIds.Any(IsOpen);
+        foreach (uint id in doorIds)
+            if (IsOpen(id)) return true;
+
+        return false;
     }
 
     public IReadOnlySet<uint> GetOpenIds(IReadOnlyList<uint> doorIds)
