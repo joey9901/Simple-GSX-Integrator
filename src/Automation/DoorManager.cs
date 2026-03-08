@@ -4,28 +4,15 @@ using SimpleGsxIntegrator.Gsx;
 namespace SimpleGsxIntegrator.Automation;
 
 /// <summary>
-/// Reacts to GSX service-state changes to enforce door-close policies specific
-/// to the current aircraft adapter (e.g. PMDG 777 doors reopened by GSX catering).
-///
-/// Door policies for PMDG 777:
-///  - Cabin 1L (boarding door): close 15 s after boarding completes
-///  - Cabin 1R, 2L–5R (service doors GSX may reopen): close when pushback is
-///    requested and keep closed.
-///  - Cargo Fwd/Aft: monitor during boarding, close if opened unexpectedly
-///  - E&amp;E, avionics, bulk: always close before pushback
+/// Reacts to GSX service-state changes to enforce door-close policies
+/// (e.g. close boarding door after boarding completes, close all doors when pushback starts).
 /// </summary>
 public sealed class DoorManager
 {
-    // The main boarding door ID is resolved from the active adapter (aircraft-specific).
-
     private IAircraftAdapter? _adapter;
     private readonly GsxMonitor _gsx;
-
-    /// <summary>The currently active aircraft adapter (read by AutomationManager for pre-pushback door close).</summary>
     public IAircraftAdapter? CurrentAdapter => _adapter;
-
     private CancellationTokenSource? _monitorCts;
-
     public DoorManager(GsxMonitor gsx)
     {
         _gsx = gsx;
@@ -34,16 +21,11 @@ public sealed class DoorManager
         _gsx.PushbackStateChanged += OnPushbackStateChanged;
     }
 
-    /// <summary>
-    /// Sets (or clears) the current aircraft adapter.
-    /// Call this whenever the aircraft changes.
-    /// </summary>
     public void SetAdapter(IAircraftAdapter? adapter)
     {
         StopMonitor();
         _adapter = adapter;
     }
-
 
     private void OnBoardingStateChanged(GsxServiceState state)
     {

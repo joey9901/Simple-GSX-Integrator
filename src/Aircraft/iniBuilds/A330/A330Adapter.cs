@@ -165,37 +165,21 @@ public sealed class IniA330Adapter : IAircraftAdapter
     public void RemoveGroundEquipment()
     {
         if (_sc == null) return;
-        try
-        {
-            Logger.Debug("IniA330Adapter: removing chocks (L:COVER ON:0 = 0)");
-            WriteSimVar(SimDef.A330Chocks, 0.0);
-
-            Logger.Debug("IniA330Adapter: removing GPU (L:INI_GPU_AVAIL = 0)");
-            WriteSimVar(SimDef.A330Gpu, 0.0);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warning($"IniA330Adapter: RemoveGroundEquipment failed: {ex.Message}");
-        }
+        Logger.Debug("IniA330Adapter: removing chocks (L:COVER ON:0 = 0)");
+        WriteSimVar(SimDef.A330Chocks, 0.0);
+        Logger.Debug("IniA330Adapter: removing GPU (L:INI_GPU_AVAIL = 0)");
+        WriteSimVar(SimDef.A330Gpu, 0.0);
     }
 
-    public async Task PlaceGroundEquipmentAndChocks()
+    public Task PlaceGroundEquipmentAndChocks()
     {
-        if (_sc == null) return;
+        if (_sc == null) return Task.CompletedTask;
         Logger.Info("IniA330Adapter: Placing Chocks and GPU");
-        try
-        {
-            Logger.Debug("IniA330Adapter: placing chocks (COVER ON:0 = 1)");
-            WriteSimVar(SimDef.A330Chocks, 1.0);
-
-            Logger.Debug("IniA330Adapter: placing GPU (L:INI_GPU_AVAIL = 1)");
-            WriteSimVar(SimDef.A330Gpu, 1.0);
-        }
-        catch (Exception ex)
-        {
-            Logger.Warning($"IniA330Adapter: PlaceGroundEquipmentAndChocks failed: {ex.Message}");
-        }
-        await Task.CompletedTask;
+        Logger.Debug("IniA330Adapter: placing chocks (COVER ON:0 = 1)");
+        WriteSimVar(SimDef.A330Chocks, 1.0);
+        Logger.Debug("IniA330Adapter: placing GPU (L:INI_GPU_AVAIL = 1)");
+        WriteSimVar(SimDef.A330Gpu, 1.0);
+        return Task.CompletedTask;
     }
 
     public void Dispose()

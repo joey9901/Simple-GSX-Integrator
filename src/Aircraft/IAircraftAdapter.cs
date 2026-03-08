@@ -44,4 +44,32 @@ public interface IAircraftAdapter : IDisposable
     /// Places ground equipment (GPU, chocks) specific to this aircraft.
     /// </summary>
     Task PlaceGroundEquipmentAndChocks();
+
+    /// <summary>
+    /// Prepares the aircraft for pushback: closes all open doors and removes ground equipment.
+    /// Override for aircraft where the door or equipment sequence differs.
+    /// </summary>
+    async Task PrepareForPushbackAsync()
+    {
+        Logger.Info("Adapter: Removing Ground Equipment");
+        RemoveGroundEquipment();
+        await Task.Delay(2_000);
+
+        await CloseAllOpenDoorsAsync();
+
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (AreAnyDoorsOpen() && DateTime.UtcNow < deadline)
+            await Task.Delay(2_000);
+
+        if (AreAnyDoorsOpen())
+            Logger.Warning("Adapter: Doors still Open after 60 s - Proceeding with Pushback");
+        else
+            Logger.Info("Adapter: All Doors Confirmed Closed");
+    }
+
+    /// <summary>
+    /// Prepares the aircraft for deboarding: places ground equipment and chocks.
+    /// Override for aircraft with different arrival sequences.
+    /// </summary>
+    Task PrepareForDeboardingAsync() => PlaceGroundEquipmentAndChocks();
 }

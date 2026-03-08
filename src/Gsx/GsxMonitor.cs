@@ -17,31 +17,24 @@ public sealed class GsxMonitor
         public double MenuChoice;
         public double BoardingState;
         public double DeboardingState;
-        public double DepartureState;   // pushback
-        public double PushbackStatus;
+        public double PushbackState;
         public double RefuelingState;
         public double CateringState;
     }
 
     private bool _gsxRunning;
-    private GsxServiceState _boarding = GsxServiceState.Unknown;
-    private GsxServiceState _deboarding = GsxServiceState.Unknown;
-    private GsxServiceState _pushback = GsxServiceState.Unknown;
-    private GsxServiceState _refueling = GsxServiceState.Unknown;
-    private GsxServiceState _catering = GsxServiceState.Unknown;
-    private int _pushbackProgress;
+    private GsxServiceState _boardingState = GsxServiceState.Unknown;
+    private GsxServiceState _deboardingState = GsxServiceState.Unknown;
+    private GsxServiceState _pushbackState = GsxServiceState.Unknown;
+    private GsxServiceState _refuelingState = GsxServiceState.Unknown;
+    private GsxServiceState _cateringState = GsxServiceState.Unknown;
 
     public bool IsGsxRunning => _gsxRunning;
-    public GsxServiceState Boarding => _boarding;
-    public GsxServiceState Deboarding => _deboarding;
-    public GsxServiceState Pushback => _pushback;
-    public GsxServiceState Refueling => _refueling;
-    public GsxServiceState Catering => _catering;
-
-    /// <summary>
-    /// GSX pushback progress status (0 = idle, 1–4 = in progress, 5 = complete).
-    /// </summary>
-    public int PushbackProgress => _pushbackProgress;
+    public GsxServiceState BoardingState => _boardingState;
+    public GsxServiceState DeboardingState => _deboardingState;
+    public GsxServiceState PushbackState => _pushbackState;
+    public GsxServiceState RefuelingState => _refuelingState;
+    public GsxServiceState CateringState => _cateringState;
 
     public event Action? GsxStarted;
     public event Action? GsxStopped;
@@ -62,8 +55,7 @@ public sealed class GsxMonitor
         Add(GsxConstants.MenuChoice);
         Add(GsxConstants.BoardingState);
         Add(GsxConstants.DeboardingState);
-        Add(GsxConstants.DepartureState);
-        Add(GsxConstants.PushbackStatus);
+        Add(GsxConstants.PushbackState);
         Add(GsxConstants.RefuelingState);
         Add(GsxConstants.CateringState);
 
@@ -100,18 +92,16 @@ public sealed class GsxMonitor
                 GsxStopped?.Invoke();
         }
 
-        UpdateState(ref _boarding, ref BoardingStateChanged, raw.BoardingState);
-        UpdateState(ref _deboarding, ref DeboardingStateChanged, raw.DeboardingState);
-        UpdateState(ref _pushback, ref PushbackStateChanged, raw.DepartureState);
-        UpdateState(ref _refueling, ref RefuelingStateChanged, raw.RefuelingState);
-        UpdateState(ref _catering, ref CateringStateChanged, raw.CateringState);
-
-        _pushbackProgress = (int)raw.PushbackStatus;
+        UpdateState(ref _boardingState, BoardingStateChanged, raw.BoardingState);
+        UpdateState(ref _deboardingState, DeboardingStateChanged, raw.DeboardingState);
+        UpdateState(ref _pushbackState, PushbackStateChanged, raw.PushbackState);
+        UpdateState(ref _refuelingState, RefuelingStateChanged, raw.RefuelingState);
+        UpdateState(ref _cateringState, CateringStateChanged, raw.CateringState);
     }
 
     private static void UpdateState(
         ref GsxServiceState field,
-        ref Action<GsxServiceState>? evt,
+        Action<GsxServiceState>? evt,
         double rawValue)
     {
         var next = (GsxServiceState)(int)rawValue;

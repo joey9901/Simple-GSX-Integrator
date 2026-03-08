@@ -67,29 +67,20 @@ public sealed class GsxMenuController
 
         Logger.Info($"GSX: Calling {name}");
 
-        try
-        {
+        await CloseMenuAsync();
+        await Task.Delay(MenuOpenDelayMs);
+
+        await OpenMenuAsync();
+        await Task.Delay(MenuOpenDelayMs);
+
+        await SelectItemAsync(menuItem);
+        await Task.Delay(MenuChoiceDelayMs);
+
+        AutoSelectOperator();
+        await Task.Delay(MenuChoiceDelayMs);
+
+        if (closeAfter)
             await CloseMenuAsync();
-            await Task.Delay(MenuOpenDelayMs);
-
-            await OpenMenuAsync();
-            await Task.Delay(MenuOpenDelayMs);
-
-            await SelectItemAsync(menuItem);
-            await Task.Delay(MenuChoiceDelayMs);
-
-            AutoSelectOperator();
-            await Task.Delay(MenuChoiceDelayMs);
-
-            if (closeAfter)
-            {
-                await CloseMenuAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"GsxMenuController: {name} sequence failed: {ex.Message}");
-        }
     }
 
     /// <summary>
@@ -101,27 +92,20 @@ public sealed class GsxMenuController
 
         Logger.Info("GSX: Calling Deboarding");
 
-        try
-        {
-            await CloseMenuAsync();
-            await Task.Delay(MenuOpenDelayMs);
+        await CloseMenuAsync();
+        await Task.Delay(MenuOpenDelayMs);
 
-            await OpenMenuAsync();
-            await Task.Delay(MenuOpenDelayMs);
+        await OpenMenuAsync();
+        await Task.Delay(MenuOpenDelayMs);
 
-            await SelectItemAsync(MenuItemDeboarding);
-            await Task.Delay(MenuChoiceDelayMs);
+        await SelectItemAsync(MenuItemDeboarding);
+        await Task.Delay(MenuChoiceDelayMs);
 
-            // Sub-menu: select option 2 (proceed with deboarding at current gate)
-            await SelectItemAsync(2);
-            await Task.Delay(MenuCloseDelayMs);
+        // Sub-menu: select option 2 (proceed with deboarding at current gate)
+        await SelectItemAsync(2);
+        await Task.Delay(MenuCloseDelayMs);
 
-            await CloseMenuAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"GsxMenuController: Deboarding sequence failed: {ex.Message}");
-        }
+        await CloseMenuAsync();
     }
 
 

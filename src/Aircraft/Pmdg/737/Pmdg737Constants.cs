@@ -71,8 +71,8 @@ public static class Pmdg737Constants
         _ => $"door_evt_{evtCode}",
     };
 
-    public static readonly IReadOnlyList<uint> AllDoorIds = new uint[]
-    {
+    public static readonly IReadOnlyList<uint> AllDoorIds =
+    [
         EVT_DOOR_FWD_L,
         EVT_DOOR_AFT_L,
         EVT_DOOR_FWD_R,
@@ -85,5 +85,5 @@ public static class Pmdg737Constants
         EVT_DOOR_CARGO_AFT,
         EVT_DOOR_CARGO_MAIN,
         EVT_DOOR_EQUIPMENT_HATCH,
-    };
+    ];
 }

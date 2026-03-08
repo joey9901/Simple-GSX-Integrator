@@ -32,19 +32,18 @@ internal sealed class DoorStateTracker
 
         DoorState newState;
 
-        if (rawValue > entry.LastRaw + ZeroThreshold)
+        if (rawValue > entry.LastRaw)
         {
             // Value is increasing → door is opening.
             newState = DoorState.Open;
         }
-        else if (rawValue < entry.LastRaw - ZeroThreshold)
+        else if (rawValue < entry.LastRaw)
         {
             // Value is decreasing → door is closing.
             newState = DoorState.Closed;
         }
         else
         {
-            // Value is stable → if effectively zero, confirm closed; otherwise carry existing state.
             newState = isZero ? DoorState.Closed : entry.State;
         }
 

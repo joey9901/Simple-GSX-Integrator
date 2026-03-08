@@ -140,15 +140,8 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         if (data.dwRequestID != (uint)SimReq.Pmdg737Vars &&
             data.dwDefineID != (uint)SimDef.Pmdg737Vars) return;
 
-        try
-        {
-            _vars = (Pmdg737VarsStruct)data.dwData[0];
-            UpdateDoorStates();
-        }
-        catch (Exception ex)
-        {
-            Logger.Warning($"Pmdg737Adapter: data parse failed: {ex.Message}");
-        }
+        _vars = (Pmdg737VarsStruct)data.dwData[0];
+        UpdateDoorStates();
     }
 
 
@@ -215,49 +208,35 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
 
     public async Task PlaceGroundEquipmentAndChocks()
     {
-        try
+        if (_vars.WheelChocks >= 0.5)
         {
-            if (_vars.WheelChocks >= 0.5)
-            {
-                Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
-                return;
-            }
-
-            Logger.Info("Pmdg737Adapter: Placing Chocks and GPU via CDU Sequence");
-
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(1000);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
+            Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
+            return;
         }
-        catch (Exception ex)
-        {
-            Logger.Error($"Pmdg737Adapter: PlaceGroundEquipmentAndChocks failed: {ex}");
-        }
+
+        Logger.Info("Pmdg737Adapter: Placing Chocks and GPU via CDU Sequence");
+
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(1000);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
     }
 
     private async Task RemoveGroundEquipmentAsync()
     {
-        try
+        if (_vars.WheelChocks <= 0.5)
         {
-            if (_vars.WheelChocks <= 0.5)
-            {
-                Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
-                return;
-            }
-
-            Logger.Info("Pmdg737Adapter: Removing Chocks via CDU Sequence");
-
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
+            Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
+            return;
         }
-        catch (Exception ex)
-        {
-            Logger.Error($"Pmdg737Adapter: RemoveGroundEquipment failed: {ex}");
-        }
+
+        Logger.Debug("Pmdg737Adapter: Removing Chocks via CDU Sequence");
+
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
     }
 
 
@@ -270,22 +249,25 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
 
 
     /// <summary>Reads the current raw L:var value for a door by its event code.</summary>
-    private double GetRawDoorValue(uint evtCode) => evtCode switch
+    private double GetRawDoorValue(uint evtCode)
     {
-        Pmdg737Constants.EVT_DOOR_FWD_L => _vars.FwdLeftCabinDoor,
-        Pmdg737Constants.EVT_DOOR_AFT_L => _vars.AftLeftCabinDoor,
-        Pmdg737Constants.EVT_DOOR_FWD_R => _vars.FwdRightCabinDoor,
-        Pmdg737Constants.EVT_DOOR_AFT_R => _vars.AftRightCabinDoor,
-        Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L2 => _vars.OverwingAftLeftExit,
-        Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R2 => _vars.OverwingAftRightExit,
-        Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L => _vars.OverwingFwdLeftExit,
-        Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R => _vars.OverwingFwdRightExit,
-        Pmdg737Constants.EVT_DOOR_CARGO_FWD => _vars.FwdLwrCargoDoor,
-        Pmdg737Constants.EVT_DOOR_CARGO_AFT => _vars.AftLwrCargoDoor,
-        Pmdg737Constants.EVT_DOOR_CARGO_MAIN => _vars.MainCargoDoor,
-        Pmdg737Constants.EVT_DOOR_EQUIPMENT_HATCH => _vars.EquipmentHatchDoor,
-        _ => double.NaN,
-    };
+        switch (evtCode)
+        {
+            case Pmdg737Constants.EVT_DOOR_FWD_L:            return _vars.FwdLeftCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_AFT_L:            return _vars.AftLeftCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_FWD_R:            return _vars.FwdRightCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_AFT_R:            return _vars.AftRightCabinDoor;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L2: return _vars.OverwingAftLeftExit;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R2: return _vars.OverwingAftRightExit;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_L:  return _vars.OverwingFwdLeftExit;
+            case Pmdg737Constants.EVT_DOOR_OVERWING_EXIT_R:  return _vars.OverwingFwdRightExit;
+            case Pmdg737Constants.EVT_DOOR_CARGO_FWD:        return _vars.FwdLwrCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_CARGO_AFT:        return _vars.AftLwrCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_CARGO_MAIN:       return _vars.MainCargoDoor;
+            case Pmdg737Constants.EVT_DOOR_EQUIPMENT_HATCH:  return _vars.EquipmentHatchDoor;
+            default:                                         return double.NaN;
+        }
+    }
 
     /// <summary>
     /// Pushes the latest raw L:var readings into the <see cref="DoorStateTracker"/>.

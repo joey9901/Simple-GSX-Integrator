@@ -74,51 +74,22 @@ internal static class Program
         _manager.SystemStateReceived += OnSystemStateReceived;
         _manager.SimulatorQuit += OnSimulatorQuit;
 
-        _automationManager.ActivationChanged += isActive =>
-        {
-            _mainForm.Invoke(() =>
-            {
-                _mainForm.SetSystemStatus(isActive);
-                _mainForm.SetCurrentAircraft(_flightState.AircraftTitle, isActive);
-            });
-        };
+        _automationManager.ActivationChanged += OnActivationChanged;
 
-        _flightState.AircraftChanged += title =>
-        {
-            _mainForm.Invoke(() => _mainForm.SetCurrentAircraft(title, _automationManager.IsActivated));
-            RefreshAircraftStateDetails();
-            // For mid-session aircraft switches, re-request the full AircraftLoaded path from
-            // SimConnect (which has the .cfg path we need for adapter matching).
-            // Do NOT call LoadAdapterForAircraft(title) here - the TITLE SimVar is just a short
-            // display name (e.g. "777F") that won't match adapter patterns.
-            try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
-            catch { /* sim may be momentarily unavailable */ }
-        };
+        _flightState.AircraftChanged += OnAircraftTitleChanged;
 
         _flightState.BeaconChanged += _ => RefreshAircraftStateDetails();
         _flightState.ParkingBrakeChanged += _ => RefreshAircraftStateDetails();
         _flightState.EngineChanged += _ => RefreshAircraftStateDetails();
         _flightState.SpeedChanged += _ => RefreshAircraftStateDetails();
 
-        _gsxMonitor.GsxStarted += () => _mainForm.Invoke(() => _mainForm.SetGsxStatus(true));
-        _gsxMonitor.GsxStopped += () => _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
+        _gsxMonitor.GsxStarted += OnGsxStarted;
+        _gsxMonitor.GsxStopped += OnGsxStopped;
 
-        _hotkeys.ActivationPressed += () =>
-        {
-            Logger.Debug("Hotkey: activation pressed");
-            _automationManager.ToggleActivation();
-        };
-        _hotkeys.ResetPressed += () =>
-        {
-            Logger.Info("Hotkey: reset session");
-            _automationManager.ResetSession();
-        };
+        _hotkeys.ActivationPressed += OnActivationKeyPressed;
+        _hotkeys.ResetPressed += OnResetKeyPressed;
 
-        _procWatcher.MsfsExited += () =>
-        {
-            Logger.Warning("MSFS process no longer detected - exiting.");
-            _mainForm.Invoke(() => Application.Exit());
-        };
+        _procWatcher.MsfsExited += OnMsfsExited;
 
         _mainForm.Show();
         _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
@@ -128,16 +99,7 @@ internal static class Program
         TryConnectSimConnect();
 
         _simConnectTimer = new System.Windows.Forms.Timer { Interval = 50, Enabled = true };
-        _simConnectTimer.Tick += (_, _) =>
-        {
-            try { _manager.PumpMessages(); }
-            catch (Exception ex)
-            {
-                Logger.Warning($"SimConnect pump error: {ex.Message}");
-                _simConnectTimer.Stop();
-                OnSimConnectDisconnected();
-            }
-        };
+        _simConnectTimer.Tick += OnSimConnectTimerTick;
 
         Application.Run(_mainForm);
     }
@@ -230,6 +192,64 @@ internal static class Program
         LoadAdapterForAircraft(aircraftPath);
     }
 
+    private static void OnActivationChanged(bool isActive)
+    {
+        _mainForm.Invoke(() =>
+        {
+            _mainForm.SetSystemStatus(isActive);
+            _mainForm.SetCurrentAircraft(_flightState.AircraftTitle, isActive);
+        });
+    }
+
+    private static void OnAircraftTitleChanged(string title)
+    {
+        _mainForm.Invoke(() => _mainForm.SetCurrentAircraft(title, _automationManager.IsActivated));
+        RefreshAircraftStateDetails();
+        // Re-request the full aircraft .cfg path so we can match the correct adapter.
+        // The title alone (e.g. "777F") is not reliable for adapter matching.
+        try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
+        catch { /* sim may be momentarily unavailable */ }
+    }
+
+    private static void OnActivationKeyPressed()
+    {
+        Logger.Debug("Hotkey: activation pressed");
+        _automationManager.ToggleActivation();
+    }
+
+    private static void OnResetKeyPressed()
+    {
+        Logger.Info("Hotkey: reset session");
+        _automationManager.ResetSession();
+    }
+
+    private static void OnMsfsExited()
+    {
+        Logger.Warning("MSFS process no longer detected - exiting.");
+        _mainForm.Invoke(() => Application.Exit());
+    }
+
+    private static void OnSimConnectTimerTick(object? sender, EventArgs e)
+    {
+        try { _manager.PumpMessages(); }
+        catch (Exception ex)
+        {
+            Logger.Debug($"SimConnect pump error: {ex.Message}");
+            _simConnectTimer.Stop();
+            OnSimConnectDisconnected();
+        }
+    }
+
+    private static void OnGsxStarted()
+    {
+        _mainForm.Invoke(() => _mainForm.SetGsxStatus(true));
+    }
+
+    private static void OnGsxStopped()
+    {
+        _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
+    }
+
     private static void OnSimulatorQuit()
     {
         _mainForm.Invoke(() =>
@@ -239,19 +259,18 @@ internal static class Program
         });
     }
 
-    private static void LoadAdapterForAircraft(string aircraftPathOrTitle)
+    private static void LoadAdapterForAircraft(string aircraftPath)
     {
-        if (string.IsNullOrEmpty(aircraftPathOrTitle)) return;
+        if (string.IsNullOrEmpty(aircraftPath)) return;
 
-        var match = AircraftAdapterMatcher.Resolve(aircraftPathOrTitle);
+        var match = AircraftAdapterMatcher.Resolve(aircraftPath);
 
-        Logger.Info("Aircraft Path or Title: " + aircraftPathOrTitle);
+        Logger.Debug("Aircraft path: " + aircraftPath);
 
         // Skip if we already have the same adapter type running to avoid double-registration.
-        // (Both the SystemState path and the TITLE SimVar change can fire for the same aircraft.)
         if (match.Adapter?.GetType() == _currentAdapter?.GetType() && _currentAdapter != null)
         {
-            Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPathOrTitle}', skipping.");
+            Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPath}', skipping.");
             return;
         }
 
@@ -314,12 +333,14 @@ internal static class Program
         _flightState.ForceHasMoved(!current);
         Logger.Info($"hasMoved forced → {!current}");
     }
+
     public static void ToggleEnginesEverRunFlag()
     {
         bool current = _flightState.HasEnginesEverRun;
         _flightState.ForceEnginesEverRun(!current);
         Logger.Info($"hasEnginesEverRun forced \u2192 {!current}");
     }
+
     public static void SetRebindingMode(bool isRebinding)
     {
         _hotkeys.SetRebinding(isRebinding);

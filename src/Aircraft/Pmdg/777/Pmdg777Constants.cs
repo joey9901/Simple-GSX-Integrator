@@ -84,37 +84,14 @@ public static class Pmdg777Constants
     };
 
 
-    /// <summary>All door event codes paired with their L:var names (for registration order).</summary>
-    public static readonly IReadOnlyList<(uint EvtCode, string LVar)> AllDoors =
-        new (uint, string)[]
-        {
-            (EVT_DOOR_1L,         LVAR_DOOR_1L),
-            (EVT_DOOR_1R,         LVAR_DOOR_1R),
-            (EVT_DOOR_2L,         LVAR_DOOR_2L),
-            (EVT_DOOR_2R,         LVAR_DOOR_2R),
-            (EVT_DOOR_3L,         LVAR_DOOR_3L),
-            (EVT_DOOR_3R,         LVAR_DOOR_3R),
-            (EVT_DOOR_4L,         LVAR_DOOR_4L),
-            (EVT_DOOR_4R,         LVAR_DOOR_4R),
-            (EVT_DOOR_5L,         LVAR_DOOR_5L),
-            (EVT_DOOR_5R,         LVAR_DOOR_5R),
-            (EVT_DOOR_CARGO_FWD,  LVAR_CARGO_FWD),
-            (EVT_DOOR_CARGO_AFT,  LVAR_CARGO_AFT),
-            (EVT_DOOR_CARGO_MAIN, LVAR_CARGO_MAIN),
-            (EVT_DOOR_CARGO_BULK, LVAR_CARGO_BULK),
-            (EVT_DOOR_AVIONICS,   LVAR_AVIONICS),
-            (EVT_DOOR_EE_HATCH,   LVAR_EE_HATCH),
-        };
-
-    /// <summary>Flat list of door event codes, used with <see cref="DoorStateTracker"/>.</summary>
-    public static readonly IReadOnlyList<uint> AllDoorIds = new uint[]
-    {
+    public static readonly IReadOnlyList<uint> AllDoorIds =
+    [
         EVT_DOOR_1L,   EVT_DOOR_1R,   EVT_DOOR_2L,  EVT_DOOR_2R,
         EVT_DOOR_3L,   EVT_DOOR_3R,   EVT_DOOR_4L,  EVT_DOOR_4R,
         EVT_DOOR_5L,   EVT_DOOR_5R,
         EVT_DOOR_CARGO_FWD, EVT_DOOR_CARGO_AFT, EVT_DOOR_CARGO_MAIN, EVT_DOOR_CARGO_BULK,
         EVT_DOOR_AVIONICS,  EVT_DOOR_EE_HATCH,
-    };
+    ];
 
     public const string CLIENT_DATA_CONTROL_NAME = "PMDG_777X_Control";
 }
