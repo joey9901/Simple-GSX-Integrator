@@ -1,10 +1,5 @@
 namespace SimpleGsxIntegrator.Infrastructure;
 
-/// <summary>
-/// Watches for the MSFS process to exit and optionally closes our application when it does.
-/// Only activates if MSFS was already running at startup (prevents false exits when
-/// the user manually launches the integrator before MSFS).
-/// </summary>
 public sealed class ProcessWatcher : IDisposable
 {
     private static readonly string[] ProcessNames = { "FlightSimulator", "MSFS" };
@@ -13,7 +8,6 @@ public sealed class ProcessWatcher : IDisposable
 
     private CancellationTokenSource? _cts;
 
-    /// <summary>Fires when MSFS is detected to have exited.</summary>
     public event Action? MsfsExited;
 
     public void StartIfMsfsRunning()

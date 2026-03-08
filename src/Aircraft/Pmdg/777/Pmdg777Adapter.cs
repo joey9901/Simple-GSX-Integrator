@@ -5,19 +5,6 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-/// <summary>
-/// PMDG 777 aircraft adapter.
-///
-/// Responsibilities:
-///   • Registers all required PMDG 777 L:vars and the PMDG control client-data area
-///     with SimConnect (via the instance received in <see cref="OnSimConnectConnected"/>).
-///   • Reads door, chock and ground-power state from L:vars.
-///   • Sends PMDG event commands via the PMDG_777X_Control client-data channel.
-///   • Removes ground equipment (GPU and chocks) via the appropriate events.
-///
-/// No SimConnect connection or message-pump logic lives here – that belongs to
-/// the <see cref="SimConnectHub"/>.
-/// </summary>
 public sealed class Pmdg777Adapter : IAircraftAdapter
 {
 
@@ -48,10 +35,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
     private Pmdg777VarsStruct _vars;
     private readonly DoorStateTracker _doorTracker = new();
 
-    /// <summary>
-    /// Per-event debounce: we track last-sent time so we do not spam the same
-    /// PMDG event multiple times within a short window.
-    /// </summary>
     private readonly ConcurrentDictionary<uint, DateTime> _lastSent = new();
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
@@ -259,7 +242,6 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         Logger.Debug("Pmdg777Adapter: disposed");
     }
 
-    /// <summary>Reads the current raw L:var value for a door by its event code.</summary>
     private double GetRawDoorValue(uint evtCode)
     {
         switch (evtCode)

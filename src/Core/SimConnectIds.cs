@@ -1,9 +1,5 @@
 namespace SimpleGsxIntegrator.Core;
 
-/// <summary>
-/// Central registry of all SimConnect definition and request IDs used across the application.
-/// Each component owns a unique range to avoid collisions.
-/// </summary>
 internal enum SimDef : uint
 {
     FlightState = 100,
@@ -36,18 +32,15 @@ internal enum SimReq : uint
 
     Pmdg737Vars = 400,
 
-    /// <summary>Used by A330Adapter.EnumerateInputEvents to discover door/chock event hashes.</summary>
     A330InputEventEnum = 500,
 }
 
-/// <summary>PMDG 777 client-data area IDs (from PMDG_777X_SDK.h).</summary>
 internal enum Pmdg777DataId : uint
 {
     Data = 0x504D4447,   // PMDG_777X_DATA_ID
     Control = 0x504D4449,   // PMDG_777X_CONTROL_ID
 }
 
-/// <summary>PMDG 737 NG3 client-data area IDs (from PMDG_NG3_SDK.h).</summary>
 internal enum Pmdg737DataId : uint
 {
     Control = 0x4E473300,   // PMDG_NG3_CONTROL_ID

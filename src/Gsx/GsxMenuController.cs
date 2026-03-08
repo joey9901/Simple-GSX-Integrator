@@ -5,17 +5,6 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Gsx;
 
-/// <summary>
-/// Sends commands to GSX by writing to the menu L:vars via SimConnect.
-///
-/// GSX menu sequence:
-///   1. Write 1 → L:FSDT_GSX_MENU_OPEN  (open menu)
-///   2. Write (item – 1) → L:FSDT_GSX_MENU_CHOICE  (select item)
-///   3. Write 1 → L:FSDT_GSX_MENU_CHOICE  (confirm operator / first option)
-///   4. Write 0 → L:FSDT_GSX_MENU_OPEN  (close menu)
-///
-/// All methods are async-safe and use async delays instead of Thread.Sleep.
-/// </summary>
 public sealed class GsxMenuController
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -34,7 +23,6 @@ public sealed class GsxMenuController
     private const int MenuItemBoarding = 4;
     private const int MenuItemPushback = 5;
 
-    /// <summary>Wire this to <see cref="SimConnectHub.Connected"/>.</summary>
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
@@ -82,10 +70,6 @@ public sealed class GsxMenuController
         if (closeAfter)
             await CloseMenuAsync();
     }
-
-    /// <summary>
-    /// Deboarding uses a slightly different sequence: open → item 1 (deboard) → sub-item 2 (confirm).
-    /// </summary>
     private async Task CallDeboardingSequenceAsync()
     {
         if (_sc == null) return;
@@ -101,7 +85,6 @@ public sealed class GsxMenuController
         await SelectItemAsync(MenuItemDeboarding);
         await Task.Delay(MenuChoiceDelayMs);
 
-        // Sub-menu: select option 2 (proceed with deboarding at current gate)
         await SelectItemAsync(2);
         await Task.Delay(MenuCloseDelayMs);
 
@@ -128,10 +111,6 @@ public sealed class GsxMenuController
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Selects the first operator (index 0) once, then marks it done for this session
-    /// so we don't spam operator selection on subsequent service calls.
-    /// </summary>
     private void AutoSelectOperator()
     {
         if (_operatorAutoSelected) return;
@@ -155,6 +134,5 @@ public sealed class GsxMenuController
         }
     }
 
-    /// <summary>Resets the operator-selection guard (e.g. on GSX restart).</summary>
     public void ResetOperatorSelection() => _operatorAutoSelected = false;
 }

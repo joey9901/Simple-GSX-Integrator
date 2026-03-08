@@ -4,9 +4,6 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Gsx;
 
-/// <summary>
-/// Monitors all GSX service-state L:vars via SimConnect.
-/// </summary>
 public sealed class GsxMonitor
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]

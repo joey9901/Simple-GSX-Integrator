@@ -5,12 +5,6 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-/// <summary>
-/// PMDG 737 (NG3) aircraft adapter.
-/// Mirrors the architecture of <see cref="Pmdg777Adapter"/> for the 737 variant.
-/// ⚠ L:var names and event offsets are based on public PMDG NG3 SDK documentation.
-///   Verify against your installed PMDG_NG3_SDK.h if door/chock commands misbehave.
-/// </summary>
 public sealed class Pmdg737Adapter : IAircraftAdapter
 {
 
@@ -234,8 +228,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         var deadline = DateTime.UtcNow.AddSeconds(60);
         while (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds) && DateTime.UtcNow < deadline)
         {
-            // Wait longer than the debounce window so the next CloseAllOpenDoorsAsync
-            // call is actually sent (and any still-opening door has finished animating).
             await Task.Delay(5_000);
             await CloseAllOpenDoorsAsync();
         }
@@ -264,8 +256,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         Logger.Debug("Pmdg737Adapter: disposed");
     }
 
-
-    /// <summary>Reads the current raw L:var value for a door by its event code.</summary>
     private double GetRawDoorValue(uint evtCode)
     {
         switch (evtCode)
@@ -286,17 +276,12 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
     }
 
-    /// <summary>
-    /// Pushes the latest raw L:var readings into the <see cref="DoorStateTracker"/>.
-    /// Called on every SimConnect data callback so state transitions are captured promptly.
-    /// </summary>
     private void UpdateDoorStates()
     {
         foreach (uint evtCode in Pmdg737Constants.AllDoorIds)
             _doorTracker.Update(evtCode, GetRawDoorValue(evtCode), Pmdg737Constants.GetDoorName(evtCode));
     }
 
-    /// <summary>Sends a PMDG event with per-event debouncing (use for door toggles).</summary>
     private void SendPmdgEvent(uint evtCode, uint param)
     {
         if (_sc == null) return;
@@ -313,7 +298,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         SendPmdgEventNow(evtCode, param);
     }
 
-    /// <summary>Sends a PMDG event unconditionally, bypassing debounce (use for CDU key sequences).</summary>
     private void SendPmdgEventNow(uint evtCode, uint param)
     {
         if (_sc == null) return;

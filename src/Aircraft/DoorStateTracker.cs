@@ -1,9 +1,5 @@
 namespace SimpleGsxIntegrator.Aircraft;
 
-/// <summary>
-/// Tracks the open/closed state of aircraft doors by observing the direction of
-/// change in each door's raw L:var value
-/// </summary>
 internal sealed class DoorStateTracker
 {
 
@@ -23,7 +19,6 @@ internal sealed class DoorStateTracker
 
         if (!_doors.TryGetValue(doorId, out var entry))
         {
-            // First observation – seed state directly from value, no motion needed.
             var initial = isZero ? DoorState.Closed : DoorState.Open;
             _doors[doorId] = new DoorEntry(rawValue, initial);
             Logger.Debug($"DoorTracker [{doorName}]: initial → {initial} (raw={rawValue:F4})");
@@ -34,12 +29,10 @@ internal sealed class DoorStateTracker
 
         if (rawValue > entry.LastRaw)
         {
-            // Value is increasing → door is opening.
             newState = DoorState.Open;
         }
         else if (rawValue < entry.LastRaw)
         {
-            // Value is decreasing → door is closing.
             newState = DoorState.Closed;
         }
         else

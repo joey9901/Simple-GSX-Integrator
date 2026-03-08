@@ -1,9 +1,5 @@
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-/// <summary>
-/// PMDG 737 (NG3) event codes and L:var names.
-/// Event offsets sourced from PMDG_NG3_SDK.h (THIRD_PARTY_EVENT_ID_MIN = 0x00011000).
-/// </summary>
 public static class Pmdg737Constants
 {
     private const uint BASE = 0x00011000;

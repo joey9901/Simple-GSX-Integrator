@@ -4,11 +4,6 @@ using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator.Aircraft.A330;
 
-/// <summary>
-/// Adapter for the Microsoft/iniBuilds A330
-/// Architecture differs from PMDG adapters: instead of a private client-data
-/// control channel, this aircraft exposes SimConnect L:vars
-/// </summary>
 public sealed class IniA330Adapter : IAircraftAdapter
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

@@ -1,10 +1,5 @@
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-/// <summary>
-/// PMDG 777 event codes and door-related constants.
-/// Event codes are built from the THIRD_PARTY_EVENT_ID_MIN base (0x00011000)
-/// plus the offsets defined in PMDG_777X_SDK.h.
-/// </summary>
 public static class Pmdg777Constants
 {
     private const uint BASE = 0x00011000;

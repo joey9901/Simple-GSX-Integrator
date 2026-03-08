@@ -23,9 +23,6 @@ internal static class Program
 
     private static SimConnect? _sc;
 
-    /// <summary>
-    /// Full filesystem path to the currently loaded aircraft
-    /// </summary>
     public static string CurrentAircraftPath { get; private set; } = string.Empty;
 
     private static Mutex? _singleInstanceMutex;
@@ -124,7 +121,7 @@ internal static class Program
                         _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(true));
                         Logger.Debug("SimConnect reconnected.");
                     }
-                    catch { /* still not available */ }
+                    catch { }
                 }
             });
         }
@@ -140,15 +137,11 @@ internal static class Program
         _gsxMonitor.OnSimConnectConnected(sc);
         _gsxMenu.OnSimConnectConnected(sc);
         _automationManager.OnSimConnectConnected(sc);
-
-        // If an adapter was already selected (e.g. hub reconnect after aircraft already known),
-        // give it the new SimConnect instance so it can register its definitions.
         _automationManager.CurrentAdapter?.OnSimConnectConnected(sc);
 
-        // Request the currently loaded aircraft path so we can choose the right adapter.
         try
         {
-            sc.RequestSystemState((SimReq)900 /*AircraftLoaded*/, "AircraftLoaded");
+            sc.RequestSystemState((SimReq)900, "AircraftLoaded");
         }
         catch (Exception ex)
         {
@@ -175,7 +168,7 @@ internal static class Program
 
     private static void OnSystemStateReceived(SIMCONNECT_RECV_SYSTEM_STATE data)
     {
-        if (data.dwRequestID != 900) return;  // SimReq.AircraftLoaded
+        if (data.dwRequestID != 900) return;
 
         string aircraftPath = data.szString?.Trim() ?? string.Empty;
         if (string.IsNullOrEmpty(aircraftPath)) return;
@@ -201,9 +194,9 @@ internal static class Program
         _mainForm.Invoke(() => _mainForm.SetCurrentAircraft(title, _automationManager.IsActivated));
         RefreshAircraftStateDetails();
         // Re-request the full aircraft .cfg path so we can match the correct adapter.
-        // The title alone (e.g. "777F") is not reliable for adapter matching.
+        // The title alone (e.g. "777F") is not enough for adapter matching.
         try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
-        catch { /* sim may be momentarily unavailable */ }
+        catch { }
     }
 
     private static void OnActivationKeyPressed()
@@ -305,10 +298,6 @@ internal static class Program
         _automationManager?.PrintState();
     }
 
-    /// <summary>
-    /// Re-registers the activation L:var for the currently loaded aircraft.
-    /// Call this after the aircraft config is saved to apply changes immediately.
-    /// </summary>
     public static void RegisterActivationForCurrentAircraft()
     {
         if (_sc == null || string.IsNullOrEmpty(_flightState.AircraftTitle)) return;
@@ -340,11 +329,6 @@ internal static class Program
         _hotkeys.SetRebinding(isRebinding);
     }
 
-    /// <summary>
-    /// Persists a hotkey change and updates the live listener.
-    /// <paramref name="hotkeyType"/> is "activation" or "reset";
-    /// <paramref name="hotkeyString"/> is the display string (e.g. "Ctrl+F1").
-    /// </summary>
     public static void UpdateHotkey(string hotkeyType, string hotkeyString)
     {
         var cfg = ConfigManager.GetConfig();

@@ -3,11 +3,6 @@ using SimpleGsxIntegrator.Config;
 
 namespace SimpleGsxIntegrator.Infrastructure;
 
-/// <summary>
-/// Polls the Windows keyboard state at a fixed interval to detect configurable
-/// hotkey combinations. Uses rising-edge detection (fires on key-up after key-down)
-/// so a held key does not repeat-fire.
-/// </summary>
 public sealed class HotkeyListener : IDisposable
 {
     [DllImport("user32.dll")]
@@ -34,7 +29,6 @@ public sealed class HotkeyListener : IDisposable
 
     public HotkeyListener() { }
 
-    /// <summary>Convenience constructor that parses string hotkey names on creation.</summary>
     public HotkeyListener(string activationKey, string resetKey)
     {
         _activationHotkey = HotkeyParser.Parse(activationKey);
@@ -47,23 +41,16 @@ public sealed class HotkeyListener : IDisposable
         _resetHotkey = reset;
     }
 
-    /// <summary>Updates only the activation hotkey from a display string (e.g. "Ctrl+F1").</summary>
     public void SetActivationKey(string hotkeyString) => _activationHotkey = HotkeyParser.Parse(hotkeyString);
 
-    /// <summary>Updates only the reset hotkey from a display string (e.g. "Ctrl+F2").</summary>
     public void SetResetKey(string hotkeyString) => _resetHotkey = HotkeyParser.Parse(hotkeyString);
 
-    /// <summary>Starts the polling loop in a background task.</summary>
     public void Start()
     {
         _cts = new CancellationTokenSource();
         _ = Task.Run(PollLoopAsync, _cts.Token);
     }
 
-    /// <summary>
-    /// Temporarily suspends hotkey detection while the user is rebinding a key
-    /// to prevent the new combo from immediately firing.
-    /// </summary>
     public void SetRebinding(bool rebinding)
     {
         _rebinding = rebinding;
@@ -98,7 +85,7 @@ public sealed class HotkeyListener : IDisposable
                     _lastResetState = resetNow;
                 }
             }
-            catch { /* swallow poll errors */ }
+            catch { }
 
             await Task.Delay(PollIntervalMs);
         }

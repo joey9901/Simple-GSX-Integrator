@@ -1,10 +1,5 @@
 namespace SimpleGsxIntegrator.Config;
 
-/// <summary>
-/// Loads and saves application configuration from a simple INI file.
-/// Provides thread-safe singleton-cached access via <see cref="GetConfig"/> and
-/// per-aircraft helpers that automatically save new aircraft sections on first use.
-/// </summary>
 public static class ConfigManager
 {
 

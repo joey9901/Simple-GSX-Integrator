@@ -3,10 +3,6 @@ using Microsoft.FlightSimulator.SimConnect;
 
 namespace SimpleGsxIntegrator.Core;
 
-/// <summary>
-/// Monitors core aircraft SimConnect variables (beacon, parking brake, engines, speed, title)
-/// and maintains internal state such as <see cref="HasEnginesEverRun"/> and <see cref="HasMoved"/>.
-/// </summary>
 public sealed class FlightStateTracker
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
@@ -55,15 +51,10 @@ public sealed class FlightStateTracker
 
 
     public event Action<bool>? BeaconChanged;
-
     public event Action<bool>? ParkingBrakeChanged;
-
     public event Action<bool>? EngineChanged;
-
     public event Action<double>? SpeedChanged;
-
     public event Action<string>? AircraftChanged;
-
     public event Action<double>? ActivationLvarTriggered;
 
     public void OnSimConnectConnected(SimConnect sc)
@@ -97,10 +88,6 @@ public sealed class FlightStateTracker
         Logger.Debug("FlightStateTracker: SimConnect vars registered");
     }
 
-    /// <summary>
-    /// Registers a per-aircraft L:var to monitor.
-    /// Called when the aircraft changes and has a configured activation L:var.
-    /// </summary>
     public void SetActivationLvar(SimConnect sc, string lvarName)
     {
         if (string.IsNullOrWhiteSpace(lvarName)) return;
@@ -223,7 +210,6 @@ public sealed class FlightStateTracker
         }
     }
 
-    /// <summary>Resets all session-specific internal flags.</summary>
     public void ResetSession()
     {
         _enginesHaveRun = false;
@@ -233,14 +219,12 @@ public sealed class FlightStateTracker
         Logger.Debug("FlightStateTracker: session reset");
     }
 
-    /// <summary>Forces the HasMoved flag (debug helper).</summary>
     public void ForceHasMoved(bool value)
     {
         _hasMoved = value;
         Logger.Debug($"FlightStateTracker: HasMoved forced to {value}");
     }
 
-    /// <summary>Forces the HasEnginesEverRun flag (debug helper).</summary>
     public void ForceEnginesEverRun(bool value)
     {
         _enginesHaveRun = value;

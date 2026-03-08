@@ -6,14 +6,6 @@ using SimpleGsxIntegrator.Gsx;
 
 namespace SimpleGsxIntegrator.Automation;
 
-/// <summary>
-/// Central automation state machine. Subscribes to events from
-/// <see cref="FlightStateTracker"/> and <see cref="GsxMonitor"/> and
-/// determines when to trigger GSX ground services.
-///
-/// Service completion flags are maintained internally so a GSX restart does not
-/// cause previously-completed services to fire again.
-/// </summary>
 public sealed class AutomationManager
 {
     private readonly FlightStateTracker _flightState;
@@ -30,12 +22,10 @@ public sealed class AutomationManager
     private bool _pushbackDone;
     private bool _deboardingDone;
 
-    /// <summary>
     /// Set once pushback has been attempted.
     /// This aims to stop boarding being called if user forgot to turn on APU
     /// and loses power, causing the beacon to turn OFF
     /// (can only occur if boarding was not performed)
-    /// </summary>
     private bool _pushbackAttempted;
 
     private SimConnect? _sc;
@@ -60,9 +50,6 @@ public sealed class AutomationManager
         get { return _activated; }
     }
 
-    /// <summary>
-    /// Stores the SimConnect instance for passing to adapters / activation L:var registration.
-    /// </summary>
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
@@ -78,9 +65,6 @@ public sealed class AutomationManager
         _currentAdapter = adapter;
     }
 
-    /// <summary>
-    /// Toggles system activation on/off. Fires <see cref="ActivationChanged"/> event.
-    /// </summary>
     public void ToggleActivation()
     {
         _activated = !_activated;
@@ -97,9 +81,6 @@ public sealed class AutomationManager
         }
     }
 
-    /// <summary>
-    /// Resets all session flags (for turnaround and debugging / testing).
-    /// </summary>
     public void ResetSession(bool printLog = true)
     {
         _refuelingDone = false;
@@ -140,8 +121,6 @@ public sealed class AutomationManager
     {
         Logger.Debug($"Aircraft changed: {title}");
 
-        // Only reset when switching from a previously-loaded aircraft.
-        // On initial connection _currentAircraftTitle is null, so there is nothing to reset.
         if (_currentAircraftTitle != null)
         {
             if (_activated) ToggleActivation();
@@ -387,10 +366,6 @@ public sealed class AutomationManager
         await _gsxMenu.CallPushbackAsync();
     }
 
-    /// <summary>
-    /// Evaluates whether deboarding should be called after landing.
-    /// Requires: engines have run (we flew) + aircraft now stationary + engines off + beacon off.
-    /// </summary>
     public void EvaluateDeboarding()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
@@ -413,11 +388,6 @@ public sealed class AutomationManager
         await _gsxMenu.CallDeboardingAsync();
     }
 
-    /// <summary>
-    /// Tries to call a GSX service, checking that its GSX state is <see cref="GsxServiceState.Callable"/>.
-    /// After firing the trigger, polls up to 30 s for GSX acknowledgement.
-    /// If GSX does not respond, invokes <paramref name="onTimeout"/>.
-    /// </summary>
     private async Task CallServiceAsync(
         string name,
         Func<GsxServiceState> getState,
@@ -458,11 +428,6 @@ public sealed class AutomationManager
         }
     }
 
-    /// <summary>
-    /// Called once when GSX becomes available (or system activates) to sync
-    /// internal flags with the current GSX state so we don't re-trigger
-    /// already-completed services after a reconnect.
-    /// </summary>
     private void SyncInitialGsxStates()
     {
         if (_gsxMonitor.RefuelingState == GsxServiceState.Completed && !_refuelingDone)
