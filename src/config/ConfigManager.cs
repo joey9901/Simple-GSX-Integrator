@@ -38,6 +38,11 @@ public static class ConfigManager
         WriteFile(config);
     }
 
+    public static IReadOnlyList<string> GetSavedAircraftTitles()
+    {
+        return _config.Aircraft.Keys.OrderBy(k => k).ToList();
+    }
+
     private static AppConfig Load()
     {
         try

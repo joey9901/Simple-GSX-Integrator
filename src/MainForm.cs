@@ -237,7 +237,7 @@ public partial class MainForm : Form
             Text = "Configure Aircraft Settings",
             Location = new Point(40, 420),
             Size = new Size(200, 25),
-            Enabled = false
+            Enabled = true
         };
         btnAircraftConfig.Click += BtnAircraftConfig_Click;
 
@@ -425,11 +425,29 @@ public partial class MainForm : Form
 
     private void BtnAircraftConfig_Click(object? sender, EventArgs e)
     {
-        if (!string.IsNullOrEmpty(lblCurrentAircraft.Text) && lblCurrentAircraft.Text != "None")
+        string? currentTitle = lblCurrentAircraft.Text;
+        if (currentTitle == "None" || string.IsNullOrWhiteSpace(currentTitle))
+            currentTitle = null;
+
+        var saved = ConfigManager.GetSavedAircraftTitles();
+        bool hasChoice = saved.Count > 1 || (saved.Count == 1 && saved[0] != currentTitle) || currentTitle == null;
+
+        string? target;
+        if (hasChoice)
         {
-            var configForm = new AircraftConfigForm(lblCurrentAircraft.Text);
-            configForm.ShowDialog(this);
+            using var picker = new AircraftPickerForm(currentTitle);
+            if (picker.ShowDialog(this) != DialogResult.OK || picker.SelectedTitle == null) return;
+            target = picker.SelectedTitle;
         }
+        else
+        {
+            target = currentTitle ?? saved.FirstOrDefault();
+        }
+
+        if (string.IsNullOrEmpty(target)) return;
+
+        var configForm = new AircraftConfigForm(target);
+        configForm.ShowDialog(this);
     }
 
     private void ChkDarkMode_CheckedChanged(object? sender, EventArgs e)
@@ -669,7 +687,7 @@ public partial class MainForm : Form
 
         lblCurrentAircraft.Text = aircraft;
         lblCurrentAircraft.ForeColor = Theme.Text;
-        btnAircraftConfig.Enabled = !string.IsNullOrEmpty(aircraft) && aircraft != "None";
+        btnAircraftConfig.Enabled = true;
     }
 
     public void AppendLog(string message)

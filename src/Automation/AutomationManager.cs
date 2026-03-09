@@ -98,6 +98,7 @@ public sealed class AutomationManager
     private void SetupEvents()
     {
         _flightState.BeaconChanged += OnBeaconChanged;
+        _flightState.ParkingBrakeChanged += OnParkingBrakeChanged;
         _flightState.AircraftChanged += OnAircraftChanged;
         _flightState.ActivationLvarTriggered += OnActivationLvarTriggered;
         _flightState.EngineChanged += OnEngineChanged;
@@ -113,6 +114,12 @@ public sealed class AutomationManager
     }
 
     private void OnBeaconChanged(bool beaconOn)
+    {
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        EvaluateServices();
+    }
+
+    private void OnParkingBrakeChanged(bool brakeSet)
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         EvaluateServices();
@@ -159,6 +166,7 @@ public sealed class AutomationManager
             ToggleActivation();
         }
     }
+
     private void OnEngineChanged(bool engineOn)
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
