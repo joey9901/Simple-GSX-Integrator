@@ -8,7 +8,6 @@ public class AircraftConfigForm : Form
     private readonly string _aircraftTitle;
     private CheckBox chkRefuelBeforeBoarding = null!;
     private CheckBox chkCateringOnNewFlight = null!;
-    private CheckBox chkAutoCloseDoors = null!;
     private TextBox txtActivationLvar = null!;
     private NumericUpDown nudActivationValue = null!;
     private Button btnSave = null!;
@@ -25,7 +24,7 @@ public class AircraftConfigForm : Form
     private void InitializeComponent()
     {
         this.Text = "Aircraft Configuration";
-        this.ClientSize = new Size(500, 310);
+        this.ClientSize = new Size(500, 265);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;
@@ -52,7 +51,7 @@ public class AircraftConfigForm : Form
 
         var lblDepartureHeader = new Label
         {
-            Text = "New Flight Settings",
+            Text = "Service Options",
             Location = new Point(20, 60),
             Size = new Size(200, 20),
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
@@ -72,24 +71,10 @@ public class AircraftConfigForm : Form
             Size = new Size(380, 20)
         };
 
-        var lblPmdgHeader = new Label
-        {
-            Text = "PMDG Doors",
-            Location = new Point(20, 145),
-            Size = new Size(250, 20),
-            Font = new Font("Segoe UI", 10, FontStyle.Bold)
-        };
-
-        chkAutoCloseDoors = new CheckBox
-        {
-            Text = "Automatically Close PMDG Doors when Boarding Completes",
-            Location = new Point(40, 170),
-            Size = new Size(400, 20)
-        };
         var lblActivationHeader = new Label
         {
             Text = "System Activation (Set Custom L:var as System Activation Trigger)",
-            Location = new Point(20, 205),
+            Location = new Point(20, 145),
             Size = new Size(500, 20),
             Font = new Font("Segoe UI", 10, FontStyle.Bold)
         };
@@ -97,40 +82,37 @@ public class AircraftConfigForm : Form
         var lblActivationL = new Label
         {
             Text = "L:",
-            Location = new Point(40, 230),
+            Location = new Point(40, 170),
             Size = new Size(18, 23),
             TextAlign = ContentAlignment.MiddleLeft
         };
 
         txtActivationLvar = new TextBox
         {
-            Location = new Point(62, 230),
+            Location = new Point(62, 170),
             Size = new Size(260, 23)
         };
 
         var lblActivationValue = new Label
         {
             Text = "Activation Value:",
-            Location = new Point(330, 230),
+            Location = new Point(330, 170),
             Size = new Size(100, 23)
         };
 
         nudActivationValue = new NumericUpDown
         {
-            Location = new Point(430, 230),
+            Location = new Point(430, 170),
             Size = new Size(60, 23),
             Minimum = 0,
             Maximum = 1000000,
             DecimalPlaces = 2
         };
-        var path = Program.CurrentAircraftPath ?? string.Empty;
-        bool showPmdgSection = (!string.IsNullOrEmpty(path) && (path.IndexOf("PMDG 737", System.StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("PMDG 777", System.StringComparison.OrdinalIgnoreCase) >= 0));
-        lblPmdgHeader.Visible = showPmdgSection;
-        chkAutoCloseDoors.Visible = showPmdgSection;
+
         btnSave = new Button
         {
             Text = "Save",
-            Location = new Point(310, 265),
+            Location = new Point(310, 210),
             Size = new Size(85, 30)
         };
         btnSave.Click += ButtonSaveClick;
@@ -138,7 +120,7 @@ public class AircraftConfigForm : Form
         btnCancel = new Button
         {
             Text = "Cancel",
-            Location = new Point(405, 265),
+            Location = new Point(405, 210),
             Size = new Size(85, 30)
         };
         btnCancel.Click += BtnCancel_Click;
@@ -149,8 +131,6 @@ public class AircraftConfigForm : Form
             lblDepartureHeader,
             chkRefuelBeforeBoarding,
             chkCateringOnNewFlight,
-            lblPmdgHeader,
-            chkAutoCloseDoors,
             lblActivationHeader,
             lblActivationL,
             txtActivationLvar,
@@ -166,7 +146,6 @@ public class AircraftConfigForm : Form
         var config = ConfigManager.GetAircraftConfig(_aircraftTitle);
         chkRefuelBeforeBoarding.Checked = config.RefuelBeforeBoarding;
         chkCateringOnNewFlight.Checked = config.CateringOnNewFlight;
-        chkAutoCloseDoors.Checked = config.AutoCloseDoors;
         txtActivationLvar.Text = config.ActivationLvar?.Replace("L:", "") ?? string.Empty;
         try { nudActivationValue.Value = (decimal)config.ActivationValue; } catch { nudActivationValue.Value = 1; }
     }
@@ -181,7 +160,6 @@ public class AircraftConfigForm : Form
         var config = ConfigManager.GetAircraftConfig(_aircraftTitle);
         config.RefuelBeforeBoarding = chkRefuelBeforeBoarding.Checked;
         config.CateringOnNewFlight = chkCateringOnNewFlight.Checked;
-        config.AutoCloseDoors = chkAutoCloseDoors.Checked;
         config.ActivationLvar = txtActivationLvar.Text?.Trim() ?? string.Empty;
         config.ActivationValue = (double)nudActivationValue.Value;
 

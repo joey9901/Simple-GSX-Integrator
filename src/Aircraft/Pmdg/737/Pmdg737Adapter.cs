@@ -42,7 +42,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     private readonly ConcurrentDictionary<uint, DateTime> _lastSent = new();
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
-
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
@@ -128,7 +127,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
     }
 
-
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID != (uint)SimReq.Pmdg737Vars &&
@@ -137,7 +135,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         _vars = (Pmdg737VarsStruct)data.dwData[0];
         UpdateDoorStates();
     }
-
 
     private async Task CloseAllOpenDoorsAsync()
     {
@@ -187,7 +184,6 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         Logger.Info($"Pmdg737Adapter: Closing {Pmdg737Constants.GetDoorName(doorId)}");
         SendPmdgEvent(doorId, 1);
     }
-
 
     private async Task PlaceGroundEquipmentAndChocks()
     {

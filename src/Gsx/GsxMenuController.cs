@@ -111,7 +111,6 @@ public sealed class GsxMenuController
         CloseMenu();
     }
 
-
     private void OpenMenu()
     {
         WriteVar(SimDef.GsxMenuOpen, 1.0);

@@ -2,13 +2,10 @@ namespace SimpleGsxIntegrator.Config;
 
 public static class ConfigManager
 {
-
     private static readonly string ConfigDir = Path.Combine(AppContext.BaseDirectory, "config");
     private static readonly string ConfigPath = Path.Combine(ConfigDir, "simplegsx.ini");
 
-
     private static AppConfig _config = Load();
-
 
     public static AppConfig GetConfig() => _config;
 
@@ -40,7 +37,6 @@ public static class ConfigManager
         _config = config;
         WriteFile(config);
     }
-
 
     private static AppConfig Load()
     {
@@ -104,7 +100,6 @@ public static class ConfigManager
                         if (key == "CateringOnNewFlight") ac.CateringOnNewFlight = ParseBool(val);
                         if (key == "ActivationLvar") ac.ActivationLvar = val;
                         if (key == "ActivationValue" && double.TryParse(val, out double av)) ac.ActivationValue = av;
-                        if (key == "AutoCloseDoors") ac.AutoCloseDoors = ParseBool(val);
                         break;
                 }
             }
@@ -143,7 +138,6 @@ public static class ConfigManager
                 lines.Add($"[Aircraft:{title}]");
                 lines.Add($"RefuelBeforeBoarding={ac.RefuelBeforeBoarding.ToString().ToLowerInvariant()}");
                 lines.Add($"CateringOnNewFlight={ac.CateringOnNewFlight.ToString().ToLowerInvariant()}");
-                lines.Add($"AutoCloseDoors={ac.AutoCloseDoors.ToString().ToLowerInvariant()}");
                 lines.Add($"ActivationLvar={ac.ActivationLvar}");
                 lines.Add($"ActivationValue={ac.ActivationValue}");
                 lines.Add(string.Empty);
@@ -162,7 +156,6 @@ public static class ConfigManager
         return s.Equals("true", StringComparison.OrdinalIgnoreCase);
     }
 }
-
 
 public static class HotkeyParser
 {

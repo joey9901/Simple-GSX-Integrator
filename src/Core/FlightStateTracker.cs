@@ -11,14 +11,13 @@ public sealed class FlightStateTracker
     {
         public int BeaconLight;
         public int ParkingBrake;
-        public int EngineRunning;   // GENERAL ENG COMBUSTION:1
-        // Note that there is an extremely rare edge case where if engine 2 is used 
-        // for taxi and for some reason the user wants to return to gate for 
-        // deboarding, deboarding won't be called since HasEnginesEverRun is false
+        public int Engine1Running;
+        public int Engine2Running;
+        public int Engine3Running;
+        public int Engine4Running;
         public int OnGround;
         public int UserInputEnabled;
         public double GroundSpeed;     // knots
-        public double Airspeed;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
         public string AircraftTitle;
     }
@@ -33,7 +32,6 @@ public sealed class FlightStateTracker
     private FlightStateStruct _prevState;
     private bool _firstPoll = true;
     private const double MovedThreshold = 3.0; // knots
-    private const double AirSpeedThreshold = 50.0; // knots 
 
     private bool _enginesHaveRun;
     private bool _hasMoved;
@@ -73,7 +71,8 @@ public sealed class FlightStateTracker
         {
             if (_activeOverrides.TryGetValue(SimVarOverride.EngineRunning, out double ov) && !double.IsNaN(ov))
                 return ov != 0;
-            return _state.EngineRunning != 0;
+            return _state.Engine1Running != 0 || _state.Engine2Running != 0
+                || _state.Engine3Running != 0 || _state.Engine4Running != 0;
         }
     }
 
@@ -102,7 +101,6 @@ public sealed class FlightStateTracker
         get { return _hasMoved; }
     }
 
-
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
@@ -121,10 +119,12 @@ public sealed class FlightStateTracker
         AddFlightStateVar(sc, "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:2", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
-        AddFlightStateVar(sc, "AIRSPEED INDICATED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
         AddFlightStateVar(sc, "TITLE", null, SIMCONNECT_DATATYPE.STRING256);
 
         sc.RegisterDataDefineStruct<FlightStateStruct>(SimDef.FlightState);
@@ -244,12 +244,13 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        if (_state.EngineRunning != 0) _enginesHaveRun = true;
+        if (_state.Engine1Running != 0 || _state.Engine2Running != 0 ||
+            _state.Engine3Running != 0 || _state.Engine4Running != 0)
+            _enginesHaveRun = true;
 
         if (!_hasMoved)
         {
-            if ((_enginesHaveRun && _state.GroundSpeed > MovedThreshold)
-                || (_state.OnGround < 1 && _state.Airspeed > AirSpeedThreshold))
+            if (_enginesHaveRun && _state.GroundSpeed > MovedThreshold)
                 _hasMoved = true;
         }
 
@@ -277,7 +278,7 @@ public sealed class FlightStateTracker
         }
 
         bool inMenu = _state.UserInputEnabled != 0; // 1 is in menu 0 is in flight
-        bool atGate = _state.OnGround != 0 && _state.EngineRunning == 0;
+        bool atGate = _state.OnGround != 0 && _state.Engine1Running == 0;
 
         if (!inMenu && atGate && !_onSpawnedHandled)
         {
@@ -304,9 +305,9 @@ public sealed class FlightStateTracker
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
 
-        if (_state.EngineRunning != _prevState.EngineRunning && !_activeOverrides.ContainsKey(SimVarOverride.EngineRunning))
+        if (_state.Engine1Running != _prevState.Engine1Running && !_activeOverrides.ContainsKey(SimVarOverride.EngineRunning))
         {
-            _prevState.EngineRunning = _state.EngineRunning;
+            _prevState.Engine1Running = _state.Engine1Running;
             Logger.Debug($"FlightStateTracker: engine → {(EngineOn ? "RUNNING" : "OFF")}");
             EngineChanged?.Invoke(EngineOn);
         }
