@@ -147,6 +147,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         if (open.Count == 0) return;
 
         Logger.Debug($"Pmdg777Adapter: Closing {open.Count} open door(s)");
+        Logger.Info("Pmdg777Adapter: Closing Doors");
 
         foreach (uint evtCode in open)
         {
@@ -175,7 +176,7 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
             return;
         }
 
-        Logger.Info("Pmdg777Adapter: Placing Chocks and GPU via CDU Sequence");
+        Logger.Info("Pmdg777Adapter: Placing Chocks and GPU");
 
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_MENU, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1); await Task.Delay(500);
@@ -196,9 +197,8 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
         if (_vars.ExtPwrSec > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_SEC, 1);
         if (_vars.ExtPwrPrim > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_PRIM, 1);
 
-        Logger.Debug("Pmdg777Adapter: Removing Chocks via CDU Sequence");
+        Logger.Info("Pmdg777Adapter: Removing Chocks");
 
-        // CDU Sequence to remove chocks AND GPU
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_MENU, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R1, 1); await Task.Delay(500);
@@ -207,23 +207,20 @@ public sealed class Pmdg777Adapter : IAircraftAdapter
 
     public async Task OnBeforePushbackAsync()
     {
-        Logger.Info("Pmdg777Adapter: Removing Ground Equipment and Closing Doors.");
         await RemoveGroundEquipmentAsync();
         await CloseAllOpenDoorsAsync();
 
         var deadline = DateTime.UtcNow.AddSeconds(60);
         while (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds) && DateTime.UtcNow < deadline)
         {
-            // Wait longer than the debounce window so the next CloseAllOpenDoorsAsync
-            // call is actually sent (and any still-opening door has finished animating).
             await Task.Delay(5_000);
             await CloseAllOpenDoorsAsync();
         }
 
         if (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds))
-            Logger.Warning("Pmdg777Adapter: Doors still open after 60s - proceeding with pushback");
+            Logger.Warning("Pmdg777Adapter: Doors still open after 60s - Proceeding with Pushback");
         else
-            Logger.Info("Pmdg777Adapter: All doors confirmed closed");
+            Logger.Info("Pmdg777Adapter: All Doors Confirmed Closed");
     }
 
     public Task OnBeforeDeboardingAsync()

@@ -193,7 +193,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
             return;
         }
 
-        Logger.Info("Pmdg737Adapter: Placing Chocks and GPU via CDU Sequence");
+        Logger.Info("Pmdg737Adapter: Placing Chocks and GPU");
 
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
@@ -210,12 +210,12 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
             return;
         }
 
-        Logger.Debug("Pmdg737Adapter: Removing Chocks via CDU Sequence");
+        Logger.Info("Pmdg737Adapter: Removing Chocks");
 
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(500);
+        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
     }
 
     public async Task OnBeforePushbackAsync()
@@ -231,9 +231,9 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
 
         if (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds))
-            Logger.Warning("Pmdg737Adapter: Doors still open after 60s - proceeding with pushback");
+            Logger.Warning("Pmdg737Adapter: Doors still open after 60s - Proceeding with Pushback");
         else
-            Logger.Info("Pmdg737Adapter: All doors confirmed closed");
+            Logger.Info("Pmdg737Adapter: All Doors Confirmed Closed");
     }
 
     public Task OnBeforeDeboardingAsync()

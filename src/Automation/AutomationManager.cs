@@ -300,6 +300,7 @@ public sealed class AutomationManager
     private void EvaluateRefueling()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_refuelingDone || _boardingDone) return;
 
@@ -316,6 +317,7 @@ public sealed class AutomationManager
     private void EvaluateCatering()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_cateringDone || _boardingDone) return;
 
@@ -331,6 +333,7 @@ public sealed class AutomationManager
     private void EvaluateBoarding()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_boardingDone || _pushbackAttempted) return;
 
@@ -350,6 +353,7 @@ public sealed class AutomationManager
     private void EvaluatePushback()
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+        if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (!_flightState.BeaconOn || _flightState.HasMoved) return;
         if (!_flightState.ParkingBrake) return;
         if (_pushbackDone) return;
@@ -388,6 +392,7 @@ public sealed class AutomationManager
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_deboardingDone) return;
+        if (_flightState.EngineOn) return;
         if (!_flightState.HasMoved || !_flightState.HasEnginesEverRun) return;
         if (!_flightState.OnGround || _flightState.BeaconOn) return;
         if (_flightState.GroundSpeed > 0.5) return;
