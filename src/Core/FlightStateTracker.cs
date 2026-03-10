@@ -16,6 +16,7 @@ public sealed class FlightStateTracker
         public int Engine3Running;
         public int Engine4Running;
         public int OnGround;
+        public int CameraState;
         public int UserInputEnabled;
         public double GroundSpeed;     // knots
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
@@ -101,6 +102,23 @@ public sealed class FlightStateTracker
         get { return _hasMoved; }
     }
 
+    public bool IsInMenu
+    {
+        get
+        {
+            if ((_state.CameraState >= 32 && _state.CameraState != 34)
+                || _state.CameraState == 12) // menu
+                return true;
+            else if (_state.CameraState == 31 && _state.UserInputEnabled == 1) // restart
+                return true;
+            else if (_state.UserInputEnabled == 0) // walkaround
+                return false;
+            return false;
+        }
+    }
+
+    private bool _prevIsInMenu;
+
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
@@ -108,6 +126,7 @@ public sealed class FlightStateTracker
     public event Action<string>? AircraftChanged;
     public event Action<double>? ActivationLvarTriggered;
     public event Action? SpawnedAtGate;
+    public event Action? MenuStateChanged;
 
     public void OnSimConnectConnected(SimConnect sc)
     {
@@ -123,6 +142,7 @@ public sealed class FlightStateTracker
         AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, "CAMERA STATE", "Number", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
         AddFlightStateVar(sc, "TITLE", null, SIMCONNECT_DATATYPE.STRING256);
@@ -244,8 +264,7 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        if (_state.Engine1Running != 0 || _state.Engine2Running != 0 ||
-            _state.Engine3Running != 0 || _state.Engine4Running != 0)
+        if (EngineOn)
             _enginesHaveRun = true;
 
         if (!_hasMoved)
@@ -277,16 +296,23 @@ public sealed class FlightStateTracker
             AircraftChanged?.Invoke(AircraftTitle);
         }
 
-        bool inMenu = _state.UserInputEnabled != 0; // 1 is in menu 0 is in flight
-        bool atGate = _state.OnGround != 0 && _state.Engine1Running == 0;
+        if (IsInMenu != _prevIsInMenu)
+        {
+            Logger.Debug($"FlightStateTracker: Menu state changed → {(IsInMenu ? "IN MENU" : "IN FLIGHT")}");
+            MenuStateChanged?.Invoke();
+        }
 
-        if (!inMenu && atGate && !_onSpawnedHandled)
+        _prevIsInMenu = IsInMenu;
+
+        bool atGate = _state.OnGround != 0 && !EngineOn;
+
+        if (!IsInMenu && atGate && !_onSpawnedHandled)
         {
             _onSpawnedHandled = true;
-            Logger.Debug($"FlightStateTracker: ");
+            Logger.Debug($"FlightStateTracker: OnSpawned");
             SpawnedAtGate?.Invoke();
         }
-        else if (inMenu)
+        else if (IsInMenu)
         {
             _onSpawnedHandled = false;
         }

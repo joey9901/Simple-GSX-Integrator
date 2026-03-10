@@ -5,6 +5,7 @@ public static class Logger
     private static readonly object _lock = new();
     private static string? _logFilePath;
     public static MainForm? MainForm { get; set; }
+    public static bool ShowDebugInUi { get; set; } = false;
     
     public enum LogLevel
     {
@@ -81,7 +82,7 @@ public static class Logger
             
             var logLine = $"{timestamp} {prefix} {message}";
             
-            if (level != LogLevel.Debug)
+            if (level != LogLevel.Debug || ShowDebugInUi)
             {
                 MainForm?.AppendLog(logLine);
             }

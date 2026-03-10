@@ -34,7 +34,6 @@ internal enum SimReq : uint
 
     Pmdg737Vars = 400,
 
-    A330InputEventEnum = 500,
 }
 
 internal enum Pmdg777DataId : uint

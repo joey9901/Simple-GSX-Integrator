@@ -99,7 +99,7 @@ internal static class Program
 
     private static void TryConnectSimConnect()
     {
-        Logger.Debug("Attempting SimConnect connection …");
+        Logger.Debug("Attempting SimConnect Connection…");
         try
         {
             _manager.Connect(_mainForm.Handle);
@@ -320,14 +320,12 @@ internal static class Program
     {
         bool current = _flightState.HasMoved;
         _flightState.ForceHasMoved(!current);
-        Logger.Info($"hasMoved forced → {!current}");
     }
 
     public static void ToggleEnginesEverRunFlag()
     {
         bool current = _flightState.HasEnginesEverRun;
         _flightState.ForceEnginesEverRun(!current);
-        Logger.Info($"hasEnginesEverRun forced \u2192 {!current}");
     }
 
     public static void SetRebindingMode(bool isRebinding)

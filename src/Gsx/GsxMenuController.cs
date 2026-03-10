@@ -90,6 +90,7 @@ public sealed class GsxMenuController
         if (closeAfter)
             CloseMenu();
     }
+
     private async Task CallDeboardingSequenceAsync()
     {
         if (_sc == null) return;

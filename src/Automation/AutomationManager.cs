@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Aircraft;
 using SimpleGsxIntegrator.Config;
@@ -103,6 +104,7 @@ public sealed class AutomationManager
         _flightState.ActivationLvarTriggered += OnActivationLvarTriggered;
         _flightState.EngineChanged += OnEngineChanged;
         _flightState.SpawnedAtGate += OnSpawnedAtGate;
+        _flightState.MenuStateChanged += OnMenuStateChanged;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
@@ -125,12 +127,21 @@ public sealed class AutomationManager
         EvaluateServices();
     }
 
-    private void OnSpawnedAtGate()
+    private async void OnSpawnedAtGate()
     {
-        if (_currentAdapter != null)
+        if (_currentAdapter == null) return;
+        var adapter = _currentAdapter;
+        await Task.Delay(10_000);
+        Logger.Debug($"AutomationManager: Spawned at Gate, Calling OnSpawned on '{adapter.GetType().Name}'");
+        await adapter.OnSpawned();
+    }
+
+    private void OnMenuStateChanged()
+    {
+        if (_flightState.IsInMenu)
         {
-            Logger.Debug($"AutomationManager: Spawned at Gate, Calling OnSpawned on '{_currentAdapter.GetType().Name}'");
-            _ = _currentAdapter.OnSpawned();
+            Logger.Debug("AutomationManager: Entered Menu - Resetting Session");
+            ResetSession(printLog: false);
         }
     }
 

@@ -24,6 +24,8 @@ public partial class MainForm : Form
     private Button btnToggleMovement = null!;
     private Button btnToggleEnginesRun = null!;
     private CheckBox chkDarkMode = null!;
+    private CheckBox chkDebug = null!;
+    private Label lblDebugHeader = null!;
     private Panel pnlUpdateAvailable = null!;
     private Label lblUpdateMessage = null!;
     private Button btnDownloadUpdate = null!;
@@ -44,6 +46,7 @@ public partial class MainForm : Form
     {
         var config = ConfigManager.GetConfig();
         Theme.IsDarkMode = config.UI.DarkMode;
+        Logger.ShowDebugInUi = false;
 
         InitializeComponent();
         this.Text = "Simple GSX Integrator";
@@ -89,11 +92,20 @@ public partial class MainForm : Form
         chkDarkMode = new CheckBox
         {
             Text = "Dark Mode",
-            Location = new Point(560, 25),
+            Location = new Point(460, 25),
             Size = new Size(100, 25),
             Checked = Theme.IsDarkMode
         };
         chkDarkMode.CheckedChanged += ChkDarkMode_CheckedChanged;
+
+        chkDebug = new CheckBox
+        {
+            Text = "Debug",
+            Location = new Point(564, 25),
+            Size = new Size(80, 25),
+            Checked = Logger.ShowDebugInUi
+        };
+        chkDebug.CheckedChanged += ChkDebug_CheckedChanged;
 
         pnlUpdateAvailable = new Panel
         {
@@ -321,7 +333,7 @@ public partial class MainForm : Form
             AutoSize = false
         };
 
-        var lblDebugHeader = new Label
+        lblDebugHeader = new Label
         {
             Text = "Debug",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
@@ -358,7 +370,7 @@ public partial class MainForm : Form
 
         this.Controls.AddRange(new Control[]
         {
-            lblTitle, lblVersion, chkDarkMode, pnlUpdateAvailable,
+            lblTitle, lblVersion, chkDarkMode, chkDebug, pnlUpdateAvailable,
             lblStatusHeader, lblSimConnectStatus, lblGsxStatus, lblSystemStatus,
             lblHotkeysHeader, lblActivationKey, txtActivationKey,
             lblResetKey, txtResetKey,
@@ -372,6 +384,8 @@ public partial class MainForm : Form
 
         txtLog.Width = this.ClientSize.Width - 40;
         txtLog.Height = this.ClientSize.Height - txtLog.Top - 20;
+
+        SetDebugControlsVisible(Logger.ShowDebugInUi);
 
         ApplyTheme();
 
@@ -458,6 +472,20 @@ public partial class MainForm : Form
         var config = ConfigManager.GetConfig();
         config.UI.DarkMode = Theme.IsDarkMode;
         ConfigManager.Save(config);
+    }
+
+    private void ChkDebug_CheckedChanged(object? sender, EventArgs e)
+    {
+        Logger.ShowDebugInUi = chkDebug.Checked;
+        SetDebugControlsVisible(Logger.ShowDebugInUi);
+    }
+
+    private void SetDebugControlsVisible(bool visible)
+    {
+        lblDebugHeader.Visible = visible;
+        btnPrintState.Visible = visible;
+        btnToggleMovement.Visible = visible;
+        btnToggleEnginesRun.Visible = visible;
     }
 
     private void ApplyTheme()
