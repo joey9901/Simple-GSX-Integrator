@@ -10,12 +10,12 @@ Automated GSX Integration for Microsoft Flight Simulator 2024/2020. This Tool Au
   - Automatic Deboarding Request when Beacon Light turns OFF and Parking Brake is SET
   - `ALT+G` - Toggle system ON/OFF (Calls Services if Conditions are met)
   - `ALT+B` - Reset Session (Resets internal states if something breaks) 
-  - Automatic Door Closing for PMDG 737 after Boarding is Completed (WIP)
+  - Automatic Door Closing for PMDG 737 & 777 after Boarding is Completed
   - Custom L:Var Trigger for System Activation
 
 ## Limitations
- - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) are NOT part of this project
- - This is an external app and not a WASM module, this means that PMDG aircraft integration is limited (no door arming, no progressive refueling / boarding). This is done so no SDK parameters have to be set in PMDG aircraft options .ini files.
+ - This App only calls GSX Services, any issues with GSX (Refueling not working, doors not closing, etc.) are (mostly) NOT part of this project 
+ - This is an external app and not a WASM module, this means that PMDG aircraft integration is limited (no door arming, no progressive refueling / boarding).
 
 ## Installation
 
@@ -63,8 +63,8 @@ Run the installer again and click "Uninstall Existing Installation" on the welco
 
 ## Requirements
 
-- Microsoft Flight Simulator 2024 or 2020
-- GSX Pro (FSDreamTeam)
+- Microsoft Flight Simulator 2024 or 2020 (untested for 2020)
+- GSX Pro
 - Windows 10/11
 
 ## How It Works

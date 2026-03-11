@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleGSXIntegrator", "SimpleGSXIntegrator.csproj", "{910AFAFE-2BFC-5980-10FF-50666BE8CE1A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Installer", "Installer\Installer.csproj", "{1ED552DC-C81F-B5C2-8CA8-BF8BDC334B01}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{910AFAFE-2BFC-5980-10FF-50666BE8CE1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{910AFAFE-2BFC-5980-10FF-50666BE8CE1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{910AFAFE-2BFC-5980-10FF-50666BE8CE1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{910AFAFE-2BFC-5980-10FF-50666BE8CE1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1ED552DC-C81F-B5C2-8CA8-BF8BDC334B01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1ED552DC-C81F-B5C2-8CA8-BF8BDC334B01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1ED552DC-C81F-B5C2-8CA8-BF8BDC334B01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1ED552DC-C81F-B5C2-8CA8-BF8BDC334B01}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {62E25281-E96E-4640-8596-B12E8A6BE907}
+	EndGlobalSection
+EndGlobal

@@ -4,9 +4,11 @@ public static class Logger
 {
     private static readonly object _lock = new();
     private static string? _logFilePath;
+    private static readonly List<(string line, LogLevel level)> _buffer = new();
+    private const int MaxBufferSize = 1000;
     public static MainForm? MainForm { get; set; }
     public static bool ShowDebugInUi { get; set; } = false;
-    
+
     public enum LogLevel
     {
         Debug,
@@ -15,22 +17,22 @@ public static class Logger
         Error,
         Success
     }
-    
+
     static Logger()
     {
         var projectDir = AppContext.BaseDirectory;
         var logsDir = Path.Combine(projectDir, "logs");
         Directory.CreateDirectory(logsDir);
-        
+
         _logFilePath = Path.Combine(logsDir, "SimpleGSXIntegrator.log");
-        
+
         WriteToFile("");
         WriteToFile("=".PadRight(80, '='));
         WriteToFile($"Session started at {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
         WriteToFile("=".PadRight(80, '='));
         WriteToFile("");
     }
-    
+
     public static void SessionEnd()
     {
         WriteToFile("");
@@ -39,32 +41,32 @@ public static class Logger
         WriteToFile("-".PadRight(80, '-'));
         WriteToFile("");
     }
-    
+
     public static void Debug(string message)
     {
         Log(LogLevel.Debug, message);
     }
-    
+
     public static void Info(string message)
     {
         Log(LogLevel.Info, message);
     }
-    
+
     public static void Warning(string message)
     {
         Log(LogLevel.Warning, message);
     }
-    
+
     public static void Error(string message)
     {
         Log(LogLevel.Error, message);
     }
-    
+
     public static void Success(string message)
     {
         Log(LogLevel.Success, message);
     }
-    
+
     private static void Log(LogLevel level, string message)
     {
         lock (_lock)
@@ -79,18 +81,34 @@ public static class Logger
                 LogLevel.Success => "[OK]",
                 _ => "[LOG]"
             };
-            
+
             var logLine = $"{timestamp} {prefix} {message}";
-            
+
+            _buffer.Add((logLine, level));
+            if (_buffer.Count > MaxBufferSize)
+                _buffer.RemoveAt(0);
+
             if (level != LogLevel.Debug || ShowDebugInUi)
-            {
                 MainForm?.AppendLog(logLine);
-            }
-            
+
             WriteToFile(logLine);
         }
     }
-    
+
+    public static void RepopulateUiLog()
+    {
+        if (MainForm == null) return;
+        lock (_lock)
+        {
+            MainForm.ClearLog();
+            foreach (var (line, level) in _buffer)
+            {
+                if (level != LogLevel.Debug || ShowDebugInUi)
+                    MainForm.AppendLog(line);
+            }
+        }
+    }
+
     private static void WriteToFile(string line)
     {
         try

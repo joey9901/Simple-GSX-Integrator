@@ -478,6 +478,7 @@ public partial class MainForm : Form
     {
         Logger.ShowDebugInUi = chkDebug.Checked;
         SetDebugControlsVisible(Logger.ShowDebugInUi);
+        Logger.RepopulateUiLog();
     }
 
     private void SetDebugControlsVisible(bool visible)
@@ -716,6 +717,16 @@ public partial class MainForm : Form
         lblCurrentAircraft.Text = aircraft;
         lblCurrentAircraft.ForeColor = Theme.Text;
         btnAircraftConfig.Enabled = true;
+    }
+
+    public void ClearLog()
+    {
+        if (InvokeRequired)
+        {
+            Invoke(ClearLog);
+            return;
+        }
+        txtLog.Clear();
     }
 
     public void AppendLog(string message)
