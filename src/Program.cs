@@ -74,7 +74,6 @@ internal static class Program
         _flightState.BeaconChanged += OnBeaconChangedForDisplay;
         _flightState.ParkingBrakeChanged += OnParkingBrakeChangedForDisplay;
         _flightState.EngineChanged += OnEngineChangedForDisplay;
-        _flightState.SpeedChanged += OnSpeedChangedForDisplay;
         _flightState.EnginesEverRunChanged += OnEnginesEverRunChangedForDisplay;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
@@ -357,7 +356,6 @@ internal static class Program
     private static void OnBeaconChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnParkingBrakeChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-    private static void OnSpeedChangedForDisplay(double _) { RefreshAircraftStateDetails(); }
     private static void OnEnginesEverRunChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
 
     private static void RefreshAircraftStateDetails()

@@ -130,7 +130,6 @@ public sealed class FlightStateTracker
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
     public event Action<bool>? EnginesEverRunChanged;
-    public event Action<double>? SpeedChanged;
     public event Action<string>? AircraftChanged;
     public event Action<double>? ActivationLvarTriggered;
     public event Action? SpawnedAtGate;
@@ -353,7 +352,6 @@ public sealed class FlightStateTracker
         if (Math.Abs(_state.GroundSpeed - _prevState.GroundSpeed) > 0.5)
         {
             _prevState.GroundSpeed = _state.GroundSpeed;
-            SpeedChanged?.Invoke(GroundSpeed);
         }
     }
 
