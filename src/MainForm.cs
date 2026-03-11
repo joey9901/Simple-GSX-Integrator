@@ -33,6 +33,7 @@ public partial class MainForm : Form
     private Label lblUpdateMessage = null!;
     private Button btnDownloadUpdate = null!;
     private ProgressBar prgUpdateProgress = null!;
+    private NotifyIcon _trayIcon = null!;
 
     private string _originalActivationKey = "";
     private string _originalResetKey = "";
@@ -68,6 +69,23 @@ public partial class MainForm : Form
             }
         }
         catch { }
+
+        var trayMenu = new ContextMenuStrip();
+        trayMenu.Items.Add("Open", null, (_, _) => RestoreFromTray());
+        trayMenu.Items.Add(new ToolStripSeparator());
+        trayMenu.Items.Add("Exit", null, (_, _) => { _trayIcon.Visible = false; Application.Exit(); });
+
+        _trayIcon = new NotifyIcon
+        {
+            Text = "Simple GSX Integrator",
+            Icon = this.Icon ?? SystemIcons.Application,
+            ContextMenuStrip = trayMenu,
+            Visible = false
+        };
+        _trayIcon.DoubleClick += (_, _) => RestoreFromTray();
+
+        this.Resize += MainForm_Resize;
+        this.FormClosing += MainForm_FormClosing;
     }
 
     private void InitializeComponent()
@@ -444,6 +462,33 @@ public partial class MainForm : Form
         ApplyTheme();
 
         Task.Run(async () => await CheckForUpdatesAsync());
+    }
+
+    private void MainForm_Resize(object? sender, EventArgs e)
+    {
+        if (WindowState == FormWindowState.Minimized)
+        {
+            Hide();
+            _trayIcon.Visible = true;
+        }
+    }
+
+    private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (e.CloseReason == CloseReason.UserClosing)
+        {
+            e.Cancel = true;
+            Hide();
+            _trayIcon.Visible = true;
+        }
+    }
+
+    private void RestoreFromTray()
+    {
+        Show();
+        WindowState = FormWindowState.Normal;
+        Activate();
+        _trayIcon.Visible = false;
     }
 
     private void TxtActivationKey_Click(object? sender, EventArgs e)
