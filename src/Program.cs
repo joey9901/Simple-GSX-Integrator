@@ -207,7 +207,7 @@ internal static class Program
 
     private static void OnResetKeyPressed()
     {
-        Logger.Info("Hotkey: reset session");
+        Logger.Debug("Hotkey: reset session");
         _automationManager.ResetSession();
     }
 
