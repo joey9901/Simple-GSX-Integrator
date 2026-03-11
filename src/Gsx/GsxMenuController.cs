@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Microsoft.Win32;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Config;
@@ -34,6 +35,7 @@ public sealed class GsxMenuController
             Logger.Debug("GsxMenuController: GSX menu file not found - will default to first operator");
     }
 
+    [SupportedOSPlatform("windows")]
     private static string? FindGsxMenuFilePath()
     {
         try
