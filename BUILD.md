@@ -4,7 +4,7 @@
 
 ##### 1. Build the main application:
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -o "Installer\Payload"
+dotnet publish SimpleGSXIntegrator.csproj -c Release -r win-x64 --self-contained true -o "Installer\Payload"
 ```
 
 ##### 2. Build the installer:
