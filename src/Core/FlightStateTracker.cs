@@ -21,6 +21,8 @@ public sealed class FlightStateTracker
         public double GroundSpeed;     // knots
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
         public string AircraftTitle;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string LiveryName;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -92,6 +94,11 @@ public sealed class FlightStateTracker
         get { return _state.AircraftTitle ?? string.Empty; }
     }
 
+    public string LiveryName
+    {
+        get { return _state.LiveryName ?? string.Empty; }
+    }
+
     public bool HasEnginesEverRun
     {
         get { return _enginesHaveRun; }
@@ -146,6 +153,7 @@ public sealed class FlightStateTracker
         AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "GPS GROUND SPEED", "Knots", SIMCONNECT_DATATYPE.FLOAT64);
         AddFlightStateVar(sc, "TITLE", null, SIMCONNECT_DATATYPE.STRING256);
+        AddFlightStateVar(sc, "LIVERY NAME", null, SIMCONNECT_DATATYPE.STRING64);
 
         sc.RegisterDataDefineStruct<FlightStateStruct>(SimDef.FlightState);
 
@@ -279,7 +287,7 @@ public sealed class FlightStateTracker
         {
             _firstPoll = false;
             _prevState = s;
-            Logger.Debug($"FlightStateTracker: initial state - Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}'");
+            Logger.Debug($"FlightStateTracker: initial state - Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}' Livery='{LiveryName}'");
 
             if (!string.IsNullOrEmpty(AircraftTitle))
             {

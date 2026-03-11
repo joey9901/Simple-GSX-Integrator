@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Config;
 using SimpleGsxIntegrator.Core;
@@ -16,6 +17,36 @@ public sealed class GsxMenuController
 
     private SimConnect? _sc;
     private bool _operatorAutoSelected;
+    private string? _gsxMenuFilePath;
+    private string _liveryName = string.Empty;
+
+    public void SetLiveryName(string liveryName)
+    {
+        _liveryName = liveryName;
+    }
+
+    public GsxMenuController()
+    {
+        _gsxMenuFilePath = FindGsxMenuFilePath();
+        if (_gsxMenuFilePath != null)
+            Logger.Debug($"GsxMenuController: GSX menu file found at {_gsxMenuFilePath}");
+        else
+            Logger.Debug("GsxMenuController: GSX menu file not found - will default to first operator");
+    }
+
+    private static string? FindGsxMenuFilePath()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\FSDreamTeam");
+            var root = key?.GetValue("root") as string;
+            if (string.IsNullOrEmpty(root)) return null;
+            var path = Path.Combine(root, "MSFS", "fsdreamteam-gsx-pro",
+                "html_ui", "InGamePanels", "FSDT_GSX_Panel", "menu");
+            return File.Exists(path) ? path : null;
+        }
+        catch { return null; }
+    }
 
     private const int MenuItemDeboarding = 1;
     private const int MenuItemCatering = 2;
@@ -69,7 +100,7 @@ public sealed class GsxMenuController
     {
         if (_sc == null)
         {
-            Logger.Warning($"GsxMenuController: cannot call {name} – not connected");
+            Logger.Warning($"GsxMenuController: cannot call {name} - not connected");
             return;
         }
 
@@ -84,7 +115,7 @@ public sealed class GsxMenuController
         SelectItem(menuItem);
         await Task.Delay(MenuChoiceDelayMs);
 
-        AutoSelectOperator();
+        AutoSelectOperator(_liveryName);
         await Task.Delay(MenuChoiceDelayMs);
 
         if (closeAfter)
@@ -128,12 +159,81 @@ public sealed class GsxMenuController
         WriteVar(SimDef.GsxMenuChoice, (double)(item - 1));
     }
 
-    private void AutoSelectOperator()
+    private void AutoSelectOperator(string liveryName)
     {
         if (_operatorAutoSelected) return;
-        WriteVar(SimDef.GsxMenuChoice, 0.0);
+
+        Logger.Debug($"GSX: Selecting operator, livery='{liveryName}'");
+
+        var operators = ReadMenuFileLines();
+        if (operators.Count > 0)
+        {
+            Logger.Debug($"GSX operator menu ({operators.Count} option(s)):");
+            for (int i = 1; i < operators.Count; i++)
+                Logger.Debug($"  [{i}] {operators[i]}");
+
+            if (!string.IsNullOrWhiteSpace(liveryName))
+            {
+                var words = liveryName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                foreach (string word in words)
+                {
+                    for (int i = 1; i < operators.Count; i++)
+                    {
+                        if (operators[i].Contains(word, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Debug($"GSX: Selected operator '{operators[i].Trim()}' (matched livery word '{word}', index {i})");
+                            WriteVar(SimDef.GsxMenuChoice, (double)i);
+                            _operatorAutoSelected = true;
+                            return;
+                        }
+                    }
+                }
+                Logger.Debug($"GSX: No operator matched any word in livery '{liveryName}'");
+            }
+
+            for (int i = 1; i < operators.Count; i++)
+            {
+                if (operators[i].Contains("swissport", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = operators[i].Replace("[GSX choice]", "").Trim();
+                    Logger.Debug($"GSX: Selected operator '{name}' (Swissport fallback, index {i})");
+                    WriteVar(SimDef.GsxMenuChoice, (double)i);
+                    _operatorAutoSelected = true;
+                    return;
+                }
+            }
+
+            for (int i = 1; i < operators.Count; i++)
+            {
+                if (operators[i].Contains("[GSX choice]", StringComparison.OrdinalIgnoreCase))
+                {
+                    string name = operators[i].Replace("[GSX choice]", "").Trim();
+                    Logger.Debug($"GSX: Selected operator '{name}' (GSX default, index {i})");
+                    WriteVar(SimDef.GsxMenuChoice, (double)i);
+                    _operatorAutoSelected = true;
+                    return;
+                }
+            }
+        }
+        else
+        {
+            Logger.Debug("GSX operator menu: no options found in menu file");
+        }
+
+        Logger.Debug("GSX: Selecting operator at index 1 (fallback)");
+        WriteVar(SimDef.GsxMenuChoice, 1.0);
         _operatorAutoSelected = true;
-        Logger.Debug("GsxMenuController: auto-selected operator (index 0)");
+    }
+
+    private List<string> ReadMenuFileLines()
+    {
+        try
+        {
+            return File.ReadAllLines(_gsxMenuFilePath!)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .ToList();
+        }
+        catch { return []; }
     }
 
     private void WriteVar(SimDef def, double value)

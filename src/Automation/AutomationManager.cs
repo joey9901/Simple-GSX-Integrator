@@ -157,6 +157,7 @@ public sealed class AutomationManager
         _currentAircraftTitle = title;
 
         var cfg = ConfigManager.GetAircraftConfig(title);
+        _gsxMenu.SetLiveryName(_flightState.LiveryName);
         AircraftChanged?.Invoke(title);
 
         if (_sc != null && !string.IsNullOrEmpty(cfg.ActivationLvar))
