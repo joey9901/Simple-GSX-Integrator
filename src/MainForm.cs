@@ -72,8 +72,6 @@ public partial class MainForm : Form
 
         var trayMenu = new ContextMenuStrip();
         trayMenu.Items.Add("Open", null, (_, _) => RestoreFromTray());
-        trayMenu.Items.Add(new ToolStripSeparator());
-        trayMenu.Items.Add("Exit", null, (_, _) => { _trayIcon.Visible = false; Application.Exit(); });
 
         _trayIcon = new NotifyIcon
         {
@@ -475,12 +473,7 @@ public partial class MainForm : Form
 
     private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
     {
-        if (e.CloseReason == CloseReason.UserClosing)
-        {
-            e.Cancel = true;
-            Hide();
-            _trayIcon.Visible = true;
-        }
+        _trayIcon.Visible = false;
     }
 
     private void RestoreFromTray()
