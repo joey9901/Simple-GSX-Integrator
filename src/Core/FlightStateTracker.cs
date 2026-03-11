@@ -129,6 +129,7 @@ public sealed class FlightStateTracker
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
+    public event Action<bool>? EnginesEverRunChanged;
     public event Action<double>? SpeedChanged;
     public event Action<string>? AircraftChanged;
     public event Action<double>? ActivationLvarTriggered;
@@ -272,8 +273,11 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        if (EngineOn)
+        if (EngineOn && !_enginesHaveRun)
+        {
             _enginesHaveRun = true;
+            EnginesEverRunChanged?.Invoke(true);
+        }
 
         if (!_hasMoved)
         {
@@ -411,6 +415,7 @@ public sealed class FlightStateTracker
     public void ResetSession()
     {
         _enginesHaveRun = false;
+        EnginesEverRunChanged?.Invoke(false);
         _hasMoved = false;
         _activationLvar = null;
         _lastActivationValue = double.NaN;
@@ -427,6 +432,7 @@ public sealed class FlightStateTracker
     public void ForceEnginesEverRun(bool value)
     {
         _enginesHaveRun = value;
+        EnginesEverRunChanged?.Invoke(value);
         Logger.Debug($"FlightStateTracker: HasEnginesEverRun forced to {value}");
     }
 }

@@ -15,11 +15,14 @@ public partial class MainForm : Form
     private RichTextBox txtLog = null!;
     private Button btnAircraftConfig = null!;
     private Label lblCurrentAircraft = null!;
-    private Label lblAircraftStateBeacon = null!;
-    private Label lblAircraftStateBrake = null!;
-    private Label lblAircraftStateEngines = null!;
-    private Label lblAircraftStateHasMoved = null!;
-    private Label lblAircraftStateSpeed = null!;
+    private Label lblBoardingBeacon = null!;
+    private Label lblBoardingEngines = null!;
+    private Label lblPushbackBrake = null!;
+    private Label lblPushbackEngines = null!;
+    private Label lblPushbackBeacon = null!;
+    private Label lblDeboardingEngines = null!;
+    private Label lblDeboardingBeacon = null!;
+    private Label lblDeboardingEnginesRan = null!;
     private Button btnPrintState = null!;
     private Button btnToggleMovement = null!;
     private Button btnToggleEnginesRun = null!;
@@ -275,61 +278,110 @@ public partial class MainForm : Form
             Multiline = true
         };
 
-        var lblAircraftStateHeader = new Label
+        var lblGroupBoarding = new Label
         {
-            Text = "Aircraft State",
-            Font = new Font("Segoe UI", 12, FontStyle.Bold),
+            Text = "Boarding / Catering / Refueling",
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
             Location = new Point(480, 110),
-            Size = new Size(200, 25)
+            Size = new Size(210, 18),
+            AutoSize = false
         };
 
-        lblAircraftStateBeacon = new Label
+        lblBoardingBeacon = new Label
         {
-            Text = "Beacon Light: -",
-            Location = new Point(480, 140),
+            Text = "Beacon: -",
+            Location = new Point(490, 130),
             Size = new Size(200, 16),
-            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            Font = new Font("Segoe UI", 9),
             ForeColor = Color.Gray,
             AutoSize = false
         };
 
-        lblAircraftStateBrake = new Label
+        lblBoardingEngines = new Label
+        {
+            Text = "Engines: -",
+            Location = new Point(490, 148),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        var lblGroupPushback = new Label
+        {
+            Text = "Pushback",
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
+            Location = new Point(480, 174),
+            Size = new Size(210, 18),
+            AutoSize = false
+        };
+
+        lblPushbackBrake = new Label
         {
             Text = "Parking Brake: -",
-            Location = new Point(480, 160),
+            Location = new Point(490, 194),
             Size = new Size(200, 16),
-            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            Font = new Font("Segoe UI", 9),
             ForeColor = Color.Gray,
             AutoSize = false
         };
 
-        lblAircraftStateEngines = new Label
+        lblPushbackEngines = new Label
         {
-            Text = "Engines Running: -",
-            Location = new Point(480, 180),
+            Text = "Engines: -",
+            Location = new Point(490, 212),
             Size = new Size(200, 16),
-            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            Font = new Font("Segoe UI", 9),
             ForeColor = Color.Gray,
             AutoSize = false
         };
 
-        lblAircraftStateHasMoved = new Label
+        lblPushbackBeacon = new Label
         {
-            Text = "Has Moved: -",
-            Location = new Point(480, 200),
+            Text = "Beacon: -",
+            Location = new Point(490, 230),
             Size = new Size(200, 16),
-            Font = new Font("Segoe UI", 9, FontStyle.Regular),
+            Font = new Font("Segoe UI", 9),
             ForeColor = Color.Gray,
             AutoSize = false
         };
 
-        lblAircraftStateSpeed = new Label
+        var lblGroupDeboarding = new Label
         {
-            Text = "Speed: -",
-            Location = new Point(480, 220),
+            Text = "Deboarding",
+            Font = new Font("Segoe UI", 9, FontStyle.Bold),
+            Location = new Point(480, 256),
+            Size = new Size(210, 18),
+            AutoSize = false
+        };
+
+        lblDeboardingEngines = new Label
+        {
+            Text = "Engines: -",
+            Location = new Point(490, 276),
             Size = new Size(200, 16),
-            Font = new Font("Segoe UI", 9, FontStyle.Regular),
-            ForeColor = Theme.Text,
+            Font = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblDeboardingBeacon = new Label
+        {
+            Text = "Beacon: -",
+            Location = new Point(490, 294),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
+            AutoSize = false
+        };
+
+        lblDeboardingEnginesRan = new Label
+        {
+            Text = "Engines Ran: -",
+            Location = new Point(490, 312),
+            Size = new Size(200, 16),
+            Font = new Font("Segoe UI", 9),
+            ForeColor = Color.Gray,
             AutoSize = false
         };
 
@@ -337,14 +389,14 @@ public partial class MainForm : Form
         {
             Text = "Debug",
             Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            Location = new Point(480, 280),
+            Location = new Point(480, 340),
             Size = new Size(180, 25)
         };
 
         btnPrintState = new Button
         {
             Text = "Print State",
-            Location = new Point(480, 310),
+            Location = new Point(480, 370),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -353,7 +405,7 @@ public partial class MainForm : Form
         btnToggleMovement = new Button
         {
             Text = "Toggle HasMoved Flag",
-            Location = new Point(480, 350),
+            Location = new Point(480, 410),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -362,7 +414,7 @@ public partial class MainForm : Form
         btnToggleEnginesRun = new Button
         {
             Text = "Toggle EnginesEverRun",
-            Location = new Point(480, 390),
+            Location = new Point(480, 450),
             Size = new Size(180, 30),
             BackColor = SystemColors.Control
         };
@@ -376,7 +428,9 @@ public partial class MainForm : Form
             lblResetKey, txtResetKey,
             lblAircraftHeader, lblCurrentAircraft, btnAircraftConfig,
             lblLogHeader, txtLog,
-            lblAircraftStateHeader, lblAircraftStateBeacon, lblAircraftStateBrake, lblAircraftStateEngines, lblAircraftStateHasMoved, lblAircraftStateSpeed,
+            lblGroupBoarding, lblBoardingBeacon, lblBoardingEngines,
+            lblGroupPushback, lblPushbackBrake, lblPushbackEngines, lblPushbackBeacon,
+            lblGroupDeboarding, lblDeboardingEngines, lblDeboardingBeacon, lblDeboardingEnginesRan,
             lblDebugHeader, btnPrintState, btnToggleMovement, btnToggleEnginesRun
         });
 
@@ -468,6 +522,7 @@ public partial class MainForm : Form
     {
         Theme.IsDarkMode = chkDarkMode.Checked;
         ApplyTheme();
+        Logger.RepopulateUiLog();
 
         var config = ConfigManager.GetConfig();
         config.UI.DarkMode = Theme.IsDarkMode;
@@ -500,7 +555,10 @@ public partial class MainForm : Form
     {
         if (control is Label label)
         {
-            if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus)
+            if (label == lblSimConnectStatus || label == lblGsxStatus || label == lblSystemStatus
+                || label == lblBoardingBeacon || label == lblBoardingEngines
+                || label == lblPushbackBrake || label == lblPushbackEngines || label == lblPushbackBeacon
+                || label == lblDeboardingEngines || label == lblDeboardingBeacon || label == lblDeboardingEnginesRan)
             {
                 label.BackColor = Theme.Background;
             }
@@ -555,28 +613,37 @@ public partial class MainForm : Form
         lblSimConnectStatus.ForeColor = connected ? Color.LimeGreen : Color.Gray;
     }
 
-    public void SetAircraftStateDetails(string title, bool beaconOn, bool parkingBrakeSet, bool enginesRunning, bool hasMoved, double speed)
+    public void UpdateServiceConditions(bool beaconOn, bool enginesOn, bool parkingBrake, bool enginesEverRan)
     {
         if (InvokeRequired)
         {
-            Invoke(() => SetAircraftStateDetails(title, beaconOn, parkingBrakeSet, enginesRunning, hasMoved, speed));
+            Invoke(() => UpdateServiceConditions(beaconOn, enginesOn, parkingBrake, enginesEverRan));
             return;
         }
 
-        lblAircraftStateBeacon.Text = $"Beacon Light: {(beaconOn ? "ON" : "OFF")}";
-        lblAircraftStateBeacon.ForeColor = beaconOn ? Color.LimeGreen : Color.Red;
+        lblBoardingBeacon.Text = $"Beacon: {(beaconOn ? "ON" : "OFF")}";
+        lblBoardingBeacon.ForeColor = beaconOn ? Color.Red : Color.LimeGreen;
 
-        lblAircraftStateBrake.Text = $"Parking Brake: {(parkingBrakeSet ? "SET" : "RELEASED")}";
-        lblAircraftStateBrake.ForeColor = parkingBrakeSet ? Color.LimeGreen : Color.Red;
+        lblBoardingEngines.Text = $"Engines: {(enginesOn ? "RUNNING" : "OFF")}";
+        lblBoardingEngines.ForeColor = enginesOn ? Color.Red : Color.LimeGreen;
 
-        lblAircraftStateEngines.Text = $"Engines Running: {(enginesRunning ? "YES" : "NO")}";
-        lblAircraftStateEngines.ForeColor = enginesRunning ? Color.LimeGreen : Color.Red;
+        lblPushbackBrake.Text = $"Parking Brake: {(parkingBrake ? "SET" : "RELEASED")}";
+        lblPushbackBrake.ForeColor = parkingBrake ? Color.LimeGreen : Color.Red;
 
-        lblAircraftStateHasMoved.Text = $"Has Moved: {(hasMoved ? "YES" : "NO")}";
-        lblAircraftStateHasMoved.ForeColor = hasMoved ? Color.Red : Color.LimeGreen;
+        lblPushbackEngines.Text = $"Engines: {(enginesOn ? "RUNNING" : "OFF")}";
+        lblPushbackEngines.ForeColor = enginesOn ? Color.Red : Color.LimeGreen;
 
-        lblAircraftStateSpeed.Text = $"Speed: {speed:F1} kts";
-        lblAircraftStateSpeed.ForeColor = Theme.Text;
+        lblPushbackBeacon.Text = $"Beacon: {(beaconOn ? "ON" : "OFF")}";
+        lblPushbackBeacon.ForeColor = beaconOn ? Color.LimeGreen : Color.Red;
+
+        lblDeboardingEngines.Text = $"Engines: {(enginesOn ? "RUNNING" : "OFF")}";
+        lblDeboardingEngines.ForeColor = enginesOn ? Color.Red : Color.LimeGreen;
+
+        lblDeboardingBeacon.Text = $"Beacon: {(beaconOn ? "ON" : "OFF")}";
+        lblDeboardingBeacon.ForeColor = beaconOn ? Color.Red : Color.LimeGreen;
+
+        lblDeboardingEnginesRan.Text = $"Engines Ran: {(enginesEverRan ? "YES" : "NO")}";
+        lblDeboardingEnginesRan.ForeColor = enginesEverRan ? Color.LimeGreen : Color.Red;
     }
 
     public void SetGsxStatus(bool detected)
@@ -754,6 +821,10 @@ public partial class MainForm : Form
         else if (message.Contains("[INFO]"))
         {
             textColor = Color.FromArgb(0, 102, 204); // Blue
+        }
+        else if (message.Contains("[DEBUG]"))
+        {
+            textColor = Theme.IsDarkMode ? Color.White : Color.Black;
         }
 
         txtLog.SelectionStart = txtLog.TextLength;

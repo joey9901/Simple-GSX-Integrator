@@ -75,6 +75,7 @@ internal static class Program
         _flightState.ParkingBrakeChanged += OnParkingBrakeChangedForDisplay;
         _flightState.EngineChanged += OnEngineChangedForDisplay;
         _flightState.SpeedChanged += OnSpeedChangedForDisplay;
+        _flightState.EnginesEverRunChanged += OnEnginesEverRunChangedForDisplay;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
@@ -357,16 +358,15 @@ internal static class Program
     private static void OnParkingBrakeChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnSpeedChangedForDisplay(double _) { RefreshAircraftStateDetails(); }
+    private static void OnEnginesEverRunChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
 
     private static void RefreshAircraftStateDetails()
     {
-        _mainForm.Invoke(() => _mainForm.SetAircraftStateDetails(
-            _flightState.AircraftTitle,
+        _mainForm.Invoke(() => _mainForm.UpdateServiceConditions(
             _flightState.BeaconOn,
-            _flightState.ParkingBrake,
             _flightState.EngineOn,
-            _flightState.HasMoved,
-            _flightState.GroundSpeed));
+            _flightState.ParkingBrake,
+            _flightState.HasEnginesEverRun));
     }
 
     private static void SyncHotkeyLabels()
