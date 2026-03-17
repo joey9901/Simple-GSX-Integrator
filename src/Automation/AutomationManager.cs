@@ -208,6 +208,7 @@ public sealed class AutomationManager
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Boarding: Active");
+                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingActive();
                 break;
             case GsxServiceState.Completed when !_boardingDone:
                 _boardingDone = true;
@@ -227,6 +228,7 @@ public sealed class AutomationManager
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Deboarding: Active");
+                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingActive();
                 break;
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;

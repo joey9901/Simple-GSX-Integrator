@@ -136,6 +136,15 @@ public sealed class GsxMenuController
         OpenMenu();
         await Task.Delay(MenuOpenDelayMs);
 
+        var menuItems = ReadMenuFileLines();
+        bool deboardingAvailable = menuItems.Any(l => l.Contains("deboard", StringComparison.OrdinalIgnoreCase));
+        if (!deboardingAvailable)
+        {
+            Logger.Warning("GSX: Deboarding not found in menu — No stand is selected.");
+            CloseMenu();
+            return;
+        }
+
         SelectItem(MenuItemDeboarding);
         await Task.Delay(MenuChoiceDelayMs);
 

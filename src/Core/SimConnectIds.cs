@@ -19,6 +19,11 @@ internal enum SimDef : uint
     A330Gpu = 501,          // L:INI_GPU_AVAIL — GPU
     A330EngineCover = 502,  // A:COVER ON:1 — engine covers
     A330PitotCover = 503,   // A:COVER ON:2 — pitot covers
+
+    A300Chocks = 510,    // L:INI_CHOCKS_ENABLED — wheel chocks
+    A300Gpu = 511,    // L:INI_gpu_avail — GPU
+    A300Covers = 512,    // L:INI_COVERS_ENABLED — engine + pitot covers
+    A300CargoDoor = 513,    // L:INI_MAIN_CARGO_DOOR_TGT — 100 = open, 0 = closed
 }
 
 internal enum SimReq : uint

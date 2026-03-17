@@ -25,9 +25,11 @@ public interface IAircraftAdapter : IDisposable
     Task OnCateringCompleted() { return Task.CompletedTask; }
 
     Task OnBoardingRequested() { return Task.CompletedTask; }
+    Task OnBoardingActive() { return Task.CompletedTask; }
     Task OnBoardingCompleted() { return Task.CompletedTask; }
 
     Task OnDeboardingRequested() { return Task.CompletedTask; }
+    Task OnDeboardingActive() { return Task.CompletedTask; }
     Task OnDeboardingCompleted() { return Task.CompletedTask; }
 
     Task OnPushbackRequested() { return Task.CompletedTask; }
