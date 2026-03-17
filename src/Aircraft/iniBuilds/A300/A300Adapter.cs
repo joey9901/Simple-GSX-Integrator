@@ -88,8 +88,8 @@ public sealed class IniA300Adapter : IAircraftAdapter
 
     public Task OnDeboardingCompleted()
     {
-        // Logger.Debug($"IniA300Adapter: closing main cargo door ({A300Constants.LVar_CargoDoor} = 0)");
-        // WriteSimVar(SimDef.A300CargoDoor, 0.0);
+        Logger.Debug($"IniA300Adapter: closing main cargo door ({A300Constants.LVar_CargoDoor} = 0)");
+        WriteSimVar(SimDef.A300CargoDoor, 0.0);
         return Task.CompletedTask;
     }
 
