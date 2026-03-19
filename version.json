@@ -1,5 +1,5 @@
 {
   "latestVersion": "1.4.3",
   "downloadUrl": "https://github.com/joey9901/Simple-GSX-Integrator/releases/download/v1.4.3/SimpleGSXIntegrator-v1.4.3.zip",
-  "releaseNotes": "Improved Handling Selector Logic, Reworked Aircraft Configuration Settings, Added debug mode, Improved logging, Added Reset when in Menu, Changed EnginesHaveRun logic to account for 4 engines, Improved Service Evaluations, Added OnSpawned Event, Added A300 support, Added A330 cover removal when spawning"
+  "releaseNotes": "Improved Handling Selector Logic, Reworked Aircraft Configuration Settings, Added debug mode, Improved logging, Added Reset when in Menu, Changed EnginesHaveRun logic to account for 4 engines, Improved Service Evaluations, Added OnSpawned Event, Added MD11 support, Added A300 support, Added A330 cover removal when spawning"
 }
