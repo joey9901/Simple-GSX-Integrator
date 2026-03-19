@@ -272,16 +272,19 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        if (EngineOn && !_enginesHaveRun)
+        if (!IsInMenu)
         {
-            _enginesHaveRun = true;
-            EnginesEverRunChanged?.Invoke(true);
-        }
+            if (EngineOn && !_enginesHaveRun)
+            {
+                _enginesHaveRun = true;
+                EnginesEverRunChanged?.Invoke(true);
+            }
 
-        if (!_hasMoved)
-        {
-            if (_enginesHaveRun && _state.GroundSpeed > MovedThreshold)
+            if (!_hasMoved && _enginesHaveRun && _state.GroundSpeed > MovedThreshold)
+            {
                 _hasMoved = true;
+                Logger.Debug($"FlightStateTracker: HasMoved = true (speed={_state.GroundSpeed:F1}kts)");
+            }
         }
 
         // First poll - seed previous values then fire initial-state notifications so the UI

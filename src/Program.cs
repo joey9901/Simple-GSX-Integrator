@@ -287,6 +287,11 @@ internal static class Program
 
             case AircraftAdapterMatcher.MatchKind.NativeIntegration:
                 Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
+                if (_sc != null)
+                {
+                    Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
+                    match.Adapter.OnSimConnectConnected(_sc);
+                }
                 break;
 
             case AircraftAdapterMatcher.MatchKind.NonFunctional:

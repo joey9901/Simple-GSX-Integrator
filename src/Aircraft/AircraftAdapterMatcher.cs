@@ -2,6 +2,7 @@ using SimpleGsxIntegrator.Aircraft.A300;
 using SimpleGsxIntegrator.Aircraft.A330;
 using SimpleGsxIntegrator.Aircraft.FlyByWire;
 using SimpleGsxIntegrator.Aircraft.Pmdg;
+using SimpleGsxIntegrator.Aircraft.TFDi;
 
 namespace SimpleGsxIntegrator.Aircraft;
 
@@ -19,6 +20,7 @@ public static class AircraftAdapterMatcher
         if (Has(aircraftPath, "PMDG 737")) return Adapter("PMDG 737", new Pmdg737Adapter());
         if (Has(aircraftPath, "microsoft-a330")) return Adapter("Microsoft/iniBuilds A330", new IniA330Adapter());
         if (Has(aircraftPath, "inibuilds", "A300")) return Adapter("iniBuilds A300", new IniA300Adapter());
+        if (Has(aircraftPath, "TFDi_Design_MD-11")) return Adapter("TFDi MD-11", new Md11Adapter());
 
         if (Has(aircraftPath, "FlyByWire", "A380")) return Native("FlyByWire A380", new FbwA380Adapter());
         if (Has(aircraftPath, "FlyByWire", "A320")) return Native("FlyByWire A320", new FbwA380Adapter());
