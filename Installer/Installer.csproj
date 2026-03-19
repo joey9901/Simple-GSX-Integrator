@@ -23,4 +23,12 @@
     </Content>
   </ItemGroup>
 
+  <Target Name="SyncMainAppPayload" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\SimpleGSXIntegrator.csproj&quot; -c Release" />
+    <Copy SourceFiles="..\release\SimpleGSXIntegrator.exe"             DestinationFolder="Payload\" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="..\release\SimpleGSXIntegrator.dll"             DestinationFolder="Payload\" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="..\release\SimpleGSXIntegrator.deps.json"       DestinationFolder="Payload\" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="..\release\SimpleGSXIntegrator.runtimeconfig.json" DestinationFolder="Payload\" OverwriteReadOnlyFiles="true" />
+  </Target>
+
 </Project>
