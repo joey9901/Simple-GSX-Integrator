@@ -14,7 +14,7 @@ public class InstallerForm : Form
     private Button backButton = null!;
     private Button nextButton = null!;
     private Button cancelButton = null!;
-    
+
     private int currentStep = 0;
     private string? detectedMsfsPath;
     private string selectedInstallPath = "";
@@ -38,7 +38,7 @@ public class InstallerForm : Form
             "SimpleGSXIntegrator"
         );
         string centralInfoPath = Path.Combine(appDataPath, InstallInfoFileName);
-        
+
         if (File.Exists(centralInfoPath))
         {
             try
@@ -48,7 +48,7 @@ public class InstallerForm : Form
                 {
                     bool exeExists = File.Exists(Path.Combine(info.InstallPath, AppExeName));
                     bool configExists = Directory.Exists(Path.Combine(info.InstallPath, "config"));
-                    
+
                     if (exeExists)
                     {
                         selectedInstallPath = info.InstallPath;
@@ -61,7 +61,7 @@ public class InstallerForm : Form
                     }
                 }
             }
-            catch {}
+            catch { }
         }
     }
 
@@ -193,8 +193,8 @@ public class InstallerForm : Form
         };
         contentPanel.Controls.Add(titleLabel);
 
-        string defaultPath = !string.IsNullOrEmpty(selectedInstallPath) 
-            ? selectedInstallPath 
+        string defaultPath = !string.IsNullOrEmpty(selectedInstallPath)
+            ? selectedInstallPath
             : Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "SimpleGSXIntegrator"
@@ -249,8 +249,8 @@ public class InstallerForm : Form
 
         var msfsLabel = new Label
         {
-            Text = detectedMsfsPath != null 
-                ? "✓ MSFS detected" 
+            Text = detectedMsfsPath != null
+                ? "✓ MSFS detected"
                 : "⚠ MSFS not detected",
             Location = new Point(30, 140),
             Size = new Size(200, 25),
@@ -370,15 +370,15 @@ public class InstallerForm : Form
 
         var msgLabel = new Label
         {
-            Text = detectedMsfsPath != null 
-                ? "App will auto-launch with MSFS." 
+            Text = detectedMsfsPath != null
+                ? "App will auto-launch with MSFS."
                 : "Run SimpleGSXIntegrator.exe before starting MSFS.",
             Location = new Point(30, 110),
             Size = new Size(440, 40),
             Font = new Font("Segoe UI", 9)
         };
         contentPanel.Controls.Add(msgLabel);
-        
+
         chkLaunchApp = new CheckBox
         {
             Text = "Launch Simple GSX Integrator now",
@@ -404,7 +404,7 @@ public class InstallerForm : Form
             Size = new Size(440, 30)
         };
         contentPanel.Controls.Add(titleLabel);
-        
+
         var descLabel = new Label
         {
             Text = "Are you sure you want to uninstall Simple GSX Integrator?",
@@ -413,7 +413,7 @@ public class InstallerForm : Form
             Font = new Font("Segoe UI", 9)
         };
         contentPanel.Controls.Add(descLabel);
-        
+
         chkKeepConfig = new CheckBox
         {
             Text = "Keep configuration files (logs and settings)",
@@ -432,7 +432,7 @@ public class InstallerForm : Form
     private void ShowUninstallingProgressStep()
     {
         contentPanel.Controls.Clear();
-        
+
         var titleLabel = new Label
         {
             Text = "Uninstalling...",
@@ -502,11 +502,11 @@ public class InstallerForm : Form
         {
             if (string.IsNullOrWhiteSpace(selectedInstallPath))
             {
-                MessageBox.Show("Please select an installation location.", "Error", 
+                MessageBox.Show("Please select an installation location.", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-            ShowStep(2); 
+            ShowStep(2);
         }
         else if (currentStep == 4)
         {
@@ -535,8 +535,8 @@ public class InstallerForm : Form
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
-            
-            this.Close(); 
+
+            this.Close();
         }
     }
 
@@ -547,16 +547,16 @@ public class InstallerForm : Form
             if (isUpdateMode)
             {
                 LogMessage("Existing installation detected - performing update...");
-                
+
                 string logsDir = Path.Combine(selectedInstallPath, "logs");
                 string configDir = Path.Combine(selectedInstallPath, "config");
-                
+
                 string tempLogsDir = Path.Combine(Path.GetTempPath(), "SimpleGSXIntegrator_logs_backup");
                 string tempConfigDir = Path.Combine(Path.GetTempPath(), "SimpleGSXIntegrator_config_backup");
-                
+
                 bool hasLogs = Directory.Exists(logsDir);
                 bool hasConfig = Directory.Exists(configDir);
-                
+
                 if (hasLogs)
                 {
                     LogMessage("Backing up logs...");
@@ -564,7 +564,7 @@ public class InstallerForm : Form
                         Directory.Delete(tempLogsDir, true);
                     CopyDirectory(logsDir, tempLogsDir, true);
                 }
-                
+
                 if (hasConfig)
                 {
                     LogMessage("Backing up config...");
@@ -572,38 +572,38 @@ public class InstallerForm : Form
                         Directory.Delete(tempConfigDir, true);
                     CopyDirectory(configDir, tempConfigDir, true);
                 }
-                
+
                 LogMessage("Removing old files...");
                 Directory.Delete(selectedInstallPath, true);
-                Thread.Sleep(500); 
-                
+                Thread.Sleep(500);
+
                 LogMessage("Creating installation directory...");
                 Directory.CreateDirectory(selectedInstallPath);
-                
+
                 LogMessage("Installing updated files...");
                 string payloadDir = Path.Combine(AppContext.BaseDirectory, "Payload");
-                
+
                 if (!Directory.Exists(payloadDir))
                 {
                     throw new Exception($"Payload directory not found: {payloadDir}");
                 }
-                
+
                 CopyDirectory(payloadDir, selectedInstallPath, true);
-                
+
                 if (hasLogs)
                 {
                     LogMessage("Restoring logs...");
                     CopyDirectory(tempLogsDir, logsDir, true);
                     Directory.Delete(tempLogsDir, true);
                 }
-                
+
                 if (hasConfig)
                 {
                     LogMessage("Restoring config...");
                     CopyDirectory(tempConfigDir, configDir, true);
                     Directory.Delete(tempConfigDir, true);
                 }
-                
+
                 LogMessage("Files updated successfully");
             }
             else
@@ -613,7 +613,7 @@ public class InstallerForm : Form
 
                 LogMessage("Copying application files...");
                 string payloadDir = Path.Combine(AppContext.BaseDirectory, "Payload");
-                
+
                 if (!Directory.Exists(payloadDir))
                 {
                     throw new Exception($"Payload directory not found: {payloadDir}");
@@ -642,7 +642,7 @@ public class InstallerForm : Form
         {
             this.Invoke(() =>
             {
-                MessageBox.Show($"{(isUpdateMode ? "Update" : "Installation")} failed:\n\n{ex.Message}", "Error", 
+                MessageBox.Show($"{(isUpdateMode ? "Update" : "Installation")} failed:\n\n{ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 ShowStep(0);
             });
@@ -661,7 +661,7 @@ public class InstallerForm : Form
                 "SimpleGSXIntegrator"
             );
             string centralInfoPath = Path.Combine(appDataPath, InstallInfoFileName);
-            
+
             if (File.Exists(centralInfoPath))
             {
                 var info = LoadInstallInfo(centralInfoPath);
@@ -678,7 +678,7 @@ public class InstallerForm : Form
                         MessageBoxButtons.OKCancel,
                         MessageBoxIcon.Question
                     );
-                    
+
                     if (result == DialogResult.OK)
                     {
                         using var dialog = new FolderBrowserDialog
@@ -686,11 +686,11 @@ public class InstallerForm : Form
                             Description = "Select the SimpleGSXIntegrator installation folder",
                             UseDescriptionForTitle = true
                         };
-                        
+
                         if (dialog.ShowDialog() == DialogResult.OK)
                         {
                             installPath = dialog.SelectedPath;
-                            
+
                             string localInfoPath = Path.Combine(installPath, InstallInfoFileName);
                             if (File.Exists(localInfoPath))
                             {
@@ -704,7 +704,7 @@ public class InstallerForm : Form
                         }
                     }
                 });
-                
+
                 if (string.IsNullOrEmpty(installPath))
                 {
                     throw new Exception("Installation folder not specified.");
@@ -724,57 +724,57 @@ public class InstallerForm : Form
             if (Directory.Exists(installPath))
             {
                 UpdateStatusLabel("Deleting files...");
-                
+
                 bool keepConfig = false;
                 this.Invoke(() => { keepConfig = chkKeepConfig?.Checked ?? false; });
-                
+
                 if (keepConfig)
                 {
                     string configDir = Path.Combine(installPath, "config");
                     string logsDir = Path.Combine(installPath, "logs");
-                    
+
                     string tempConfigDir = Path.Combine(Path.GetTempPath(), "SimpleGSXIntegrator_uninstall_config");
                     string tempLogsDir = Path.Combine(Path.GetTempPath(), "SimpleGSXIntegrator_uninstall_logs");
-                    
+
                     bool hasConfig = Directory.Exists(configDir);
                     bool hasLogs = Directory.Exists(logsDir);
-                    
+
                     if (hasConfig)
                     {
                         if (Directory.Exists(tempConfigDir))
                             Directory.Delete(tempConfigDir, true);
                         CopyDirectory(configDir, tempConfigDir, true);
                     }
-                    
+
                     if (hasLogs)
                     {
                         if (Directory.Exists(tempLogsDir))
                             Directory.Delete(tempLogsDir, true);
                         CopyDirectory(logsDir, tempLogsDir, true);
                     }
-                    
+
                     Directory.Delete(installPath, true);
-                    
+
                     Directory.CreateDirectory(installPath);
-                    
+
                     if (hasConfig)
                     {
                         CopyDirectory(tempConfigDir, configDir, true);
                         Directory.Delete(tempConfigDir, true);
                     }
-                    
+
                     if (hasLogs)
                     {
                         CopyDirectory(tempLogsDir, logsDir, true);
                         Directory.Delete(tempLogsDir, true);
                     }
-                    
+
                     string savedInfoPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         AppName,
                         InstallInfoFileName
                     );
-                    
+
                     try
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(savedInfoPath)!);
@@ -783,7 +783,7 @@ public class InstallerForm : Form
                     catch
                     {
                     }
-                    
+
                     UpdateStatusLabel("Configuration files preserved");
                 }
                 else
@@ -798,7 +798,7 @@ public class InstallerForm : Form
         {
             this.Invoke(() =>
             {
-                MessageBox.Show($"Uninstall failed:\n\n{ex.Message}", "Error", 
+                MessageBox.Show($"Uninstall failed:\n\n{ex.Message}", "Error",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
                 ShowStep(0);
             });
@@ -879,6 +879,12 @@ public class InstallerForm : Form
                 var pathElement = existingAddon.Element("Path");
                 if (pathElement != null)
                     pathElement.Value = appExePath;
+
+                var cmdElement = existingAddon.Element("CommandLine");
+                if (cmdElement != null)
+                    cmdElement.Value = "--close-with-sim";
+                else
+                    existingAddon.Add(new XElement("CommandLine", "--close-with-sim"));
             }
             else
             {
@@ -910,7 +916,7 @@ public class InstallerForm : Form
             new XElement("Disabled", "False"),
             new XElement("ManualLoad", "False"),
             new XElement("Path", appExePath),
-            new XElement("CommandLine", "")
+            new XElement("CommandLine", "--close-with-sim")
         );
     }
 
@@ -921,18 +927,18 @@ public class InstallerForm : Form
         try
         {
             var doc = XDocument.Load(exeXmlPath);
-            
+
             var addonsToRemove = doc.Descendants("Launch.Addon")
-                .Where(e => 
+                .Where(e =>
                 {
                     var nameElement = e.Element("Name");
                     if (nameElement == null) return false;
-                    
+
                     string nameValue = nameElement.Value?.Trim() ?? "";
                     return nameValue.Equals(AppName, StringComparison.OrdinalIgnoreCase);
                 })
                 .ToList();
-            
+
             if (addonsToRemove.Count > 0)
             {
                 foreach (var addon in addonsToRemove)
@@ -950,7 +956,7 @@ public class InstallerForm : Form
         catch (Exception ex)
         {
             LogMessage($"Error removing from exe.xml: {ex.Message}");
-            MessageBox.Show($"Warning: Could not remove from exe.xml.\n\n{ex.Message}", 
+            MessageBox.Show($"Warning: Could not remove from exe.xml.\n\n{ex.Message}",
                 "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -981,7 +987,7 @@ public class InstallerForm : Form
     {
         string infoPath = Path.Combine(installPath, InstallInfoFileName);
         File.WriteAllText(infoPath, $"{installPath}\n{msfsConfigPath}");
-        
+
         string appDataPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SimpleGSXIntegrator"

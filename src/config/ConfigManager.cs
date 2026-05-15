@@ -103,6 +103,7 @@ public static class ConfigManager
                         var ac = config.Aircraft[aircraft];
                         if (key == "RefuelBeforeBoarding") ac.RefuelBeforeBoarding = ParseBool(val);
                         if (key == "CateringOnNewFlight") ac.CateringOnNewFlight = ParseBool(val);
+                        if (key == "RealisticCrewComms") ac.RealisticCrewComms = ParseBool(val);
                         if (key == "ActivationLvar") ac.ActivationLvar = val;
                         if (key == "ActivationValue" && double.TryParse(val, out double av)) ac.ActivationValue = av;
                         break;
@@ -143,6 +144,7 @@ public static class ConfigManager
                 lines.Add($"[Aircraft:{title}]");
                 lines.Add($"RefuelBeforeBoarding={ac.RefuelBeforeBoarding.ToString().ToLowerInvariant()}");
                 lines.Add($"CateringOnNewFlight={ac.CateringOnNewFlight.ToString().ToLowerInvariant()}");
+                lines.Add($"RealisticCrewComms={ac.RealisticCrewComms.ToString().ToLowerInvariant()}");
                 lines.Add($"ActivationLvar={ac.ActivationLvar}");
                 lines.Add($"ActivationValue={ac.ActivationValue}");
                 lines.Add(string.Empty);

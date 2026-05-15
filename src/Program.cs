@@ -26,10 +26,12 @@ internal static class Program
     public static string CurrentAircraftPath { get; private set; } = string.Empty;
 
     private static Mutex? _singleInstanceMutex;
+    private static bool _closeWithSim;
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        _closeWithSim = args.Contains("--close-with-sim", StringComparer.OrdinalIgnoreCase);
         _singleInstanceMutex = new Mutex(initiallyOwned: true, "SimpleGSXIntegrator_SingleInstance", out bool createdNew);
         if (!createdNew)
         {
@@ -48,6 +50,8 @@ internal static class Program
 
         _mainForm = new MainForm();
         Logger.MainForm = _mainForm;
+
+        if (_closeWithSim) Logger.Debug("Close-with-sim flag active — app will exit when MSFS closes.");
 
         _manager = new SimConnectManager();
         _flightState = new FlightStateTracker();
@@ -97,8 +101,14 @@ internal static class Program
         Application.Run(_mainForm);
     }
 
+    private static CancellationTokenSource? _retryConnectCts;
+
     private static void TryConnectSimConnect()
     {
+        _retryConnectCts?.Cancel();
+        _retryConnectCts = new CancellationTokenSource();
+        var token = _retryConnectCts.Token;
+
         Logger.Debug("Attempting SimConnect Connection…");
         try
         {
@@ -112,9 +122,10 @@ internal static class Program
             _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
             Task.Run(async () =>
             {
-                while (!_manager.IsConnected)
+                while (!token.IsCancellationRequested && !_manager.IsConnected)
                 {
-                    await Task.Delay(5000);
+                    try { await Task.Delay(5000, token); } catch (TaskCanceledException) { return; }
+                    if (token.IsCancellationRequested) return;
                     try
                     {
                         _manager.Connect(_mainForm.Handle);
@@ -123,13 +134,14 @@ internal static class Program
                     }
                     catch { }
                 }
-            });
+            }, token);
         }
     }
 
     private static void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
+        _simConnectTimer?.Start(); // restart pump timer (may have been stopped on disconnect)
 
         _procWatcher.StartIfMsfsRunning();
 
@@ -156,7 +168,9 @@ internal static class Program
         _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
         _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
         _automationManager.SetCurrentAdapter(null);
-        Logger.Warning("SimConnect disconnected.");
+        Logger.Debug("SimConnect disconnected.");
+        _manager.Disconnect();
+        TryConnectSimConnect();
     }
 
     private static void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -214,6 +228,7 @@ internal static class Program
     private static void OnMsfsExited()
     {
         Logger.Warning("MSFS process no longer detected - exiting.");
+        _retryConnectCts?.Cancel();
         _mainForm.Invoke(() => Application.Exit());
     }
 
@@ -244,6 +259,12 @@ internal static class Program
         {
             _mainForm.SetSimConnectStatus(false);
             _mainForm.SetGsxStatus(false);
+
+            if (_closeWithSim)
+            {
+                Logger.Debug("Simulator quit — closing with sim (--close-with-sim flag active).");
+                Application.Exit();
+            }
         });
     }
 

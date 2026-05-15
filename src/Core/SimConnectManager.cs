@@ -31,6 +31,12 @@ public sealed class SimConnectManager : IDisposable
         _sc?.ReceiveMessage();
     }
 
+    public void Disconnect()
+    {
+        try { _sc?.Dispose(); } catch { }
+        _sc = null;
+    }
+
     public void Dispose()
     {
         _sc?.Dispose();
@@ -54,7 +60,7 @@ public sealed class SimConnectManager : IDisposable
 
     private void OnQuit()
     {
-        Logger.Info("SimConnect: simulator quit");
+        Logger.Debug("SimConnect: Simulator Quit");
         Disconnected?.Invoke();
         SimulatorQuit?.Invoke();
     }

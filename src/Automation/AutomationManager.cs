@@ -82,6 +82,15 @@ public sealed class AutomationManager
         }
     }
 
+    private void AutoDeactivate()
+    {
+        if (!_activated) return;
+        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        if (!cfg.RealisticCrewComms) return;
+        Logger.Info("AutomationManager: Realistic crew comms enabled, deactivating. Re-activate to call next service.");
+        ToggleActivation();
+    }
+
     public void ResetSession(bool printLog = true)
     {
         _refuelingDone = false;
@@ -205,10 +214,12 @@ public sealed class AutomationManager
             case GsxServiceState.Requested:
                 Logger.Success("Boarding: Requested");
                 if (_currentAdapter != null) _ = _currentAdapter.OnBoardingRequested();
+                AutoDeactivate();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Boarding: Active");
                 if (_currentAdapter != null) _ = _currentAdapter.OnBoardingActive();
+                AutoDeactivate();
                 break;
             case GsxServiceState.Completed when !_boardingDone:
                 _boardingDone = true;
@@ -225,10 +236,12 @@ public sealed class AutomationManager
             case GsxServiceState.Requested:
                 Logger.Success("Deboarding: Requested");
                 if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingRequested();
+                AutoDeactivate();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Deboarding: Active");
                 if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingActive();
+                AutoDeactivate();
                 break;
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;

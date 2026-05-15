@@ -31,6 +31,7 @@ public sealed class AircraftConfig
 {
     public bool RefuelBeforeBoarding { get; set; } = false;
     public bool CateringOnNewFlight { get; set; } = false;
+    public bool RealisticCrewComms { get; set; } = false;
     public string ActivationLvar { get; set; } = string.Empty;
     public double ActivationValue { get; set; } = 1.0;
 }

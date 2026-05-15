@@ -42,10 +42,12 @@ public sealed class ProcessWatcher : IDisposable
             if (!IsMsfsRunning())
             {
                 Logger.Info("ProcessWatcher: MSFS has exited");
+                _cts = null;
                 MsfsExited?.Invoke();
                 return;
             }
         }
+        _cts = null;
     }
 
     public static bool IsMsfsRunning()

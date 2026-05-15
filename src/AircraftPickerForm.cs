@@ -13,10 +13,14 @@ public sealed class AircraftPickerForm : Form
     private static readonly Font ItemFont = new Font("Segoe UI", 9.5f, FontStyle.Regular);
     private static readonly Font HeaderFont = new Font("Segoe UI", 10f, FontStyle.Bold);
 
-    public string? SelectedTitle { get; private set; }
+    private readonly bool _multiSelect;
 
-    public AircraftPickerForm(string? currentAircraftTitle)
+    public string? SelectedTitle { get; private set; }
+    public IReadOnlyList<string> SelectedTitles { get; private set; } = Array.Empty<string>();
+
+    public AircraftPickerForm(string? currentAircraftTitle, bool multiSelect = false)
     {
+        _multiSelect = multiSelect;
         InitializeComponent();
         PopulateList(currentAircraftTitle);
         ApplyTheme();
@@ -40,7 +44,9 @@ public sealed class AircraftPickerForm : Form
 
         var lblHeader = new Label
         {
-            Text = "Select an aircraft to configure:",
+            Text = _multiSelect
+                ? "Select aircraft to apply settings to:"
+                : "Select an aircraft to configure:",
             Location = new Point(20, 20),
             Size = new Size(440, 20),
             Font = HeaderFont
@@ -61,7 +67,7 @@ public sealed class AircraftPickerForm : Form
             ScrollAlwaysVisible = false,
             IntegralHeight = false,
             BorderStyle = BorderStyle.None,
-            SelectionMode = SelectionMode.One
+            SelectionMode = _multiSelect ? SelectionMode.MultiSimple : SelectionMode.One,
         };
         lstAircraft.DrawItem += LstAircraft_DrawItem;
         lstAircraft.DoubleClick += (s, e) => AcceptSelection();
@@ -141,12 +147,12 @@ public sealed class AircraftPickerForm : Form
         foreach (var title in saved)
             lstAircraft.Items.Add(title);
 
-        if (!string.IsNullOrEmpty(currentTitle))
+        if (!_multiSelect && !string.IsNullOrEmpty(currentTitle))
         {
             int idx = lstAircraft.Items.IndexOf(currentTitle);
             if (idx >= 0) lstAircraft.SelectedIndex = idx;
         }
-        else if (lstAircraft.Items.Count > 0)
+        else if (!_multiSelect && lstAircraft.Items.Count > 0)
         {
             lstAircraft.SelectedIndex = 0;
         }
@@ -154,9 +160,24 @@ public sealed class AircraftPickerForm : Form
 
     private void AcceptSelection()
     {
-        if (lstAircraft.SelectedItem is string selected)
+        if (_multiSelect)
         {
-            SelectedTitle = selected;
+            var selected = lstAircraft.SelectedItems.Cast<string>().ToList();
+            if (selected.Count == 0)
+            {
+                MessageBox.Show("Please select at least one aircraft.", "No Aircraft Selected",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            SelectedTitles = selected;
+            this.DialogResult = DialogResult.OK;
+            this.Close();
+            return;
+        }
+
+        if (lstAircraft.SelectedItem is string title)
+        {
+            SelectedTitle = title;
             this.DialogResult = DialogResult.OK;
             this.Close();
         }
