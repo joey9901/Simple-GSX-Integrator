@@ -145,7 +145,7 @@ internal static class Program
 
         _procWatcher.StartIfMsfsRunning();
 
-        _flightState.OnSimConnectConnected(sc);
+        _flightState.OnSimConnectConnected(sc, _automationManager.CurrentAdapter);
         _gsxMonitor.OnSimConnectConnected(sc);
         _gsxMenu.OnSimConnectConnected(sc);
         _automationManager.OnSimConnectConnected(sc);
@@ -285,10 +285,9 @@ internal static class Program
 
         _automationManager.SetCurrentAdapter(match.Adapter);
 
-        if (_sc != null)
+        if (_sc != null && match.Adapter != null)
         {
-            var overrides = match.Adapter?.GetSimVarOverrides() ?? new Dictionary<SimVarOverride, string>();
-            _flightState.SetSimVarOverrides(_sc, overrides);
+            _flightState.OnSimConnectConnected(_sc, match.Adapter);
         }
 
         switch (match.Kind)

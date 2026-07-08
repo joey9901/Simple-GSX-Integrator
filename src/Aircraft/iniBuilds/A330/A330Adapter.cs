@@ -4,14 +4,14 @@ using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator.Aircraft.A330;
 
-public sealed class IniA330Adapter : IAircraftAdapter
+public sealed class IniA330Adapter : AircraftAdapterBase
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
     private SimConnect? _sc;
 
-    public void OnSimConnectConnected(SimConnect sc)
+    public override void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
 
@@ -32,8 +32,6 @@ public sealed class IniA330Adapter : IAircraftAdapter
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A330PitotCover);
     }
 
-    public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data) { }
-
     private void RemoveGroundEquipment()
     {
         if (_sc == null) return;
@@ -43,7 +41,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
         WriteSimVar(SimDef.A330Gpu, 0.0);
     }
 
-    private Task PlaceGroundEquipmentAndChocks()
+    private Task PlaceGroundEquipment()
     {
         if (_sc == null) return Task.CompletedTask;
         Logger.Info("IniA330Adapter: Placing Chocks and GPU");
@@ -54,7 +52,7 @@ public sealed class IniA330Adapter : IAircraftAdapter
         return Task.CompletedTask;
     }
 
-    public Task OnSpawned()
+    public override Task OnSpawned()
     {
         Logger.Debug("IniA330Adapter: removing engine covers (COVER ON:1 = 0)");
         WriteSimVar(SimDef.A330EngineCover, 0.0);
@@ -63,18 +61,18 @@ public sealed class IniA330Adapter : IAircraftAdapter
         return Task.CompletedTask;
     }
 
-    public Task OnBeforePushbackAsync()
+    public override Task OnBeforePushback()
     {
         RemoveGroundEquipment();
         return Task.CompletedTask;
     }
 
-    public Task OnBeforeDeboardingAsync()
+    public override Task OnBeforeDeboarding()
     {
-        return PlaceGroundEquipmentAndChocks();
+        return PlaceGroundEquipment();
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _sc = null;
         Logger.Debug("IniA330Adapter: disposed");

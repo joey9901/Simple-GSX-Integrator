@@ -10,7 +10,7 @@ public static class AircraftAdapterMatcher
 {
     public enum MatchKind { Adapter, NativeIntegration, NonFunctional, Unknown }
 
-    public record MatchResult(MatchKind Kind, IAircraftAdapter? Adapter, string? DisplayName);
+    public record MatchResult(MatchKind Kind, AircraftAdapterBase? Adapter, string? DisplayName);
 
     public static MatchResult Resolve(string aircraftPath)
     {
@@ -41,7 +41,7 @@ public static class AircraftAdapterMatcher
         return true;
     }
 
-    private static MatchResult Adapter(string name, IAircraftAdapter adapter)
+    private static MatchResult Adapter(string name, AircraftAdapterBase adapter)
     {
         return new(MatchKind.Adapter, adapter, name);
     }
@@ -51,7 +51,7 @@ public static class AircraftAdapterMatcher
         return new(MatchKind.NativeIntegration, null, name);
     }
 
-    private static MatchResult Native(string name, IAircraftAdapter adapter)
+    private static MatchResult Native(string name, AircraftAdapterBase adapter)
     {
         return new(MatchKind.NativeIntegration, adapter, name);
     }

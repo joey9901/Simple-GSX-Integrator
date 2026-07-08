@@ -13,7 +13,7 @@ public sealed class AutomationManager
     private readonly GsxMonitor _gsxMonitor;
     private readonly GsxMenuController _gsxMenu;
 
-    private IAircraftAdapter? _currentAdapter;
+    private AircraftAdapterBase? _currentAdapter;
 
     private bool _activated;
     private string? _currentAircraftTitle;
@@ -56,12 +56,12 @@ public sealed class AutomationManager
         _sc = sc;
     }
 
-    public IAircraftAdapter? CurrentAdapter
+    public AircraftAdapterBase? CurrentAdapter
     {
         get { return _currentAdapter; }
     }
 
-    public void SetCurrentAdapter(IAircraftAdapter? adapter)
+    public void SetCurrentAdapter(AircraftAdapterBase? adapter)
     {
         _currentAdapter = adapter;
     }
@@ -408,7 +408,7 @@ public sealed class AutomationManager
     private async Task TriggerPushbackAsync()
     {
         if (_currentAdapter != null)
-            await _currentAdapter.OnBeforePushbackAsync();
+            await _currentAdapter.OnBeforePushback();
         else
             await Task.Delay(2_000);
 
@@ -433,7 +433,7 @@ public sealed class AutomationManager
     private async Task TriggerDeboardingAsync()
     {
         if (_currentAdapter != null)
-            await _currentAdapter.OnBeforeDeboardingAsync();
+            await _currentAdapter.OnBeforeDeboarding();
 
         await _gsxMenu.CallDeboardingAsync();
     }

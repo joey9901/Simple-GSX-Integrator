@@ -5,7 +5,7 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-public sealed class Pmdg737Adapter : IAircraftAdapter
+public sealed class Pmdg737Adapter : AircraftAdapterBase
 {
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -42,7 +42,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
     private readonly ConcurrentDictionary<uint, DateTime> _lastSent = new();
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);
 
-    public void OnSimConnectConnected(SimConnect sc)
+    public override void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
 
@@ -127,7 +127,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         }
     }
 
-    public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
+    public override void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID != (uint)SimReq.Pmdg737Vars &&
             data.dwDefineID != (uint)SimDef.Pmdg737Vars) return;
@@ -185,7 +185,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         SendPmdgEvent(doorId, 1);
     }
 
-    private async Task PlaceGroundEquipmentAndChocks()
+    private async Task PlaceGroundEquipment()
     {
         if (_vars.WheelChocks >= 0.5)
         {
@@ -218,7 +218,7 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
     }
 
-    public async Task OnBeforePushbackAsync()
+    public override async Task OnBeforePushback()
     {
         await RemoveGroundEquipmentAsync();
         await CloseAllOpenDoorsAsync();
@@ -236,18 +236,18 @@ public sealed class Pmdg737Adapter : IAircraftAdapter
             Logger.Info("Pmdg737Adapter: All Doors Confirmed Closed");
     }
 
-    public Task OnBeforeDeboardingAsync()
+    public override Task OnBeforeDeboarding()
     {
-        return PlaceGroundEquipmentAndChocks();
+        return PlaceGroundEquipment();
     }
 
-    public async Task OnBoardingCompleted()
+    public override async Task OnBoardingCompleted()
     {
         await Task.Delay(15_000);
         await CloseAllOpenDoorsAsync();
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _doorTracker.Reset();
         _sc = null;

@@ -4,22 +4,16 @@ using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator.Aircraft.TFDi;
 
-internal sealed class Md11Adapter : IAircraftAdapter
+internal sealed class Md11Adapter : AircraftAdapterBase
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
     private SimConnect? _sc;
 
-    public IReadOnlyDictionary<SimVarOverride, string> GetSimVarOverrides()
-    {
-        return new Dictionary<SimVarOverride, string>
-        {
-            { SimVarOverride.ParkingBrake, Md11Constants.LVar_ParkingBrake },
-        };
-    }
+    public override string ParkingBrakeVariable => Md11Constants.LVar_ParkingBrake;
 
-    public void OnSimConnectConnected(SimConnect sc)
+    public override void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
 
@@ -32,9 +26,7 @@ internal sealed class Md11Adapter : IAircraftAdapter
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.Md11Gpu);
     }
 
-    public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data) { }
-
-    public Task OnBeforeDeboardingAsync()
+    public override Task OnBeforeDeboarding()
     {
         Logger.Info("Md11Adapter: Placing chocks and GPU");
         WriteSimVar(SimDef.Md11Chocks, 1.0);
@@ -42,7 +34,7 @@ internal sealed class Md11Adapter : IAircraftAdapter
         return Task.CompletedTask;
     }
 
-    public Task OnBeforePushbackAsync()
+    public override Task OnBeforePushback()
     {
         Logger.Info("Md11Adapter: Removing chocks and GPU");
         WriteSimVar(SimDef.Md11Gpu, 0.0);
@@ -50,7 +42,7 @@ internal sealed class Md11Adapter : IAircraftAdapter
         return Task.CompletedTask;
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _sc = null;
         Logger.Debug("Md11Adapter: disposed");

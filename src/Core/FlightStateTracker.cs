@@ -44,36 +44,20 @@ public sealed class FlightStateTracker
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
 
-    private const uint OverrideIdBase = 600;
-    private readonly Dictionary<SimVarOverride, double> _activeOverrides = new();
-    private readonly Dictionary<SimVarOverride, string> _registeredOverrides = new();
-
     public bool BeaconOn
     {
-        get
-        {
-            if (_activeOverrides.TryGetValue(SimVarOverride.BeaconLight, out double ov) && !double.IsNaN(ov))
-                return ov != 0;
-            return _state.BeaconLight != 0;
-        }
+        get { return _state.BeaconLight != 0; }
     }
 
     public bool ParkingBrake
     {
-        get
-        {
-            if (_activeOverrides.TryGetValue(SimVarOverride.ParkingBrake, out double ov) && !double.IsNaN(ov))
-                return ov != 0;
-            return _state.ParkingBrake != 0;
-        }
+        get { return _state.ParkingBrake != 0; }
     }
 
     public bool EngineOn
     {
         get
         {
-            if (_activeOverrides.TryGetValue(SimVarOverride.EngineRunning, out double ov) && !double.IsNaN(ov))
-                return ov != 0;
             return _state.Engine1Running != 0 || _state.Engine2Running != 0
                 || _state.Engine3Running != 0 || _state.Engine4Running != 0;
         }
@@ -135,19 +119,19 @@ public sealed class FlightStateTracker
     public event Action? SpawnedAtGate;
     public event Action? MenuStateChanged;
 
-    public void OnSimConnectConnected(SimConnect sc)
+    public void OnSimConnectConnected(SimConnect sc, AircraftAdapterBase? adapter = null)
     {
-        RegisterFlightStateVars(sc);
+        RegisterFlightStateVars(sc, adapter);
     }
 
-    private void RegisterFlightStateVars(SimConnect sc)
+    private void RegisterFlightStateVars(SimConnect sc, AircraftAdapterBase? adapter = null)
     {
-        AddFlightStateVar(sc, "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:2", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.BeaconLightVariable ?? "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.ParkingBrakeVariable ?? "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.Engine1RunningVariable ?? "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.Engine2RunningVariable ?? "GENERAL ENG COMBUSTION:2", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.Engine3RunningVariable ?? "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.Engine4RunningVariable ?? "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "CAMERA STATE", "Number", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
@@ -207,50 +191,6 @@ public sealed class FlightStateTracker
         }
     }
 
-    public void SetSimVarOverrides(SimConnect sc, IReadOnlyDictionary<SimVarOverride, string> overrides)
-    {
-        _activeOverrides.Clear();
-
-        foreach (var (overrideVar, lvarName) in overrides)
-        {
-            var simDef = (SimDef)(OverrideIdBase + (uint)overrideVar);
-            var simReq = (SimReq)(OverrideIdBase + (uint)overrideVar);
-
-            if (_registeredOverrides.TryGetValue(overrideVar, out string? existing))
-            {
-                if (string.Equals(existing, lvarName, StringComparison.OrdinalIgnoreCase))
-                {
-                    _activeOverrides[overrideVar] = double.NaN;
-                    Logger.Debug($"FlightStateTracker: override {overrideVar} already registered → '{lvarName}'");
-                    continue;
-                }
-
-                Logger.Warning($"FlightStateTracker: override {overrideVar} already registered as '{existing}', cannot change to '{lvarName}'");
-                continue;
-            }
-
-            try
-            {
-                sc.AddToDataDefinition(simDef, lvarName, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-                sc.RegisterDataDefineStruct<ActivationLvarStruct>(simDef);
-                sc.RequestDataOnSimObject(
-                    simReq, simDef,
-                    SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_PERIOD.SECOND,
-                    SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
-                    0, 0, 0);
-
-                _registeredOverrides[overrideVar] = lvarName;
-                _activeOverrides[overrideVar] = double.NaN;
-                Logger.Debug($"FlightStateTracker: override registered - {overrideVar} → '{lvarName}'");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warning($"FlightStateTracker: failed to register override {overrideVar} ('{lvarName}'): {ex.Message}");
-            }
-        }
-    }
-
     public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
         if (data.dwRequestID == (uint)SimReq.FlightState)
@@ -260,11 +200,6 @@ public sealed class FlightStateTracker
         else if (data.dwRequestID == (uint)SimReq.ActivationLvar)
         {
             ProcessActivationLvar(((ActivationLvarStruct)data.dwData[0]).Value);
-        }
-        else if (data.dwRequestID >= OverrideIdBase && data.dwRequestID < OverrideIdBase + 100)
-        {
-            var overrideVar = (SimVarOverride)(data.dwRequestID - OverrideIdBase);
-            ProcessOverrideVar(overrideVar, ((ActivationLvarStruct)data.dwData[0]).Value);
         }
     }
 
@@ -331,21 +266,21 @@ public sealed class FlightStateTracker
             _onSpawnedHandled = false;
         }
 
-        if (_state.BeaconLight != _prevState.BeaconLight && !_activeOverrides.ContainsKey(SimVarOverride.BeaconLight))
+        if (_state.BeaconLight != _prevState.BeaconLight)
         {
             _prevState.BeaconLight = _state.BeaconLight;
             Logger.Debug($"FlightStateTracker: beacon → {(BeaconOn ? "ON" : "OFF")}");
             BeaconChanged?.Invoke(BeaconOn);
         }
 
-        if (_state.ParkingBrake != _prevState.ParkingBrake && !_activeOverrides.ContainsKey(SimVarOverride.ParkingBrake))
+        if (_state.ParkingBrake != _prevState.ParkingBrake)
         {
             _prevState.ParkingBrake = _state.ParkingBrake;
             Logger.Debug($"FlightStateTracker: parking brake → {(ParkingBrake ? "SET" : "RELEASED")}");
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
 
-        if (_state.Engine1Running != _prevState.Engine1Running && !_activeOverrides.ContainsKey(SimVarOverride.EngineRunning))
+        if (_state.Engine1Running != _prevState.Engine1Running)
         {
             _prevState.Engine1Running = _state.Engine1Running;
             Logger.Debug($"FlightStateTracker: engine → {(EngineOn ? "RUNNING" : "OFF")}");
@@ -373,46 +308,6 @@ public sealed class FlightStateTracker
         }
     }
 
-    private void ProcessOverrideVar(SimVarOverride overrideVar, double value)
-    {
-        if (!_activeOverrides.TryGetValue(overrideVar, out double previous))
-            return;
-
-        _activeOverrides[overrideVar] = value;
-
-        if (double.IsNaN(previous))
-        {
-            Logger.Debug($"FlightStateTracker: override {overrideVar} initial → {value != 0} (raw={value:F4})");
-            FireOverrideEvent(overrideVar, value != 0);
-            return;
-        }
-
-        bool wasOn = previous != 0;
-        bool isOn = value != 0;
-
-        if (isOn != wasOn)
-        {
-            Logger.Debug($"FlightStateTracker: override {overrideVar} → {isOn} (raw={value:F4})");
-            FireOverrideEvent(overrideVar, isOn);
-        }
-    }
-
-    private void FireOverrideEvent(SimVarOverride overrideVar, bool state)
-    {
-        switch (overrideVar)
-        {
-            case SimVarOverride.ParkingBrake:
-                ParkingBrakeChanged?.Invoke(state);
-                break;
-            case SimVarOverride.BeaconLight:
-                BeaconChanged?.Invoke(state);
-                break;
-            case SimVarOverride.EngineRunning:
-                EngineChanged?.Invoke(state);
-                break;
-        }
-    }
-
     public void ResetSession()
     {
         _enginesHaveRun = false;
@@ -420,7 +315,6 @@ public sealed class FlightStateTracker
         _hasMoved = false;
         _activationLvar = null;
         _lastActivationValue = double.NaN;
-        _activeOverrides.Clear();
         Logger.Debug("FlightStateTracker: session reset");
     }
 

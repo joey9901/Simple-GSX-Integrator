@@ -4,14 +4,17 @@ using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator.Aircraft.A300;
 
-public sealed class IniA300Adapter : IAircraftAdapter
+public sealed class IniA300Adapter : AircraftAdapterBase
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
+    public override bool CanRemoveAndPlaceGroundEquipment => true;
+    public override bool canRemoveCovers => true;
+
     private SimConnect? _sc;
 
-    public void OnSimConnectConnected(SimConnect sc)
+    public override void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
 
@@ -32,8 +35,6 @@ public sealed class IniA300Adapter : IAircraftAdapter
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A300CargoDoor);
     }
 
-    public void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data) { }
-
     private void RemoveGroundEquipment()
     {
         if (_sc == null) return;
@@ -43,7 +44,7 @@ public sealed class IniA300Adapter : IAircraftAdapter
         WriteSimVar(SimDef.A300Gpu, 0.0);
     }
 
-    private Task PlaceGroundEquipmentAndChocks()
+    private Task PlaceGroundEquipment()
     {
         if (_sc == null) return Task.CompletedTask;
         Logger.Info("IniA300Adapter: Placing Chocks and GPU");
@@ -54,57 +55,57 @@ public sealed class IniA300Adapter : IAircraftAdapter
         return Task.CompletedTask;
     }
 
-    public Task OnSpawned()
+    public override Task OnSpawned()
     {
         Logger.Debug($"IniA300Adapter: removing covers ({A300Constants.LVar_Covers} = 0)");
         WriteSimVar(SimDef.A300Covers, 0.0);
         return Task.CompletedTask;
     }
 
-    public Task OnBoardingRequested() { return Task.CompletedTask; }
+    public override Task OnBoardingRequested() { return Task.CompletedTask; }
 
-    public Task OnBoardingActive()
+    public override Task OnBoardingActive()
     {
         Logger.Debug($"IniA300Adapter: opening main cargo door ({A300Constants.LVar_CargoDoor} = 100)");
         WriteSimVar(SimDef.A300CargoDoor, 100.0);
         return Task.CompletedTask;
     }
 
-    public Task OnBoardingCompleted()
+    public override Task OnBoardingCompleted()
     {
         Logger.Debug($"IniA300Adapter: closing main cargo door ({A300Constants.LVar_CargoDoor} = 0)");
         WriteSimVar(SimDef.A300CargoDoor, 0.0);
         return Task.CompletedTask;
     }
 
-    public Task OnDeboardingRequested() { return Task.CompletedTask; }
+    public override Task OnDeboardingRequested() { return Task.CompletedTask; }
 
-    public Task OnDeboardingActive()
+    public override Task OnDeboardingActive()
     {
         Logger.Debug($"IniA300Adapter: opening main cargo door ({A300Constants.LVar_CargoDoor} = 100)");
         WriteSimVar(SimDef.A300CargoDoor, 100.0);
         return Task.CompletedTask;
     }
 
-    public Task OnDeboardingCompleted()
+    public override Task OnDeboardingCompleted()
     {
         Logger.Debug($"IniA300Adapter: closing main cargo door ({A300Constants.LVar_CargoDoor} = 0)");
         WriteSimVar(SimDef.A300CargoDoor, 0.0);
         return Task.CompletedTask;
     }
 
-    public Task OnBeforePushbackAsync()
+    public override Task OnBeforePushback()
     {
         RemoveGroundEquipment();
         return Task.CompletedTask;
     }
 
-    public Task OnBeforeDeboardingAsync()
+    public override Task OnBeforeDeboarding()
     {
-        return PlaceGroundEquipmentAndChocks();
+        return PlaceGroundEquipment();
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _sc = null;
         Logger.Debug("IniA300Adapter: disposed");
