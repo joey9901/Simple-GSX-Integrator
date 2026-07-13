@@ -25,6 +25,8 @@ public static class AircraftAdapterMatcher
 
         if (Has(aircraftPath, "TFDi_Design_MD-11")) return Adapter("TFDi MD-11", new TfdiMd11Adapter());
 
+        if (Has(aircraftPath, "FSLabs")) return Adapter("FSLabs A32NX", new FSLabsA320Adapter());
+
         if (Has(aircraftPath, "FlyByWire", "A380")) return Native("FlyByWire A380", new FbwA380Adapter());
         if (Has(aircraftPath, "FlyByWire", "A320")) return Native("FlyByWire A320", new FbwA380Adapter());
 
