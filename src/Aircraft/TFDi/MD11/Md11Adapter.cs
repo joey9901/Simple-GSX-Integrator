@@ -11,7 +11,8 @@ internal sealed class Md11Adapter : AircraftAdapterBase
 
     private SimConnect? _sc;
 
-    public override string ParkingBrakeVariable => Md11Constants.LVar_ParkingBrake;
+    public override string parkingBrakeVariable => Md11Constants.LVar_ParkingBrake;
+    public override bool canRemoveAndPlaceGroundEquipment => true;
 
     public override void OnSimConnectConnected(SimConnect sc)
     {

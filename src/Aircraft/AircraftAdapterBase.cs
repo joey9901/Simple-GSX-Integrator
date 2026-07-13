@@ -4,17 +4,18 @@ namespace SimpleGsxIntegrator.Aircraft;
 
 public abstract class AircraftAdapterBase : IAircraftAdapter
 {
-    public virtual bool CanRemoveAndPlaceGroundEquipment { get; set; } = false;
+    public virtual bool canRemoveAndPlaceGroundEquipment { get; set; } = false;
     public virtual bool canRemoveCovers { get; set; } = false;
+    public virtual bool canCloseDoors { get; set; } = false;
 
     public virtual bool removeCovers { get; set; } = false;
 
-    public virtual string ParkingBrakeVariable => "BRAKE PARKING INDICATOR";
-    public virtual string BeaconLightVariable => "LIGHT BEACON";
-    public virtual string Engine1RunningVariable => "GENERAL ENG COMBUSTION:1";
-    public virtual string Engine2RunningVariable => "GENERAL ENG COMBUSTION:2";
-    public virtual string Engine3RunningVariable => "GENERAL ENG COMBUSTION:3";
-    public virtual string Engine4RunningVariable => "GENERAL ENG COMBUSTION:4";
+    public virtual string parkingBrakeVariable => "BRAKE PARKING INDICATOR";
+    public virtual string beaconLightVariable => "LIGHT BEACON";
+    public virtual string engine1RunningVariable => "GENERAL ENG COMBUSTION:1";
+    public virtual string engine2RunningVariable => "GENERAL ENG COMBUSTION:2";
+    public virtual string engine3RunningVariable => "GENERAL ENG COMBUSTION:3";
+    public virtual string engine4RunningVariable => "GENERAL ENG COMBUSTION:4";
 
     public virtual void OnSimConnectConnected(SimConnect sc) { }
 

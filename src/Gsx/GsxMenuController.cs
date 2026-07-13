@@ -17,7 +17,6 @@ public sealed class GsxMenuController
     private const int MenuCloseDelayMs = 800;
 
     private SimConnect? _sc;
-    private bool _operatorAutoSelected;
     private string? _gsxMenuFilePath;
     private string _liveryName = string.Empty;
 
@@ -60,7 +59,6 @@ public sealed class GsxMenuController
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
-        _operatorAutoSelected = false;
 
         sc.AddToDataDefinition(SimDef.GsxMenuOpen, GsxConstants.MenuOpen, null,
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
@@ -90,12 +88,12 @@ public sealed class GsxMenuController
 
     public Task CallPushbackAsync()
     {
-        return CallServiceAsync("Pushback", MenuItemPushback, closeAfter: false);
+        return CallServiceAsync("Push-back", MenuItemPushback, closeAfter: false);
     }
 
     public Task CallDeboardingAsync()
     {
-        return CallDeboardingSequenceAsync();
+        return CallServiceAsync("Deboarding", MenuItemDeboarding);
     }
 
     private async Task CallServiceAsync(string name, int menuItem, bool closeAfter = true)
@@ -114,6 +112,21 @@ public sealed class GsxMenuController
         OpenMenu();
         await Task.Delay(MenuOpenDelayMs);
 
+        bool menuItemFound = false;
+        var menuItems = ReadMenuFileLines();
+        foreach (var item in menuItems)
+        {
+            if (item.Contains(name, StringComparison.OrdinalIgnoreCase))
+                menuItemFound = true;
+            Logger.Debug($"GSX menu item: {item}");
+        }
+
+        if (!menuItemFound)
+        {
+            Logger.Debug($"GSX menu item not found {name}");
+            return;
+        }
+
         SelectItem(menuItem);
         await Task.Delay(MenuChoiceDelayMs);
 
@@ -122,36 +135,6 @@ public sealed class GsxMenuController
 
         if (closeAfter)
             CloseMenu();
-    }
-
-    private async Task CallDeboardingSequenceAsync()
-    {
-        if (_sc == null) return;
-
-        Logger.Info("GSX: Calling Deboarding");
-
-        CloseMenu();
-        await Task.Delay(MenuOpenDelayMs);
-
-        OpenMenu();
-        await Task.Delay(MenuOpenDelayMs);
-
-        var menuItems = ReadMenuFileLines();
-        bool deboardingAvailable = menuItems.Any(l => l.Contains("deboard", StringComparison.OrdinalIgnoreCase));
-        if (!deboardingAvailable)
-        {
-            Logger.Warning("GSX: Deboarding not found in menu — No stand is selected.");
-            CloseMenu();
-            return;
-        }
-
-        SelectItem(MenuItemDeboarding);
-        await Task.Delay(MenuChoiceDelayMs);
-
-        SelectItem(DeboardingConfirmItem);
-        await Task.Delay(MenuCloseDelayMs);
-
-        CloseMenu();
     }
 
     private void OpenMenu()
@@ -172,7 +155,16 @@ public sealed class GsxMenuController
 
     private void AutoSelectOperator(string liveryName)
     {
-        if (_operatorAutoSelected) return;
+        var menuLines = ReadMenuFileLines();
+        bool operatorSelection = false;
+        foreach (var menuLine in menuLines)
+        {
+            Logger.Debug(menuLine);
+            if (menuLine.Contains("operator", StringComparison.OrdinalIgnoreCase))
+                operatorSelection = true;
+        }
+
+        if (!operatorSelection) return;
 
         Logger.Debug($"GSX: Selecting operator, livery='{liveryName}'");
 
@@ -194,7 +186,6 @@ public sealed class GsxMenuController
                         {
                             Logger.Debug($"GSX: Selected operator '{operators[i].Trim()}' (matched livery word '{word}', index {i})");
                             WriteVar(SimDef.GsxMenuChoice, (double)i);
-                            _operatorAutoSelected = true;
                             return;
                         }
                     }
@@ -209,7 +200,6 @@ public sealed class GsxMenuController
                     string name = operators[i].Replace("[GSX choice]", "").Trim();
                     Logger.Debug($"GSX: Selected operator '{name}' (Swissport fallback, index {i})");
                     WriteVar(SimDef.GsxMenuChoice, (double)i);
-                    _operatorAutoSelected = true;
                     return;
                 }
             }
@@ -221,7 +211,6 @@ public sealed class GsxMenuController
                     string name = operators[i].Replace("[GSX choice]", "").Trim();
                     Logger.Debug($"GSX: Selected operator '{name}' (GSX default, index {i})");
                     WriteVar(SimDef.GsxMenuChoice, (double)i);
-                    _operatorAutoSelected = true;
                     return;
                 }
             }
@@ -233,7 +222,6 @@ public sealed class GsxMenuController
 
         Logger.Debug("GSX: Selecting operator at index 1 (fallback)");
         WriteVar(SimDef.GsxMenuChoice, 1.0);
-        _operatorAutoSelected = true;
     }
 
     private List<string> ReadMenuFileLines()
@@ -260,10 +248,5 @@ public sealed class GsxMenuController
         {
             Logger.Warning($"GsxMenuController: WriteVar({def}) failed: {ex.Message}");
         }
-    }
-
-    public void ResetOperatorSelection()
-    {
-        _operatorAutoSelected = false;
     }
 }

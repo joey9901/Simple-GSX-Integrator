@@ -444,6 +444,8 @@ public sealed class AutomationManager
         Func<Task> trigger,
         Action? onTimeout = null)
     {
+        if (!_activated || !_gsxMonitor.IsGsxRunning) return;
+
         var state = getState();
         if (state != GsxServiceState.Callable)
         {

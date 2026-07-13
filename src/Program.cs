@@ -145,11 +145,12 @@ internal static class Program
 
         _procWatcher.StartIfMsfsRunning();
 
+        _automationManager.OnSimConnectConnected(sc);
+        _automationManager.CurrentAdapter?.OnSimConnectConnected(sc);
+
         _flightState.OnSimConnectConnected(sc, _automationManager.CurrentAdapter);
         _gsxMonitor.OnSimConnectConnected(sc);
         _gsxMenu.OnSimConnectConnected(sc);
-        _automationManager.OnSimConnectConnected(sc);
-        _automationManager.CurrentAdapter?.OnSimConnectConnected(sc);
 
         try
         {

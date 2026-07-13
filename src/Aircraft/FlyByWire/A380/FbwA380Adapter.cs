@@ -6,5 +6,6 @@ namespace SimpleGsxIntegrator.Aircraft.FlyByWire;
 
 internal sealed class FbwA380Adapter : AircraftAdapterBase
 {
-    public override string ParkingBrakeVariable => "L:A32NX_PARK_BRAKE_LEVER_POS";
+    public override string parkingBrakeVariable => "L:A32NX_PARK_BRAKE_LEVER_POS";
+    public override string beaconLightVariable => "L:LIGHTING_BEACON_0";
 }

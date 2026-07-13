@@ -9,7 +9,7 @@ public sealed class IniA300Adapter : AircraftAdapterBase
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
-    public override bool CanRemoveAndPlaceGroundEquipment => true;
+    public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canRemoveCovers => true;
 
     private SimConnect? _sc;

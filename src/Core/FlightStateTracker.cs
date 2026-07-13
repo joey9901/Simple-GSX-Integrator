@@ -126,6 +126,8 @@ public sealed class FlightStateTracker
 
     private void RegisterFlightStateVars(SimConnect sc, AircraftAdapterBase? adapter = null)
     {
+        sc.ClearDataDefinition(SimDef.FlightState);
+
         AddFlightStateVar(sc, adapter?.BeaconLightVariable ?? "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, adapter?.ParkingBrakeVariable ?? "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, adapter?.Engine1RunningVariable ?? "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);

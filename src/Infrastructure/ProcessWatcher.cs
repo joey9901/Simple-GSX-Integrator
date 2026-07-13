@@ -2,7 +2,7 @@ namespace SimpleGsxIntegrator.Infrastructure;
 
 public sealed class ProcessWatcher : IDisposable
 {
-    private static readonly string[] ProcessNames = { "FlightSimulator", "MSFS" };
+    private static readonly string[] ProcessNames = { "FlightSimulator", "FlightSimulator2024", "Microsoft Flight Simulator", "Microsoft Flight Simulator 2024" };
 
     private const int PollIntervalMs = 5_000;
 

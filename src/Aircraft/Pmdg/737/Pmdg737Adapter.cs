@@ -7,8 +7,11 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
 public sealed class Pmdg737Adapter : AircraftAdapterBase
 {
+    public override bool canRemoveAndPlaceGroundEquipment => true;
+    public override bool canCloseDoors => true;
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
+
     private struct Pmdg737VarsStruct
     {
         // Order must match AddToDataDefinition calls exactly
