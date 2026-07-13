@@ -10,6 +10,9 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canCloseDoors => true;
 
+    public override bool? ChocksSet => _vars.WheelChocks > 0.5;
+    public override int? OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
 
     private struct Pmdg737VarsStruct
@@ -281,6 +284,7 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
     {
         foreach (uint evtCode in Pmdg737Constants.AllDoorIds)
             _doorTracker.Update(evtCode, GetRawDoorValue(evtCode), Pmdg737Constants.GetDoorName(evtCode));
+        NotifyGroundStateChanged();
     }
 
     private void SendPmdgEvent(uint evtCode, uint param)

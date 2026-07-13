@@ -1,3 +1,5 @@
+using SimpleGsxIntegrator.Aircraft;
+
 namespace SimpleGsxIntegrator.Config;
 
 public static class ConfigManager
@@ -9,26 +11,44 @@ public static class ConfigManager
 
     public static AppConfig GetConfig() => _config;
 
+    private static string NormalizeTitle(string title) =>
+        AircraftAdapterMatcher.TryGetFamilyForTitle(title) ?? title;
+
     public static AircraftConfig GetAircraftConfig(string aircraftTitle)
     {
         if (string.IsNullOrWhiteSpace(aircraftTitle))
             return new AircraftConfig();
 
-        if (!_config.Aircraft.TryGetValue(aircraftTitle, out var cfg))
+        var normalized = NormalizeTitle(aircraftTitle);
+
+        if (_config.Aircraft.TryGetValue(normalized, out var cfg))
+            return cfg;
+
+        // Migrate any legacy entry whose raw title resolves to the same family
+        var legacyKey = _config.Aircraft.Keys
+            .FirstOrDefault(k => NormalizeTitle(k) == normalized);
+
+        if (legacyKey != null)
         {
-            cfg = new AircraftConfig();
-            _config.Aircraft[aircraftTitle] = cfg;
+            cfg = _config.Aircraft[legacyKey];
+            _config.Aircraft.Remove(legacyKey);
+            _config.Aircraft[normalized] = cfg;
             WriteFile(_config);
-            Logger.Debug($"ConfigManager: created default config for '{aircraftTitle}'");
+            Logger.Debug($"ConfigManager: migrated '{legacyKey}' → '{normalized}'");
+            return cfg;
         }
 
+        cfg = new AircraftConfig();
+        _config.Aircraft[normalized] = cfg;
+        WriteFile(_config);
+        Logger.Debug($"ConfigManager: created default config for '{normalized}'");
         return cfg;
     }
 
     public static void SaveAircraftConfig(string aircraftTitle, AircraftConfig cfg)
     {
         if (string.IsNullOrWhiteSpace(aircraftTitle)) return;
-        _config.Aircraft[aircraftTitle] = cfg;
+        _config.Aircraft[NormalizeTitle(aircraftTitle)] = cfg;
         WriteFile(_config);
     }
 
@@ -40,7 +60,15 @@ public static class ConfigManager
 
     public static IReadOnlyList<string> GetSavedAircraftTitles()
     {
-        return _config.Aircraft.Keys.OrderBy(k => k).ToList();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<string>();
+        foreach (var key in _config.Aircraft.Keys.OrderBy(k => k))
+        {
+            var normalized = NormalizeTitle(key);
+            if (seen.Add(normalized))
+                result.Add(normalized);
+        }
+        return result;
     }
 
     private static AppConfig Load()

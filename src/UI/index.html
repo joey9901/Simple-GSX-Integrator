@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Simple GSX Integrator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div id="update-banner" class="hidden">
+        <span class="update-text">Update available</span>
+        <div id="update-progress">
+            <div id="update-progress-fill"></div>
+        </div>
+        <button id="btn-download" class="btn-gold">Download</button>
+    </div>
+
+    <header>
+        <div>
+            <div class="header-title">Simple GSX Integrator</div>
+            <div class="header-version" id="app-version">v1.4.3</div>
+        </div>
+        <div id="aircraft-name" class="header-aircraft">No aircraft loaded</div>
+        <button id="btn-settings" class="btn-icon" title="Aircraft settings">⚙</button>
+    </header>
+
+    <div id="status-bar">
+        <div class="pill" id="pill-simconnect">
+            <div class="dot"></div>
+            <span class="label">SimConnect: Offline</span>
+        </div>
+        <div class="pill" id="pill-gsx">
+            <div class="dot"></div>
+            <span class="label">GSX: Offline</span>
+        </div>
+        <div class="pill" id="pill-system">
+            <div class="dot"></div>
+            <span class="label">System: Inactive</span>
+        </div>
+    </div>
+
+    <main>
+
+        <div>
+            <div class="section-label">Aircraft State</div>
+            <div id="aircraft-state">
+
+                <div class="state-chip" id="chip-brake">
+                    <div class="icon brake-icon">P</div>
+                    <div>
+                        <div class="label">Parking Brake</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip" id="chip-beacon">
+                    <div class="icon">💡</div>
+                    <div>
+                        <div class="label">Beacon</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip" id="chip-engines">
+                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777"/><rect x="7" y="2" width="4" height="5" rx="1" fill="#999"/><rect x="13" y="2" width="4" height="5" rx="1" fill="#999"/><rect x="0" y="8" width="5" height="4" rx="1" fill="#888"/><rect x="19" y="8" width="5" height="4" rx="1" fill="#888"/></svg></div>
+                    <div>
+                        <div class="label">Engines</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div>
+            <div class="section-label">Services</div>
+            <div id="services">
+
+                <div class="service-card unmet" id="card-boarding">
+                    <div class="card-header">
+                        <span class="card-title">Boarding / Catering / Refueling</span>
+                        <span class="card-status">Unknown</span>
+                    </div>
+                    <div class="card-body"></div>
+                </div>
+
+                <div class="service-card unmet" id="card-pushback">
+                    <div class="card-header">
+                        <span class="card-title">Pushback</span>
+                        <span class="card-status">Unknown</span>
+                    </div>
+                    <div class="card-body"></div>
+                </div>
+
+                <div class="service-card unmet" id="card-deboard">
+                    <div class="card-header">
+                        <span class="card-title">Deboarding</span>
+                        <span class="card-status">Unknown</span>
+                    </div>
+                    <div class="card-body"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="section-ground" class="hidden">
+            <div class="section-label">Ground Equipment</div>
+            <div id="ground-equip">
+
+                <div class="state-chip" id="chip-chocks">
+                    <div class="icon">🔒</div>
+                    <div>
+                        <div class="label">Chocks</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip" id="chip-gpu">
+                    <div class="icon">⚡</div>
+                    <div>
+                        <div class="label">GPU</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip hidden" id="chip-doors-open">
+                    <div class="icon">🚪</div>
+                    <div>
+                        <div class="label">Doors</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div>
+            <div class="section-label">Hotkeys — click to rebind</div>
+            <div id="hotkeys">
+                <div class="hotkey-item">
+                    <span class="key-label">Activation</span>
+                    <div id="hotkey-activation" class="hotkey-badge">—</div>
+                </div>
+                <div class="hotkey-item">
+                    <span class="key-label">Reset</span>
+                    <div id="hotkey-reset" class="hotkey-badge">—</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <div id="modal-overlay" class="modal-overlay hidden">
+
+        <div id="modal-picker" class="modal hidden">
+            <div class="modal-header">
+                <span class="modal-title">Select Aircraft</span>
+                <button class="modal-close" id="picker-close">✕</button>
+            </div>
+            <div id="picker-list" class="picker-list"></div>
+            <div class="modal-footer">
+                <button id="picker-ok" class="btn-gold">Configure</button>
+                <button id="picker-cancel" class="btn-dim">Cancel</button>
+            </div>
+        </div>
+
+        <div id="modal-config" class="modal hidden">
+            <div class="modal-header">
+                <span class="modal-title" id="config-title">Aircraft Configuration</span>
+                <button class="modal-close" id="config-close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="cfg-section-label">Service Options</div>
+                <label class="cfg-row"><input type="checkbox" id="chkRefuel"><span>Refuel before boarding</span></label>
+                <label class="cfg-row"><input type="checkbox" id="chkCatering"><span>Catering on new
+                        flight</span></label>
+                <label class="cfg-row"><input type="checkbox" id="chkCrewComms"><span>Realistic crew
+                        comms</span></label>
+
+                <div id="cfg-aircraft-section" class="hidden">
+                    <div class="cfg-section-label" style="margin-top:14px">Aircraft Settings</div>
+                    <label class="cfg-row hidden" id="rowGpu"><input type="checkbox" id="chkGpu"><span>Manage ground
+                            equipment (GPU / stairs)</span></label>
+                    <label class="cfg-row hidden" id="rowCovers"><input type="checkbox" id="chkCovers"><span>Remove
+                            covers and pins</span></label>
+                    <label class="cfg-row hidden" id="rowDoors"><input type="checkbox" id="chkDoors"><span>Auto-close
+                            doors after boarding</span></label>
+                </div>
+
+                <div class="cfg-section-label" style="margin-top:14px">Activation Trigger</div>
+                <div class="cfg-row">
+                    <span>LVar name</span>
+                    <input type="text" id="inpLvar" class="cfg-input" placeholder="e.g. SWITCH_1">
+                </div>
+                <div class="cfg-row">
+                    <span>Value</span>
+                    <input type="number" id="inpValue" class="cfg-input" style="width:80px" step="0.1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="config-save" class="btn-gold">Save</button>
+                <button id="config-cancel" class="btn-dim">Cancel</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

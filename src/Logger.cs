@@ -6,7 +6,6 @@ public static class Logger
     private static string? _logFilePath;
     private static readonly List<(string line, LogLevel level)> _buffer = new();
     private const int MaxBufferSize = 1000;
-    public static MainForm? MainForm { get; set; }
     public static bool ShowDebugInUi { get; set; } = false;
 
     public enum LogLevel
@@ -30,15 +29,6 @@ public static class Logger
         WriteToFile("=".PadRight(80, '='));
         WriteToFile($"Session started at {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
         WriteToFile("=".PadRight(80, '='));
-        WriteToFile("");
-    }
-
-    public static void SessionEnd()
-    {
-        WriteToFile("");
-        WriteToFile("-".PadRight(80, '-'));
-        WriteToFile($"Session ended at {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-        WriteToFile("-".PadRight(80, '-'));
         WriteToFile("");
     }
 
@@ -88,24 +78,7 @@ public static class Logger
             if (_buffer.Count > MaxBufferSize)
                 _buffer.RemoveAt(0);
 
-            if (level != LogLevel.Debug || ShowDebugInUi)
-                MainForm?.AppendLog(logLine);
-
             WriteToFile(logLine);
-        }
-    }
-
-    public static void RepopulateUiLog()
-    {
-        if (MainForm == null) return;
-        lock (_lock)
-        {
-            MainForm.ClearLog();
-            foreach (var (line, level) in _buffer)
-            {
-                if (level != LogLevel.Debug || ShowDebugInUi)
-                    MainForm.AppendLog(line);
-            }
         }
     }
 

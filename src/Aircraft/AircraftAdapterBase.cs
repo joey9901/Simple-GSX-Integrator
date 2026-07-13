@@ -17,6 +17,12 @@ public abstract class AircraftAdapterBase : IAircraftAdapter
     public virtual string engine3RunningVariable => "GENERAL ENG COMBUSTION:3";
     public virtual string engine4RunningVariable => "GENERAL ENG COMBUSTION:4";
 
+    public virtual bool? ChocksSet => null;
+    public virtual bool? GpuConnected => null;
+    public virtual int? OpenDoorCount => null;
+    public event Action? GroundStateChanged;
+    protected void NotifyGroundStateChanged() => GroundStateChanged?.Invoke();
+
     public virtual void OnSimConnectConnected(SimConnect sc) { }
 
     public virtual void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data) { }

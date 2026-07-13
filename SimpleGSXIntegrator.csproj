@@ -20,7 +20,12 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishDir>release\</PublishDir>
+    <NoWarn>MSB3277</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2849.39" />
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Installer\**" />
@@ -46,6 +51,13 @@
     <None Update="logo.ico">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="src\UI\**\*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <TargetPath>ui\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
   </ItemGroup>
 
 </Project>

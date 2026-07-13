@@ -12,6 +12,11 @@ public sealed class IniA330Adapter : AircraftAdapterBase
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canRemoveCovers => true;
 
+    private bool? _chocksSet;
+    private bool? _gpuConnected;
+    public override bool? ChocksSet => _chocksSet;
+    public override bool? GpuConnected => _gpuConnected;
+
     private SimConnect? _sc;
 
     public override void OnSimConnectConnected(SimConnect sc)
@@ -42,6 +47,8 @@ public sealed class IniA330Adapter : AircraftAdapterBase
         WriteSimVar(SimDef.A330Chocks, 0.0);
         Logger.Debug("IniA330Adapter: removing GPU (L:INI_GPU_AVAIL = 0)");
         WriteSimVar(SimDef.A330Gpu, 0.0);
+        _chocksSet = false; _gpuConnected = false;
+        NotifyGroundStateChanged();
     }
 
     private Task PlaceGroundEquipment()
@@ -52,6 +59,8 @@ public sealed class IniA330Adapter : AircraftAdapterBase
         WriteSimVar(SimDef.A330Chocks, 1.0);
         Logger.Debug("IniA330Adapter: placing GPU (L:INI_GPU_AVAIL = 1)");
         WriteSimVar(SimDef.A330Gpu, 1.0);
+        _chocksSet = true; _gpuConnected = true;
+        NotifyGroundStateChanged();
         return Task.CompletedTask;
     }
 

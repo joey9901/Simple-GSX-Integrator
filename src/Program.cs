@@ -18,13 +18,18 @@ internal static class Program
     private static AutomationManager _automationManager = null!;
     private static HotkeyListener _hotkeys = null!;
     private static ProcessWatcher _procWatcher = null!;
-    private static MainForm _mainForm = null!;
+    private static MainWindow _MainWindow = null!;
     private static System.Windows.Forms.Timer _simConnectTimer = null!;
 
     private static SimConnect? _sc;
 
     public static string CurrentAircraftPath { get; private set; } = string.Empty;
-
+    public static string CurrentAircraftTitle { get; private set; } = string.Empty;
+    public static bool IsSimConnectConnected => _manager?.IsConnected ?? false;
+    public static bool IsGsxRunning => _gsxMonitor?.IsGsxRunning ?? false;
+    public static bool IsSystemActive => _automationManager?.IsActivated ?? false;
+    private static string? _resolvedDisplayName;
+    private static string _rawAircraftTitle = string.Empty;
     private static Mutex? _singleInstanceMutex;
     private static bool _closeWithSim;
 
@@ -48,8 +53,7 @@ internal static class Program
 
         var cfg = ConfigManager.GetConfig();
 
-        _mainForm = new MainForm();
-        Logger.MainForm = _mainForm;
+        _MainWindow = new MainWindow();
 
         if (_closeWithSim) Logger.Debug("Close-with-sim flag active — app will exit when MSFS closes.");
 
@@ -82,23 +86,26 @@ internal static class Program
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
+        _gsxMonitor.BoardingStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "boarding", status = s.ToString().ToLower() }));
+        _gsxMonitor.DeboardingStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "deboard", status = s.ToString().ToLower() }));
+        _gsxMonitor.PushbackStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "pushback", status = s.ToString().ToLower() }));
+        _gsxMonitor.RefuelingStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "boarding", status = s.ToString().ToLower() }));
+        _gsxMonitor.CateringStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "boarding", status = s.ToString().ToLower() }));
 
         _hotkeys.ActivationPressed += OnActivationKeyPressed;
         _hotkeys.ResetPressed += OnResetKeyPressed;
 
         _procWatcher.MsfsExited += OnMsfsExited;
 
-        _mainForm.Show();
-        _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
-        _mainForm.Invoke(() => _mainForm.SetSystemStatus(false));
-        _mainForm.Invoke(() => SyncHotkeyLabels());
+        _MainWindow.Show();
+        Logger.Debug("UI window shown.");
 
         TryConnectSimConnect();
 
         _simConnectTimer = new System.Windows.Forms.Timer { Interval = 50, Enabled = true };
         _simConnectTimer.Tick += OnSimConnectTimerTick;
 
-        Application.Run(_mainForm);
+        Application.Run(_MainWindow);
     }
 
     private static CancellationTokenSource? _retryConnectCts;
@@ -112,14 +119,13 @@ internal static class Program
         Logger.Debug("Attempting SimConnect Connection…");
         try
         {
-            _manager.Connect(_mainForm.Handle);
-            _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(true));
+            _manager.Connect(_MainWindow.Handle);
             Logger.Debug("SimConnect connected.");
+            _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = true }));
         }
         catch (COMException ex)
         {
             Logger.Debug($"SimConnect not available ({ex.Message}). Will retry when MSFS is running.");
-            _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
             Task.Run(async () =>
             {
                 while (!token.IsCancellationRequested && !_manager.IsConnected)
@@ -128,9 +134,9 @@ internal static class Program
                     if (token.IsCancellationRequested) return;
                     try
                     {
-                        _manager.Connect(_mainForm.Handle);
-                        _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(true));
+                        _manager.Connect(_MainWindow.Handle);
                         Logger.Debug("SimConnect reconnected.");
+                        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = true }));
                     }
                     catch { }
                 }
@@ -166,10 +172,11 @@ internal static class Program
     {
         _sc = null;
         _simConnectTimer?.Stop();
-        _mainForm.Invoke(() => _mainForm.SetSimConnectStatus(false));
-        _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
+        _resolvedDisplayName = null;
         _automationManager.SetCurrentAdapter(null);
         Logger.Debug("SimConnect disconnected.");
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = false }));
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = false }));
         _manager.Disconnect();
         TryConnectSimConnect();
     }
@@ -193,23 +200,49 @@ internal static class Program
         Logger.Debug($"Aircraft loaded: {aircraftPath}");
 
         LoadAdapterForAircraft(aircraftPath);
+
+        // Correct the display name in case AircraftChanged fired before the path resolved.
+        // _resolvedDisplayName was just set by LoadAdapterForAircraft; recompute the title.
+        if (!string.IsNullOrEmpty(_rawAircraftTitle))
+        {
+            var correct = _resolvedDisplayName ?? AircraftAdapterMatcher.TryGetFamilyForTitle(_rawAircraftTitle) ?? _rawAircraftTitle;
+            if (correct != CurrentAircraftTitle)
+            {
+                CurrentAircraftTitle = correct;
+                _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = CurrentAircraftTitle }));
+            }
+        }
     }
 
     private static void OnActivationChanged(bool isActive)
     {
-        _mainForm.Invoke(() =>
-        {
-            _mainForm.SetSystemStatus(isActive);
-            _mainForm.SetCurrentAircraft(_flightState.AircraftTitle, isActive);
-        });
+        Logger.Debug($"Activation changed: {isActive}");
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "system", active = isActive }));
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = CurrentAircraftTitle }));
     }
 
     private static void OnAircraftTitleChanged(string title)
     {
-        _mainForm.Invoke(() => _mainForm.SetCurrentAircraft(title, _automationManager.IsActivated));
-        RefreshAircraftStateDetails();
-        // Re-request the full aircraft .cfg path so we can match the correct adapter.
-        // The title alone (e.g. "777F") is not enough for adapter matching.
+        _rawAircraftTitle = title;
+        var displayTitle = _resolvedDisplayName ?? AircraftAdapterMatcher.TryGetFamilyForTitle(title) ?? title;
+        CurrentAircraftTitle = displayTitle;
+
+        var adapter = _automationManager.CurrentAdapter;
+        // Create config entry for any recognized aircraft (displayTitle was normalized from path/family),
+        // not just those with a custom adapter — ensures native integrations appear in the picker.
+        if (adapter != null || displayTitle != title)
+        {
+            var cfg = ConfigManager.GetAircraftConfig(displayTitle);
+            if (adapter != null)
+            {
+                adapter.removeCovers = cfg.RemoveCovers && adapter.canRemoveCovers;
+                if (!cfg.ManageGroundEquipment) adapter.canRemoveAndPlaceGroundEquipment = false;
+                if (!cfg.CloseDoors) adapter.canCloseDoors = false;
+            }
+        }
+
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
+        _MainWindow.Invoke(() => RefreshAircraftStateDetails());
         try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
         catch { }
     }
@@ -230,7 +263,7 @@ internal static class Program
     {
         Logger.Warning("MSFS process no longer detected - exiting.");
         _retryConnectCts?.Cancel();
-        _mainForm.Invoke(() => Application.Exit());
+        Application.Exit();
     }
 
     private static void OnSimConnectTimerTick(object? sender, EventArgs e)
@@ -246,27 +279,49 @@ internal static class Program
 
     private static void OnGsxStarted()
     {
-        _mainForm.Invoke(() => _mainForm.SetGsxStatus(true));
+        Logger.Debug("GSX started.");
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = true }));
+    }
+
+    private static void OnGroundStateChanged()
+    {
+        var adapter = _automationManager.CurrentAdapter;
+        SendGroundEquipState(adapter);
+    }
+
+    private static void SendGroundEquipState(AircraftAdapterBase? adapter)
+    {
+        // Use _resolvedDisplayName (just set by LoadAdapterForAircraft) rather than CurrentAircraftTitle,
+        // which may still hold the previous aircraft's name during an aircraft switch.
+        var caps = AircraftAdapterMatcher.GetCapabilitiesForTitle(_resolvedDisplayName ?? CurrentAircraftTitle);
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new
+        {
+            type = "groundEquip",
+            canManageGroundEquipment = caps.CanManageGroundEquipment,
+            showDoors = caps.CanCloseDoors,
+            chocks = adapter?.ChocksSet,
+            gpu = adapter?.GpuConnected,
+            openDoors = adapter?.OpenDoorCount,
+        }));
     }
 
     private static void OnGsxStopped()
     {
-        _mainForm.Invoke(() => _mainForm.SetGsxStatus(false));
+        Logger.Debug("GSX stopped.");
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = false }));
     }
 
     private static void OnSimulatorQuit()
     {
-        _mainForm.Invoke(() =>
+        if (_closeWithSim)
         {
-            _mainForm.SetSimConnectStatus(false);
-            _mainForm.SetGsxStatus(false);
-
-            if (_closeWithSim)
-            {
-                Logger.Debug("Simulator quit — closing with sim (--close-with-sim flag active).");
-                Application.Exit();
-            }
-        });
+            Logger.Debug("Simulator quit — closing with sim (--close-with-sim flag active).");
+            Application.Exit();
+        }
+        else
+        {
+            Logger.Debug("Simulator quit.");
+        }
     }
 
     private static void LoadAdapterForAircraft(string aircraftPath)
@@ -277,14 +332,22 @@ internal static class Program
 
         Logger.Debug("Aircraft path: " + aircraftPath);
 
-        // Skip if we already have the same adapter type running to avoid double-registration.
+        _resolvedDisplayName = match.Kind != AircraftAdapterMatcher.MatchKind.Unknown ? match.DisplayName : null;
+
         if (match.Adapter?.GetType() == _automationManager.CurrentAdapter?.GetType() && _automationManager.CurrentAdapter != null)
         {
             Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPath}', skipping.");
             return;
         }
 
+        var prevAdapter = _automationManager.CurrentAdapter;
+        if (prevAdapter != null) prevAdapter.GroundStateChanged -= OnGroundStateChanged;
         _automationManager.SetCurrentAdapter(match.Adapter);
+        if (match.Adapter != null) match.Adapter.GroundStateChanged += OnGroundStateChanged;
+
+        // Reset ground equip section; adapters that poll (PMDG) will re-populate via event within a few seconds.
+        // Adapters that write (A330) will populate on next place/remove operation.
+        SendGroundEquipState(match.Adapter);
 
         if (_sc != null && match.Adapter != null)
         {
@@ -308,9 +371,9 @@ internal static class Program
 
             case AircraftAdapterMatcher.MatchKind.NativeIntegration:
                 Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
-                if (_sc != null)
+                if (_sc != null && match.Adapter != null)
                 {
-                    Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
+                    Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter.GetType().Name}' with Active SimConnect.");
                     match.Adapter.OnSimConnectConnected(_sc);
                 }
                 break;
@@ -332,9 +395,9 @@ internal static class Program
 
     public static void RegisterActivationForCurrentAircraft()
     {
-        if (_sc == null || string.IsNullOrEmpty(_flightState.AircraftTitle)) return;
+        if (_sc == null || string.IsNullOrEmpty(CurrentAircraftTitle)) return;
 
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(CurrentAircraftTitle);
         if (!string.IsNullOrEmpty(cfg.ActivationLvar))
         {
             _flightState.SetActivationLvar(_sc, cfg.ActivationLvar);
@@ -375,7 +438,6 @@ internal static class Program
         }
 
         ConfigManager.Save(cfg);
-        SyncHotkeyLabels();
         Logger.Info($"Hotkey '{hotkeyType}' updated to '{hotkeyString}'.");
     }
 
@@ -384,18 +446,19 @@ internal static class Program
     private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnEnginesEverRunChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
 
+    public static void RefreshDisplayState() => RefreshAircraftStateDetails();
+    public static void RefreshGroundEquipState() => SendGroundEquipState(_automationManager?.CurrentAdapter);
+
     private static void RefreshAircraftStateDetails()
     {
-        _mainForm.Invoke(() => _mainForm.UpdateServiceConditions(
-            _flightState.BeaconOn,
-            _flightState.EngineOn,
-            _flightState.ParkingBrake,
-            _flightState.HasEnginesEverRun));
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new
+        {
+            type = "state",
+            beaconOn = _flightState.BeaconOn,
+            enginesOn = _flightState.EngineOn,
+            parkingBrake = _flightState.ParkingBrake,
+            enginesEverRan = _flightState.HasEnginesEverRun
+        }));
     }
 
-    private static void SyncHotkeyLabels()
-    {
-        var cfg = ConfigManager.GetConfig();
-        _mainForm.SetHotkeys(cfg.Hotkeys.ActivationKey, cfg.Hotkeys.ResetKey);
-    }
 }

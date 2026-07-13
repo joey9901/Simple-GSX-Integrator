@@ -10,6 +10,10 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canCloseDoors => true;
 
+    public override bool? ChocksSet => _vars.WheelChocks > 0.5;
+    public override bool? GpuConnected => _vars.ExtPwrSec > 0.5 || _vars.ExtPwrPrim > 0.5;
+    public override int? OpenDoorCount => Pmdg777Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
+
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct Pmdg777VarsStruct
     {
@@ -271,6 +275,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     {
         foreach (uint evtCode in Pmdg777Constants.AllDoorIds)
             _doorTracker.Update(evtCode, GetRawDoorValue(evtCode), Pmdg777Constants.GetDoorName(evtCode));
+        NotifyGroundStateChanged();
     }
 
     private void SendPmdgEvent(uint evtCode, uint param)
