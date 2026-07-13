@@ -4,14 +4,14 @@ using System.Runtime.InteropServices;
 
 namespace SimpleGsxIntegrator.Aircraft.TFDi;
 
-internal sealed class Md11Adapter : AircraftAdapterBase
+internal sealed class TfdiMd11Adapter : AircraftAdapterBase
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
     private SimConnect? _sc;
 
-    public override string parkingBrakeVariable => Md11Constants.LVar_ParkingBrake;
+    public override string parkingBrakeVariable => TfdiMd11Constants.LVar_ParkingBrake;
     public override bool canRemoveAndPlaceGroundEquipment => true;
 
     public override void OnSimConnectConnected(SimConnect sc)
@@ -19,11 +19,11 @@ internal sealed class Md11Adapter : AircraftAdapterBase
         _sc = sc;
 
         sc.AddToDataDefinition(SimDef.Md11Chocks,
-            Md11Constants.LVar_Chocks, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+            TfdiMd11Constants.LVar_Chocks, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.Md11Chocks);
 
         sc.AddToDataDefinition(SimDef.Md11Gpu,
-            Md11Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+            TfdiMd11Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.Md11Gpu);
     }
 

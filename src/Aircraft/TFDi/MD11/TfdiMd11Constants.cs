@@ -1,6 +1,6 @@
 namespace SimpleGsxIntegrator.Aircraft.TFDi;
 
-internal static class Md11Constants
+internal static class TfdiMd11Constants
 {
     public const string LVar_ParkingBrake = "L:MD11_THR_PARK_LT";
 

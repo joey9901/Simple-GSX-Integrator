@@ -128,12 +128,12 @@ public sealed class FlightStateTracker
     {
         sc.ClearDataDefinition(SimDef.FlightState);
 
-        AddFlightStateVar(sc, adapter?.BeaconLightVariable ?? "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, adapter?.ParkingBrakeVariable ?? "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, adapter?.Engine1RunningVariable ?? "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, adapter?.Engine2RunningVariable ?? "GENERAL ENG COMBUSTION:2", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, adapter?.Engine3RunningVariable ?? "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
-        AddFlightStateVar(sc, adapter?.Engine4RunningVariable ?? "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.beaconLightVariable ?? "LIGHT BEACON", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.parkingBrakeVariable ?? "BRAKE PARKING INDICATOR", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.engine1RunningVariable ?? "GENERAL ENG COMBUSTION:1", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.engine2RunningVariable ?? "GENERAL ENG COMBUSTION:2", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.engine3RunningVariable ?? "GENERAL ENG COMBUSTION:3", "Bool", SIMCONNECT_DATATYPE.INT32);
+        AddFlightStateVar(sc, adapter?.engine4RunningVariable ?? "GENERAL ENG COMBUSTION:4", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "SIM ON GROUND", "Bool", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "CAMERA STATE", "Number", SIMCONNECT_DATATYPE.INT32);
         AddFlightStateVar(sc, "USER INPUT ENABLED", "Bool", SIMCONNECT_DATATYPE.INT32);
