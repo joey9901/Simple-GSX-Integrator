@@ -7,8 +7,10 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
 public sealed class Pmdg737Adapter : AircraftAdapterBase
 {
+    public override string DisplayName => "PMDG B737";
+    public override string[] TitleKeywords => ["PMDG", "737"];
     public override bool canRemoveAndPlaceGroundEquipment => true;
-    public override bool canCloseDoors => true;
+    public override bool canManageDoors => true;
 
     public override bool? ChocksSet => _vars.WheelChocks > 0.5;
     public override int? OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
@@ -144,6 +146,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     private async Task CloseAllOpenDoorsAsync()
     {
+        if (!manageDoors) return;
+
         var open = Pmdg737Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
 
         if (open.Count == 0)
@@ -193,6 +197,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     private async Task PlaceGroundEquipment()
     {
+        if (!manageGroundEquipment) return;
+
         if (_vars.WheelChocks >= 0.5)
         {
             Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
@@ -210,6 +216,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     private async Task RemoveGroundEquipmentAsync()
     {
+        if (!manageGroundEquipment) return;
+
         if (_vars.WheelChocks <= 0.5)
         {
             Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
@@ -226,29 +234,35 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     public override async Task OnBeforePushback()
     {
-        await RemoveGroundEquipmentAsync();
-        await CloseAllOpenDoorsAsync();
+        if (canRemoveAndPlaceGroundEquipment && manageGroundEquipment) await RemoveGroundEquipmentAsync();
 
-        var deadline = DateTime.UtcNow.AddSeconds(60);
-        while (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds) && DateTime.UtcNow < deadline)
+        if (canManageDoors && manageDoors)
         {
-            await Task.Delay(5_000);
             await CloseAllOpenDoorsAsync();
-        }
 
-        if (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds))
-            Logger.Warning("Pmdg737Adapter: Doors still open after 60s - Proceeding with Pushback");
-        else
-            Logger.Info("Pmdg737Adapter: All Doors Confirmed Closed");
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(5_000);
+                await CloseAllOpenDoorsAsync();
+            }
+
+            if (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds))
+                Logger.Warning("Pmdg737Adapter: Doors still open after 60s - Proceeding with Pushback");
+            else
+                Logger.Info("Pmdg737Adapter: All Doors Confirmed Closed");
+        }
     }
 
     public override Task OnBeforeDeboarding()
     {
+        if (!canRemoveAndPlaceGroundEquipment || !manageGroundEquipment) return Task.CompletedTask;
         return PlaceGroundEquipment();
     }
 
     public override async Task OnBoardingCompleted()
     {
+        if (!canManageDoors || !manageDoors) return;
         await Task.Delay(15_000);
         await CloseAllOpenDoorsAsync();
     }

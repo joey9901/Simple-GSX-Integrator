@@ -76,6 +76,7 @@ internal static class Program
         _manager.SimulatorQuit += OnSimulatorQuit;
 
         _automationManager.ActivationChanged += OnActivationChanged;
+        _automationManager.ServiceTimedOut += key => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = key, status = "failed" }));
 
         _flightState.AircraftChanged += OnAircraftTitleChanged;
 
@@ -83,6 +84,7 @@ internal static class Program
         _flightState.ParkingBrakeChanged += OnParkingBrakeChangedForDisplay;
         _flightState.EngineChanged += OnEngineChangedForDisplay;
         _flightState.EnginesEverRunChanged += OnEnginesEverRunChangedForDisplay;
+        _flightState.HasMovedChanged += OnHasMovedChangedForDisplay;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
@@ -201,11 +203,9 @@ internal static class Program
 
         LoadAdapterForAircraft(aircraftPath);
 
-        // Correct the display name in case AircraftChanged fired before the path resolved.
-        // _resolvedDisplayName was just set by LoadAdapterForAircraft; recompute the title.
         if (!string.IsNullOrEmpty(_rawAircraftTitle))
         {
-            var correct = _resolvedDisplayName ?? AircraftAdapterMatcher.TryGetFamilyForTitle(_rawAircraftTitle) ?? _rawAircraftTitle;
+            var correct = _resolvedDisplayName ?? AircraftAdapterMatcher.FindByTitle(_rawAircraftTitle)?.DisplayName ?? _rawAircraftTitle;
             if (correct != CurrentAircraftTitle)
             {
                 CurrentAircraftTitle = correct;
@@ -224,22 +224,8 @@ internal static class Program
     private static void OnAircraftTitleChanged(string title)
     {
         _rawAircraftTitle = title;
-        var displayTitle = _resolvedDisplayName ?? AircraftAdapterMatcher.TryGetFamilyForTitle(title) ?? title;
+        var displayTitle = _resolvedDisplayName ?? AircraftAdapterMatcher.FindByTitle(title)?.DisplayName ?? title;
         CurrentAircraftTitle = displayTitle;
-
-        var adapter = _automationManager.CurrentAdapter;
-        // Create config entry for any recognized aircraft (displayTitle was normalized from path/family),
-        // not just those with a custom adapter — ensures native integrations appear in the picker.
-        if (adapter != null || displayTitle != title)
-        {
-            var cfg = ConfigManager.GetAircraftConfig(displayTitle);
-            if (adapter != null)
-            {
-                adapter.removeCovers = cfg.RemoveCovers && adapter.canRemoveCovers;
-                if (!cfg.ManageGroundEquipment) adapter.canRemoveAndPlaceGroundEquipment = false;
-                if (!cfg.CloseDoors) adapter.canCloseDoors = false;
-            }
-        }
 
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
         _MainWindow.Invoke(() => RefreshAircraftStateDetails());
@@ -281,6 +267,7 @@ internal static class Program
     {
         Logger.Debug("GSX started.");
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = true }));
+        RefreshServiceStates();
     }
 
     private static void OnGroundStateChanged()
@@ -291,14 +278,11 @@ internal static class Program
 
     private static void SendGroundEquipState(AircraftAdapterBase? adapter)
     {
-        // Use _resolvedDisplayName (just set by LoadAdapterForAircraft) rather than CurrentAircraftTitle,
-        // which may still hold the previous aircraft's name during an aircraft switch.
-        var caps = AircraftAdapterMatcher.GetCapabilitiesForTitle(_resolvedDisplayName ?? CurrentAircraftTitle);
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new
         {
             type = "groundEquip",
-            canManageGroundEquipment = caps.CanManageGroundEquipment,
-            showDoors = caps.CanCloseDoors,
+            canManageGroundEquipment = adapter?.canRemoveAndPlaceGroundEquipment ?? false,
+            showDoors = adapter?.canManageDoors ?? false,
             chocks = adapter?.ChocksSet,
             gpu = adapter?.GpuConnected,
             openDoors = adapter?.OpenDoorCount,
@@ -332,7 +316,7 @@ internal static class Program
 
         Logger.Debug("Aircraft path: " + aircraftPath);
 
-        _resolvedDisplayName = match.Kind != AircraftAdapterMatcher.MatchKind.Unknown ? match.DisplayName : null;
+        _resolvedDisplayName = match.Kind != AircraftAdapterMatcher.MatchKind.Unknown ? match.Adapter?.DisplayName : null;
 
         if (match.Adapter?.GetType() == _automationManager.CurrentAdapter?.GetType() && _automationManager.CurrentAdapter != null)
         {
@@ -343,7 +327,15 @@ internal static class Program
         var prevAdapter = _automationManager.CurrentAdapter;
         if (prevAdapter != null) prevAdapter.GroundStateChanged -= OnGroundStateChanged;
         _automationManager.SetCurrentAdapter(match.Adapter);
-        if (match.Adapter != null) match.Adapter.GroundStateChanged += OnGroundStateChanged;
+        if (match.Adapter != null)
+        {
+            match.Adapter.GroundStateChanged += OnGroundStateChanged;
+            var displayName = match.Adapter.DisplayName;
+            var adapterCfg = ConfigManager.GetAircraftConfig(displayName);
+            match.Adapter.removeCovers = adapterCfg.RemoveCovers;
+            match.Adapter.manageGroundEquipment = adapterCfg.ManageGroundEquipment;
+            match.Adapter.manageDoors = adapterCfg.ManageDoors;
+        }
 
         // Reset ground equip section; adapters that poll (PMDG) will re-populate via event within a few seconds.
         // Adapters that write (A330) will populate on next place/remove operation.
@@ -357,7 +349,7 @@ internal static class Program
         switch (match.Kind)
         {
             case AircraftAdapterMatcher.MatchKind.Adapter:
-                Logger.Success($"Custom Profile for {match.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
+                Logger.Success($"Custom Profile for {match.Adapter!.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
                 if (_sc != null)
                 {
                     Logger.Debug($"Registering Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
@@ -370,7 +362,7 @@ internal static class Program
                 break;
 
             case AircraftAdapterMatcher.MatchKind.NativeIntegration:
-                Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
+                Logger.Success($"{match.Adapter!.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
                 if (_sc != null && match.Adapter != null)
                 {
                     Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter.GetType().Name}' with Active SimConnect.");
@@ -379,7 +371,7 @@ internal static class Program
                 break;
 
             case AircraftAdapterMatcher.MatchKind.NonFunctional:
-                Logger.Warning($"{match.DisplayName} Detected. This Aircraft was Tested and found to be Non-Functional.");
+                Logger.Warning($"{match.Adapter!.DisplayName} Detected. This Aircraft was Tested and found to be Non-Functional.");
                 break;
 
             case AircraftAdapterMatcher.MatchKind.Unknown:
@@ -391,6 +383,16 @@ internal static class Program
     public static void PrintCurrentState()
     {
         _automationManager?.PrintState();
+    }
+
+    public static void ApplyAdapterConfig(string configTitle)
+    {
+        var adapter = _automationManager.CurrentAdapter;
+        if (adapter == null || adapter.DisplayName != configTitle) return;
+        var cfg = ConfigManager.GetAircraftConfig(configTitle);
+        adapter.removeCovers = cfg.RemoveCovers;
+        adapter.manageGroundEquipment = cfg.ManageGroundEquipment;
+        adapter.manageDoors = cfg.ManageDoors;
     }
 
     public static void RegisterActivationForCurrentAircraft()
@@ -445,9 +447,21 @@ internal static class Program
     private static void OnParkingBrakeChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
     private static void OnEnginesEverRunChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
+    private static void OnHasMovedChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
 
     public static void RefreshDisplayState() => RefreshAircraftStateDetails();
     public static void RefreshGroundEquipState() => SendGroundEquipState(_automationManager?.CurrentAdapter);
+
+    public static void RefreshServiceStates()
+    {
+        if (_gsxMonitor == null) return;
+        _MainWindow.Invoke(() =>
+        {
+            _MainWindow.SendMessage(new { type = "serviceStatus", service = "boarding", status = _gsxMonitor.BoardingState.ToString().ToLower() });
+            _MainWindow.SendMessage(new { type = "serviceStatus", service = "pushback", status = _gsxMonitor.PushbackState.ToString().ToLower() });
+            _MainWindow.SendMessage(new { type = "serviceStatus", service = "deboard", status = _gsxMonitor.DeboardingState.ToString().ToLower() });
+        });
+    }
 
     private static void RefreshAircraftStateDetails()
     {
@@ -457,7 +471,8 @@ internal static class Program
             beaconOn = _flightState.BeaconOn,
             enginesOn = _flightState.EngineOn,
             parkingBrake = _flightState.ParkingBrake,
-            enginesEverRan = _flightState.HasEnginesEverRun
+            enginesEverRan = _flightState.HasEnginesEverRun,
+            hasMoved = _flightState.HasMoved
         }));
     }
 

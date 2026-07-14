@@ -130,6 +130,7 @@ public class MainWindow : Form
         SendMessage(new { type = "aircraft", title = string.IsNullOrEmpty(Program.CurrentAircraftTitle) ? (string?)null : Program.CurrentAircraftTitle });
         Program.RefreshDisplayState();
         Program.RefreshGroundEquipState();
+        Program.RefreshServiceStates();
         SendMessage(new { type = "hotkeys", activation = cfg.Hotkeys.ActivationKey, reset = cfg.Hotkeys.ResetKey });
         _ = Task.Run(RunUpdateCheckAsync);
     }
@@ -183,6 +184,7 @@ public class MainWindow : Form
                         var aircraftCfg = JsonSerializer.Deserialize<Config.AircraftConfig>(cfgEl.GetRawText(), opts)
                             ?? new Config.AircraftConfig();
                         Config.ConfigManager.SaveAircraftConfig(_pendingConfigTitle, aircraftCfg);
+                        Program.ApplyAdapterConfig(_pendingConfigTitle);
                         Program.RegisterActivationForCurrentAircraft();
                         _pendingConfigTitle = null;
                     }
@@ -196,6 +198,14 @@ public class MainWindow : Form
 
                 case "downloadUpdate":
                     _ = Task.Run(RunDownloadUpdateAsync);
+                    break;
+
+                case "toggleHasMoved":
+                    Program.ToggleMovementFlag();
+                    break;
+
+                case "toggleEnginesRan":
+                    Program.ToggleEnginesEverRunFlag();
                     break;
 
                 case "rebindStart":
@@ -244,7 +254,7 @@ public class MainWindow : Form
 
         foreach (var title in saved)
         {
-            var family = Aircraft.AircraftAdapterMatcher.TryGetFamilyForTitle(title);
+            var family = Aircraft.AircraftAdapterMatcher.FindByTitle(title)?.DisplayName;
             if (family != null)
             {
                 if (!withFamily.ContainsKey(family)) withFamily[family] = new();
@@ -269,14 +279,14 @@ public class MainWindow : Form
         if (string.IsNullOrEmpty(title)) return;
         _pendingConfigTitle = title;
 
-        var caps = Aircraft.AircraftAdapterMatcher.GetCapabilitiesForTitle(title);
+        var meta = Aircraft.AircraftAdapterMatcher.FindByTitle(title);
         var cfg = Config.ConfigManager.GetAircraftConfig(title);
 
         SendMessage(new
         {
             type = "showConfig",
             title,
-            caps = new { canManageGroundEquipment = caps.CanManageGroundEquipment, canRemoveCovers = caps.CanRemoveCovers, canCloseDoors = caps.CanCloseDoors },
+            caps = new { canManageGroundEquipment = meta?.canRemoveAndPlaceGroundEquipment ?? false, canRemoveCovers = meta?.canRemoveCovers ?? false, canManageDoors = meta?.canManageDoors ?? false },
             config = new
             {
                 refuelBeforeBoarding = cfg.RefuelBeforeBoarding,
@@ -284,7 +294,7 @@ public class MainWindow : Form
                 realisticCrewComms = cfg.RealisticCrewComms,
                 removeCovers = cfg.RemoveCovers,
                 manageGroundEquipment = cfg.ManageGroundEquipment,
-                closeDoors = cfg.CloseDoors,
+                manageDoors = cfg.ManageDoors,
                 activationLvar = cfg.ActivationLvar,
                 activationValue = cfg.ActivationValue
             }

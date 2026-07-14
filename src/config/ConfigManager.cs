@@ -12,7 +12,7 @@ public static class ConfigManager
     public static AppConfig GetConfig() => _config;
 
     private static string NormalizeTitle(string title) =>
-        AircraftAdapterMatcher.TryGetFamilyForTitle(title) ?? title;
+        AircraftAdapterMatcher.FindByTitle(title)?.DisplayName ?? title;
 
     public static AircraftConfig GetAircraftConfig(string aircraftTitle)
     {
@@ -99,7 +99,6 @@ public static class ConfigManager
                 {
                     var name = line[1..^1];
                     if (name == "Hotkeys") { section = "Hotkeys"; aircraft = null; }
-                    else if (name == "UI") { section = "UI"; aircraft = null; }
                     else if (name.StartsWith("Aircraft:"))
                     {
                         section = "Aircraft";
@@ -123,15 +122,14 @@ public static class ConfigManager
                         if (key == "ResetKey") config.Hotkeys.ResetKey = val;
                         break;
 
-                    case "UI":
-                        if (key == "DarkMode") config.UI.DarkMode = val.Equals("true", StringComparison.OrdinalIgnoreCase);
-                        break;
-
                     case "Aircraft" when aircraft != null:
                         var ac = config.Aircraft[aircraft];
                         if (key == "RefuelBeforeBoarding") ac.RefuelBeforeBoarding = ParseBool(val);
                         if (key == "CateringOnNewFlight") ac.CateringOnNewFlight = ParseBool(val);
                         if (key == "RealisticCrewComms") ac.RealisticCrewComms = ParseBool(val);
+                        if (key == "RemoveCovers") ac.RemoveCovers = ParseBool(val);
+                        if (key == "ManageGroundEquipment") ac.ManageGroundEquipment = ParseBool(val);
+                        if (key == "ManageDoors") ac.ManageDoors = ParseBool(val);
                         if (key == "ActivationLvar") ac.ActivationLvar = val;
                         if (key == "ActivationValue" && double.TryParse(val, out double av)) ac.ActivationValue = av;
                         break;
@@ -162,9 +160,6 @@ public static class ConfigManager
                 $"ActivationKey={config.Hotkeys.ActivationKey}",
                 $"ResetKey={config.Hotkeys.ResetKey}",
                 "",
-                "[UI]",
-                $"DarkMode={config.UI.DarkMode.ToString().ToLowerInvariant()}",
-                "",
             };
 
             foreach (var (title, ac) in config.Aircraft.OrderBy(e => e.Key))
@@ -173,6 +168,9 @@ public static class ConfigManager
                 lines.Add($"RefuelBeforeBoarding={ac.RefuelBeforeBoarding.ToString().ToLowerInvariant()}");
                 lines.Add($"CateringOnNewFlight={ac.CateringOnNewFlight.ToString().ToLowerInvariant()}");
                 lines.Add($"RealisticCrewComms={ac.RealisticCrewComms.ToString().ToLowerInvariant()}");
+                lines.Add($"RemoveCovers={ac.RemoveCovers.ToString().ToLowerInvariant()}");
+                lines.Add($"ManageGroundEquipment={ac.ManageGroundEquipment.ToString().ToLowerInvariant()}");
+                lines.Add($"ManageDoors={ac.ManageDoors.ToString().ToLowerInvariant()}");
                 lines.Add($"ActivationLvar={ac.ActivationLvar}");
                 lines.Add($"ActivationValue={ac.ActivationValue}");
                 lines.Add(string.Empty);

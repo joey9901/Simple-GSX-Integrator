@@ -15,17 +15,21 @@ internal enum SimDef : uint
     Pmdg737Vars = 400,
     Pmdg737Control = 401,
 
-    A330Chocks = 500,       // A:COVER ON:0 — wheel chocks
-    A330Gpu = 501,          // L:INI_GPU_AVAIL — GPU
-    A330EngineCover = 502,  // A:COVER ON:1 — engine covers
-    A330PitotCover = 503,   // A:COVER ON:2 — pitot covers
+    A330Chocks = 500,       // A:COVER ON:0 — wheel chocks (write)
+    A330Gpu = 501,          // L:INI_GPU_AVAIL — GPU (write)
+    A330EngineCover = 502,  // A:COVER ON:1 — engine covers (write)
+    A330PitotCover = 503,   // A:COVER ON:2 — pitot covers (write)
+    A330GroundState = 504,  // combined read: chocks + gpu
 
-    A300Chocks = 510,    // L:INI_CHOCKS_ENABLED — wheel chocks
-    A300Gpu = 511,    // L:INI_gpu_avail — GPU
-    A300Covers = 512,    // L:INI_COVERS_ENABLED — engine + pitot covers
-    A300CargoDoor = 513,    // L:INI_MAIN_CARGO_DOOR_TGT — 100 = open, 0 = closed
-    Md11Chocks = 520,    // L:MD11_EXT_CHOCKS — 1 = placed, 0 = removed
-    Md11Gpu    = 521,    // L:MD11_EXT_GPU    — 1 = connected, 0 = disconnected
+    A300Chocks = 510,       // L:INI_CHOCKS_ENABLED (write)
+    A300Gpu = 511,          // L:INI_gpu_avail (write)
+    A300Covers = 512,       // L:INI_COVERS_ENABLED (write)
+    A300CargoDoor = 513,    // L:INI_MAIN_CARGO_DOOR_TGT (write)
+    A300GroundState = 514,  // combined read: chocks + gpu + cargo door
+
+    Md11Chocks = 520,       // L:MD11_EXT_CHOCKS (write)
+    Md11Gpu    = 521,       // L:MD11_EXT_GPU (write)
+    Md11GroundState = 522,  // combined read: chocks + gpu
 }
 
 internal enum SimReq : uint
@@ -41,6 +45,9 @@ internal enum SimReq : uint
 
     Pmdg737Vars = 400,
 
+    A330GroundState = 500,
+    A300GroundState = 510,
+    Md11GroundState = 520,
 }
 
 internal enum Pmdg777DataId : uint

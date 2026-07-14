@@ -7,6 +7,7 @@
     engines: null,
     brake: null,
     enginesEverRan: null,
+    hasMoved: null,
     hotkeyActivation: '',
     hotkeyReset: '',
     services: { boarding: null, pushback: null, deboard: null },
@@ -24,7 +25,11 @@ function handleMessage(msg) {
     receivedRealData = true;
     switch (msg.type) {
         case 'simconnect': state.simconnect = msg.connected; render(); break;
-        case 'gsx': state.gsx = msg.running; render(); break;
+        case 'gsx':
+            state.gsx = msg.running;
+            if (!msg.running) state.services = { boarding: null, pushback: null, deboard: null };
+            render();
+            break;
         case 'system': state.systemActive = msg.active; render(); break;
         case 'aircraft': state.aircraft = msg.title || ''; render(); break;
         case 'state':
@@ -32,6 +37,7 @@ function handleMessage(msg) {
             state.engines = msg.enginesOn;
             state.brake = msg.parkingBrake;
             state.enginesEverRan = msg.enginesEverRan;
+            state.hasMoved = msg.hasMoved;
             render();
             break;
         case 'hotkeys':
@@ -81,7 +87,7 @@ if (!isPreview) {
             handleMessage({ type: 'gsx', running: false });
             handleMessage({ type: 'system', active: false });
             handleMessage({ type: 'aircraft', title: 'No aircraft loaded' });
-            handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: false, enginesEverRan: false });
+            handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: false, enginesEverRan: false, hasMoved: false });
             handleMessage({ type: 'hotkeys', activation: '—', reset: '—' });
         }
     }, 1000);
@@ -92,7 +98,7 @@ if (!isPreview) {
         handleMessage({ type: 'gsx', running: true });
         handleMessage({ type: 'system', active: false });
         handleMessage({ type: 'aircraft', title: 'FlyByWire A380X (A380-842)' });
-        handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: true, enginesEverRan: true });
+        handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: true, enginesEverRan: true, hasMoved: true });
         handleMessage({ type: 'hotkeys', activation: 'ALT+G', reset: 'ALT+B' });
     }, 200);
 }
@@ -142,6 +148,8 @@ function renderStateChips() {
     setChip('chip-brake', u ? null : state.brake, state.brake ? 'SET' : 'RELEASED', !!state.brake);
     setChip('chip-beacon', u ? null : state.beacon, state.beacon ? 'ON' : 'OFF', !state.beacon);
     setChip('chip-engines', u ? null : state.engines, state.engines ? 'RUNNING' : 'OFF', !state.engines);
+    setChip('chip-moved', u ? null : state.hasMoved, state.hasMoved ? 'YES' : 'NO', !state.hasMoved);
+    setChip('chip-engines-ran', u ? null : state.enginesEverRan, state.enginesEverRan ? 'YES' : 'NO', !state.enginesEverRan);
 }
 
 function setChip(id, known, valueText, isGood) {
@@ -154,24 +162,31 @@ function setChip(id, known, valueText, isGood) {
 }
 
 function renderServices() {
-    const { beacon, engines, brake, enginesEverRan } = state;
+    const { beacon, engines, brake, enginesEverRan, hasMoved } = state;
     const u = beacon === null;
 
     renderCard('card-boarding', [
-        { key: 'BEACON', current: fmt(beacon, 'ON', 'OFF'), met: u ? null : !beacon },
-        { key: 'ENGINES', current: fmt(engines, 'ON', 'OFF'), met: u ? null : !engines },
+        { key: 'ENGINES', current: 'OFF', met: u ? null : !engines },
+        { key: 'BEACON', current: 'OFF', met: u ? null : !beacon },
+        { key: 'PARKING BRAKE', current: 'SET', met: u ? null : !!brake },
+        { key: 'HAS MOVED', current: 'NO', met: u ? null : !hasMoved },
+        { key: 'ENGINES RAN', current: 'NO', met: u ? null : !enginesEverRan },
     ], state.services.boarding);
 
     renderCard('card-pushback', [
-        { key: 'BRAKE', current: fmt(brake, 'SET', 'RELEASED'), met: u ? null : !!brake },
-        { key: 'ENGINES', current: fmt(engines, 'ON', 'OFF'), met: u ? null : !engines },
-        { key: 'BEACON', current: fmt(beacon, 'ON', 'OFF'), met: u ? null : !!beacon },
+        { key: 'ENGINES', current: 'OFF', met: u ? null : !engines },
+        { key: 'BEACON', current: 'ON', met: u ? null : !!beacon },
+        { key: 'PARKING BRAKE', current: 'SET', met: u ? null : !!brake },
+        { key: 'HAS MOVED', current: 'NO', met: u ? null : !hasMoved },
+        { key: 'ENGINES RAN', current: 'NO', met: u ? null : !enginesEverRan },
     ], state.services.pushback);
 
     renderCard('card-deboard', [
-        { key: 'ENGINES', current: fmt(engines, 'ON', 'OFF'), met: u ? null : !engines },
-        { key: 'BEACON', current: fmt(beacon, 'ON', 'OFF'), met: u ? null : !beacon },
-        { key: 'ENGINES RAN', current: fmt(enginesEverRan, 'YES', 'NO'), met: u ? null : !!enginesEverRan },
+        { key: 'ENGINES', current: 'OFF', met: u ? null : !engines },
+        { key: 'BEACON', current: 'OFF', met: u ? null : !beacon },
+        { key: 'PARKING BRAKE', current: 'SET', met: u ? null : !!brake },
+        { key: 'HAS MOVED', current: 'YES', met: u ? null : !!hasMoved },
+        { key: 'ENGINES RAN', current: 'YES', met: u ? null : !!enginesEverRan },
     ], state.services.deboard);
 }
 
@@ -207,17 +222,30 @@ function renderCard(id, conditions, serviceStatus) {
             badge.textContent = '—';
             badge.className = 'card-status';
         } else if (allMet) {
-            badge.textContent = 'Ready ✓';
-            badge.className = 'card-status ready';
+            if (serviceStatus === 'callable') {
+                badge.textContent = 'Ready ✓';
+                badge.className = 'card-status ready';
+            } else if (serviceStatus != null) {
+                // GSX is running but service isn't callable yet
+                badge.textContent = 'Not Callable';
+                badge.className = 'card-status notcallable';
+            } else {
+                // No service state from GSX (GSX not running or not yet received)
+                badge.textContent = '—';
+                badge.className = 'card-status';
+            }
         } else {
-            badge.textContent = 'Not ready';
+            badge.textContent = 'Not Ready';
             badge.className = 'card-status';
         }
     }
 
     const activeService = serviceStatus && !['unknown', 'callable', null].includes(serviceStatus);
-    card.classList.toggle('ready', allMet && !anyUnknown && !activeService);
-    card.classList.toggle('unmet', !allMet || anyUnknown || activeService);
+    const isReady = allMet && !anyUnknown && serviceStatus === 'callable';
+    const isNotCallable = allMet && !anyUnknown && !activeService && serviceStatus != null && serviceStatus !== 'callable';
+    card.classList.toggle('ready', isReady);
+    card.classList.toggle('notcallable', isNotCallable);
+    card.classList.toggle('unmet', !isReady && !isNotCallable);
 
     const body = card.querySelector('.card-body');
     if (!body) return;
@@ -336,7 +364,7 @@ function renderGroundEquip(msg) {
     setChip('chip-chocks', msg.chocks, msg.chocks ? 'SET' : 'REMOVED', msg.chocks === false);
 
     document.getElementById('chip-gpu')?.classList.remove('hidden');
-    setChip('chip-gpu', msg.gpu, msg.gpu ? 'CONNECTED' : 'REMOVED', msg.gpu === true);
+    setChip('chip-gpu', msg.gpu, msg.gpu ? 'CONNECTED' : 'REMOVED', msg.gpu === false);
 
     const doorsChip = document.getElementById('chip-doors-open');
     const hasDoors = msg.showDoors && msg.openDoors !== null && msg.openDoors !== undefined;
@@ -412,7 +440,7 @@ function showConfigModal(msg) {
     document.getElementById('chkCrewComms').checked = !!msg.config.realisticCrewComms;
 
     const caps = msg.caps || {};
-    const hasCaps = caps.canManageGroundEquipment || caps.canRemoveCovers || caps.canCloseDoors;
+    const hasCaps = caps.canManageGroundEquipment || caps.canRemoveCovers || caps.canManageDoors;
     const section = document.getElementById('cfg-aircraft-section');
     section.classList.toggle('hidden', !hasCaps);
 
@@ -421,7 +449,7 @@ function showConfigModal(msg) {
     const rowDoors = document.getElementById('rowDoors');
     if (caps.canManageGroundEquipment) { rowGpu.classList.remove('hidden'); document.getElementById('chkGpu').checked = !!msg.config.manageGroundEquipment; }
     if (caps.canRemoveCovers) { rowCovers.classList.remove('hidden'); document.getElementById('chkCovers').checked = !!msg.config.removeCovers; }
-    if (caps.canCloseDoors) { rowDoors.classList.remove('hidden'); document.getElementById('chkDoors').checked = !!msg.config.closeDoors; }
+    if (caps.canManageDoors) { rowDoors.classList.remove('hidden'); document.getElementById('chkDoors').checked = !!msg.config.manageDoors; }
 
     document.getElementById('inpLvar').value = msg.config.activationLvar || '';
     document.getElementById('inpValue').value = msg.config.activationValue ?? 1;
@@ -437,9 +465,9 @@ function saveConfig() {
         refuelBeforeBoarding: document.getElementById('chkRefuel').checked,
         cateringOnNewFlight: document.getElementById('chkCatering').checked,
         realisticCrewComms: document.getElementById('chkCrewComms').checked,
-        manageGroundEquipment: document.getElementById('rowGpu').classList.contains('hidden') ? savedConfig?.manageGroundEquipment ?? true : document.getElementById('chkGpu').checked,
+        manageGroundEquipment: document.getElementById('rowGpu').classList.contains('hidden') ? savedConfig?.manageGroundEquipment ?? false : document.getElementById('chkGpu').checked,
         removeCovers: document.getElementById('rowCovers').classList.contains('hidden') ? savedConfig?.removeCovers ?? false : document.getElementById('chkCovers').checked,
-        closeDoors: document.getElementById('rowDoors').classList.contains('hidden') ? savedConfig?.closeDoors ?? true : document.getElementById('chkDoors').checked,
+        manageDoors: document.getElementById('rowDoors').classList.contains('hidden') ? savedConfig?.manageDoors ?? false : document.getElementById('chkDoors').checked,
         activationLvar: document.getElementById('inpLvar').value.trim(),
         activationValue: parseFloat(document.getElementById('inpValue').value) || 1,
     };
@@ -466,6 +494,8 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
 
     document.getElementById('btn-settings')?.addEventListener('click', () => send({ type: 'openConfig' }));
+    document.getElementById('chip-moved')?.addEventListener('click', () => send({ type: 'toggleHasMoved' }));
+    document.getElementById('chip-engines-ran')?.addEventListener('click', () => send({ type: 'toggleEnginesRan' }));
 
     document.getElementById('picker-ok')?.addEventListener('click', confirmPicker);
     document.getElementById('picker-cancel')?.addEventListener('click', () => { hidePickerModal(); send({ type: 'pickerCancelled' }); });

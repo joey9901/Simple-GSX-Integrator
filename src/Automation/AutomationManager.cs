@@ -33,6 +33,7 @@ public sealed class AutomationManager
 
     public event Action<bool>? ActivationChanged;
     public event Action<string>? AircraftChanged;
+    public event Action<string>? ServiceTimedOut;
 
     public AutomationManager(
         FlightStateTracker flightState,
@@ -138,9 +139,9 @@ public sealed class AutomationManager
 
     private async void OnSpawnedAtGate()
     {
-        if (_currentAdapter == null) return;
-        var adapter = _currentAdapter;
         await Task.Delay(10_000);
+        var adapter = _currentAdapter;
+        if (adapter == null) return;
         Logger.Debug($"AutomationManager: Spawned at Gate, Calling OnSpawned on '{adapter.GetType().Name}'");
         await adapter.OnSpawned();
     }
@@ -338,7 +339,8 @@ public sealed class AutomationManager
         _ = CallServiceAsync("Refueling",
             GetRefuelingState,
             _gsxMenu.CallRefuelingAsync,
-            EvaluateRefueling);
+            EvaluateRefueling,
+            "boarding");
     }
 
     private void EvaluateCatering()
@@ -354,7 +356,8 @@ public sealed class AutomationManager
         _ = CallServiceAsync("Catering",
             GetCateringState,
             _gsxMenu.CallCateringAsync,
-            EvaluateCatering);
+            EvaluateCatering,
+            "boarding");
     }
 
     private void EvaluateBoarding()
@@ -362,6 +365,7 @@ public sealed class AutomationManager
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
+        if (!_flightState.ParkingBrake) return;
         if (_boardingDone || _pushbackAttempted) return;
 
         if (_gsxMonitor.DeboardingState == GsxServiceState.Active ||
@@ -374,7 +378,8 @@ public sealed class AutomationManager
         _ = CallServiceAsync("Boarding",
             GetBoardingState,
             _gsxMenu.CallBoardingAsync,
-            EvaluateBoarding);
+            EvaluateBoarding,
+            "boarding");
     }
 
     private void EvaluatePushback()
@@ -402,17 +407,8 @@ public sealed class AutomationManager
         _ = CallServiceAsync("Pushback",
             GetPushbackState,
             TriggerPushbackAsync,
-            OnPushbackTimeout);
-    }
-
-    private async Task TriggerPushbackAsync()
-    {
-        if (_currentAdapter != null)
-            await _currentAdapter.OnBeforePushback();
-        else
-            await Task.Delay(2_000);
-
-        await _gsxMenu.CallPushbackAsync();
+            OnPushbackTimeout,
+            "pushback");
     }
 
     private void EvaluateDeboarding()
@@ -423,11 +419,23 @@ public sealed class AutomationManager
         if (!_flightState.HasMoved || !_flightState.HasEnginesEverRun) return;
         if (!_flightState.OnGround || _flightState.BeaconOn) return;
         if (_flightState.GroundSpeed > 0.5) return;
+        if (!_flightState.ParkingBrake) return;
 
         _ = CallServiceAsync("Deboarding",
             GetDeboardingState,
             TriggerDeboardingAsync,
-            EvaluateDeboarding);
+            EvaluateDeboarding,
+            "deboard");
+    }
+
+    private async Task TriggerPushbackAsync()
+    {
+        if (_currentAdapter != null)
+            await _currentAdapter.OnBeforePushback();
+        else
+            await Task.Delay(2_000);
+
+        await _gsxMenu.CallPushbackAsync();
     }
 
     private async Task TriggerDeboardingAsync()
@@ -442,7 +450,8 @@ public sealed class AutomationManager
         string name,
         Func<GsxServiceState> getState,
         Func<Task> trigger,
-        Action? onTimeout = null)
+        Action? onTimeout = null,
+        string? serviceKey = null)
     {
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
 
@@ -472,6 +481,7 @@ public sealed class AutomationManager
             }
 
             Logger.Warning($"AutomationManager: GSX did not Acknowledge {name} within 30 s. Retrying...");
+            if (serviceKey != null) ServiceTimedOut?.Invoke(serviceKey);
             onTimeout?.Invoke();
         }
         catch (Exception ex)

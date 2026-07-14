@@ -7,8 +7,10 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
 public sealed class Pmdg777Adapter : AircraftAdapterBase
 {
+    public override string DisplayName => "PMDG B777";
+    public override string[] TitleKeywords => ["PMDG", "777"];
     public override bool canRemoveAndPlaceGroundEquipment => true;
-    public override bool canCloseDoors => true;
+    public override bool canManageDoors => true;
 
     public override bool? ChocksSet => _vars.WheelChocks > 0.5;
     public override bool? GpuConnected => _vars.ExtPwrSec > 0.5 || _vars.ExtPwrPrim > 0.5;
@@ -75,7 +77,6 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         AddLVar(sc, Pmdg777Constants.LVAR_AVIONICS);
         AddLVar(sc, Pmdg777Constants.LVAR_EE_HATCH);
 
-        // Ground equipment
         AddLVar(sc, Pmdg777Constants.LVAR_WHEEL_CHOCKS);
         AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_SEC);
         AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_PRIM);
@@ -148,6 +149,8 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     private async Task CloseAllOpenDoorsAsync()
     {
+        if (!manageDoors) return;
+
         var open = Pmdg777Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
 
         if (open.Count == 0) return;
@@ -176,6 +179,8 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     private async Task PlaceGroundEquipment()
     {
+        if (!manageGroundEquipment) return;
+
         if (_vars.WheelChocks >= 0.5)
         {
             Logger.Debug("Pmdg777Adapter: Chocks already Set - skipping CDU Sequence");
@@ -193,6 +198,8 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     private async Task RemoveGroundEquipmentAsync()
     {
+        if (!manageGroundEquipment) return;
+
         if (_vars.WheelChocks <= 0.5)
         {
             Logger.Debug("Pmdg777Adapter: Chocks already Removed - skipping CDU Sequence");
@@ -213,29 +220,35 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     public override async Task OnBeforePushback()
     {
-        await RemoveGroundEquipmentAsync();
-        await CloseAllOpenDoorsAsync();
+        if (canRemoveAndPlaceGroundEquipment && manageGroundEquipment) await RemoveGroundEquipmentAsync();
 
-        var deadline = DateTime.UtcNow.AddSeconds(60);
-        while (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds) && DateTime.UtcNow < deadline)
+        if (canManageDoors && manageDoors)
         {
-            await Task.Delay(5_000);
             await CloseAllOpenDoorsAsync();
-        }
 
-        if (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds))
-            Logger.Warning("Pmdg777Adapter: Doors still open after 60s - Proceeding with Pushback");
-        else
-            Logger.Info("Pmdg777Adapter: All Doors Confirmed Closed");
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(5_000);
+                await CloseAllOpenDoorsAsync();
+            }
+
+            if (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds))
+                Logger.Warning("Pmdg777Adapter: Doors still open after 60s - Proceeding with Pushback");
+            else
+                Logger.Info("Pmdg777Adapter: All Doors Confirmed Closed");
+        }
     }
 
     public override Task OnBeforeDeboarding()
     {
+        if (!canRemoveAndPlaceGroundEquipment || !manageGroundEquipment) return Task.CompletedTask;
         return PlaceGroundEquipment();
     }
 
     public override async Task OnBoardingCompleted()
     {
+        if (!canManageDoors || !manageDoors) return;
         await Task.Delay(15_000);
         await CloseAllOpenDoorsAsync();
     }

@@ -65,9 +65,70 @@
                 </div>
 
                 <div class="state-chip" id="chip-engines">
-                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777"/><rect x="7" y="2" width="4" height="5" rx="1" fill="#999"/><rect x="13" y="2" width="4" height="5" rx="1" fill="#999"/><rect x="0" y="8" width="5" height="4" rx="1" fill="#888"/><rect x="19" y="8" width="5" height="4" rx="1" fill="#888"/></svg></div>
+                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777" />
+                            <rect x="7" y="2" width="4" height="5" rx="1" fill="#999" />
+                            <rect x="13" y="2" width="4" height="5" rx="1" fill="#999" />
+                            <rect x="0" y="8" width="5" height="4" rx="1" fill="#888" />
+                            <rect x="19" y="8" width="5" height="4" rx="1" fill="#888" />
+                        </svg></div>
                     <div>
                         <div class="label">Engines</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip clickable" id="chip-moved" title="Click to toggle">
+                    <div class="icon">→</div>
+                    <div>
+                        <div class="label">Has Moved</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip clickable" id="chip-engines-ran" title="Click to toggle">
+                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777" />
+                            <rect x="7" y="2" width="4" height="5" rx="1" fill="#999" />
+                            <rect x="13" y="2" width="4" height="5" rx="1" fill="#999" />
+                            <rect x="0" y="8" width="5" height="4" rx="1" fill="#888" />
+                            <rect x="19" y="8" width="5" height="4" rx="1" fill="#888" />
+                        </svg></div>
+                    <div>
+                        <div class="label">Engines Ran</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="section-ground" class="hidden">
+            <div class="section-label">Ground Equipment</div>
+            <div id="ground-equip">
+
+                <div class="state-chip" id="chip-chocks">
+                    <div class="icon">🔒</div>
+                    <div>
+                        <div class="label">Chocks</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip" id="chip-gpu">
+                    <div class="icon">⚡</div>
+                    <div>
+                        <div class="label">GPU</div>
+                        <div class="value">—</div>
+                    </div>
+                </div>
+
+                <div class="state-chip hidden" id="chip-doors-open">
+                    <div class="icon">🚪</div>
+                    <div>
+                        <div class="label">Doors</div>
                         <div class="value">—</div>
                     </div>
                 </div>
@@ -101,37 +162,6 @@
                         <span class="card-status">Unknown</span>
                     </div>
                     <div class="card-body"></div>
-                </div>
-
-            </div>
-        </div>
-
-        <div id="section-ground" class="hidden">
-            <div class="section-label">Ground Equipment</div>
-            <div id="ground-equip">
-
-                <div class="state-chip" id="chip-chocks">
-                    <div class="icon">🔒</div>
-                    <div>
-                        <div class="label">Chocks</div>
-                        <div class="value">—</div>
-                    </div>
-                </div>
-
-                <div class="state-chip" id="chip-gpu">
-                    <div class="icon">⚡</div>
-                    <div>
-                        <div class="label">GPU</div>
-                        <div class="value">—</div>
-                    </div>
-                </div>
-
-                <div class="state-chip hidden" id="chip-doors-open">
-                    <div class="icon">🚪</div>
-                    <div>
-                        <div class="label">Doors</div>
-                        <div class="value">—</div>
-                    </div>
                 </div>
 
             </div>
@@ -174,20 +204,20 @@
             </div>
             <div class="modal-body">
                 <div class="cfg-section-label">Service Options</div>
-                <label class="cfg-row"><input type="checkbox" id="chkRefuel"><span>Refuel before boarding</span></label>
-                <label class="cfg-row"><input type="checkbox" id="chkCatering"><span>Catering on new
-                        flight</span></label>
-                <label class="cfg-row"><input type="checkbox" id="chkCrewComms"><span>Realistic crew
-                        comms</span></label>
+                <label class="cfg-row"><input type="checkbox" id="chkRefuel"><span>Refuel before Boarding</span></label>
+                <label class="cfg-row"><input type="checkbox" id="chkCatering"><span>Catering before
+                        Boarding</span></label>
+                <label class="cfg-row"><input type="checkbox" id="chkCrewComms"><span>Realistic Crew
+                        Comms</span></label>
 
                 <div id="cfg-aircraft-section" class="hidden">
                     <div class="cfg-section-label" style="margin-top:14px">Aircraft Settings</div>
-                    <label class="cfg-row hidden" id="rowGpu"><input type="checkbox" id="chkGpu"><span>Manage ground
-                            equipment (GPU / stairs)</span></label>
+                    <label class="cfg-row hidden" id="rowGpu"><input type="checkbox" id="chkGpu"><span>Manage Ground
+                            Equipment (GPU / Chocks)</span></label>
                     <label class="cfg-row hidden" id="rowCovers"><input type="checkbox" id="chkCovers"><span>Remove
-                            covers and pins</span></label>
-                    <label class="cfg-row hidden" id="rowDoors"><input type="checkbox" id="chkDoors"><span>Auto-close
-                            doors after boarding</span></label>
+                            Covers and Pins</span></label>
+                    <label class="cfg-row hidden" id="rowDoors"><input type="checkbox" id="chkDoors"><span>Automatic
+                            Doors</span></label>
                 </div>
 
                 <div class="cfg-section-label" style="margin-top:14px">Activation Trigger</div>

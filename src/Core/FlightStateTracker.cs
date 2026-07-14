@@ -114,6 +114,7 @@ public sealed class FlightStateTracker
     public event Action<bool>? ParkingBrakeChanged;
     public event Action<bool>? EngineChanged;
     public event Action<bool>? EnginesEverRunChanged;
+    public event Action<bool>? HasMovedChanged;
     public event Action<string>? AircraftChanged;
     public event Action<double>? ActivationLvarTriggered;
     public event Action? SpawnedAtGate;
@@ -220,6 +221,7 @@ public sealed class FlightStateTracker
             if (!_hasMoved && _enginesHaveRun && _state.GroundSpeed > MovedThreshold)
             {
                 _hasMoved = true;
+                HasMovedChanged?.Invoke(true);
                 Logger.Debug($"FlightStateTracker: HasMoved = true (speed={_state.GroundSpeed:F1}kts)");
             }
         }
@@ -315,6 +317,7 @@ public sealed class FlightStateTracker
         _enginesHaveRun = false;
         EnginesEverRunChanged?.Invoke(false);
         _hasMoved = false;
+        HasMovedChanged?.Invoke(false);
         _activationLvar = null;
         _lastActivationValue = double.NaN;
         Logger.Debug("FlightStateTracker: session reset");
@@ -323,6 +326,7 @@ public sealed class FlightStateTracker
     public void ForceHasMoved(bool value)
     {
         _hasMoved = value;
+        HasMovedChanged?.Invoke(value);
         Logger.Debug($"FlightStateTracker: HasMoved forced to {value}");
     }
 

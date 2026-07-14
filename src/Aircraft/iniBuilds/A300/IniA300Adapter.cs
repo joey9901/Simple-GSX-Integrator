@@ -9,8 +9,26 @@ public sealed class IniA300Adapter : AircraftAdapterBase
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct ScalarStruct { public double Value; }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct GroundStateStruct
+    {
+        public double Chocks;    // L:INI_CHOCKS_ENABLED — 1 = set, 0 = removed
+        public double Gpu;       // L:INI_gpu_avail — 1 = connected, 0 = removed
+        public double CargoDoor; // L:INI_MAIN_CARGO_DOOR_TGT — 100 = open, 0 = closed
+    }
+
+    public override string DisplayName => "iniBuilds A300";
+    public override string[] TitleKeywords => ["iniBuilds", "A300"];
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canRemoveCovers => true;
+    public override bool canManageDoors => true;
+
+    private bool? _chocksSet;
+    private bool? _gpuConnected;
+    private bool? _cargoDoorOpen;
+    public override bool? ChocksSet => _chocksSet;
+    public override bool? GpuConnected => _gpuConnected;
+    public override int? OpenDoorCount => _cargoDoorOpen.HasValue ? (_cargoDoorOpen.Value ? 1 : 0) : null;
 
     private SimConnect? _sc;
 
@@ -18,6 +36,7 @@ public sealed class IniA300Adapter : AircraftAdapterBase
     {
         _sc = sc;
 
+        // Write-only SimDefs (SetDataOnSimObject)
         sc.AddToDataDefinition(SimDef.A300Chocks,
             A300Constants.LVar_Chocks, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A300Chocks);
@@ -33,11 +52,39 @@ public sealed class IniA300Adapter : AircraftAdapterBase
         sc.AddToDataDefinition(SimDef.A300CargoDoor,
             A300Constants.LVar_CargoDoor, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
         sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.A300CargoDoor);
+
+        sc.AddToDataDefinition(SimDef.A300GroundState,
+            A300Constants.LVar_Chocks, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.A300GroundState,
+            A300Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.A300GroundState,
+            A300Constants.LVar_CargoDoor, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.RegisterDataDefineStruct<GroundStateStruct>(SimDef.A300GroundState);
+        sc.RequestDataOnSimObject(
+            SimReq.A300GroundState, SimDef.A300GroundState,
+            SimConnect.SIMCONNECT_OBJECT_ID_USER,
+            SIMCONNECT_PERIOD.SECOND,
+            SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+            0, 0, 0);
+    }
+
+    public override void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
+    {
+        if (data.dwRequestID != (uint)SimReq.A300GroundState) return;
+        var s = (GroundStateStruct)data.dwData[0];
+        var chocks = s.Chocks > 0.5;
+        var gpu = s.Gpu > 0.5;
+        var door = s.CargoDoor > 50.0;
+        if (_chocksSet == chocks && _gpuConnected == gpu && _cargoDoorOpen == door) return;
+        _chocksSet = chocks;
+        _gpuConnected = gpu;
+        _cargoDoorOpen = door;
+        NotifyGroundStateChanged();
     }
 
     private void RemoveGroundEquipment()
     {
-        if (_sc == null) return;
+        if (_sc == null || !manageGroundEquipment) return;
         Logger.Debug($"IniA300Adapter: removing chocks ({A300Constants.LVar_Chocks} = 0)");
         WriteSimVar(SimDef.A300Chocks, 0.0);
         Logger.Debug($"IniA300Adapter: removing GPU ({A300Constants.LVar_Gpu} = 0)");
@@ -46,19 +93,20 @@ public sealed class IniA300Adapter : AircraftAdapterBase
 
     private Task PlaceGroundEquipment()
     {
-        if (_sc == null) return Task.CompletedTask;
+        if (_sc == null || !manageGroundEquipment) return Task.CompletedTask;
         Logger.Info("IniA300Adapter: Placing Chocks and GPU");
-        Logger.Debug($"IniA300Adapter: placing chocks ({A300Constants.LVar_Chocks} = 1)");
         WriteSimVar(SimDef.A300Chocks, 1.0);
-        Logger.Debug($"IniA300Adapter: placing GPU ({A300Constants.LVar_Gpu} = 1)");
         WriteSimVar(SimDef.A300Gpu, 1.0);
         return Task.CompletedTask;
     }
 
     public override Task OnSpawned()
     {
-        Logger.Debug($"IniA300Adapter: removing covers ({A300Constants.LVar_Covers} = 0)");
-        WriteSimVar(SimDef.A300Covers, 0.0);
+        if (canRemoveCovers && removeCovers)
+        {
+            Logger.Debug($"IniA300Adapter: removing covers ({A300Constants.LVar_Covers} = 0)");
+            WriteSimVar(SimDef.A300Covers, 0.0);
+        }
         return Task.CompletedTask;
     }
 
@@ -96,12 +144,13 @@ public sealed class IniA300Adapter : AircraftAdapterBase
 
     public override Task OnBeforePushback()
     {
-        RemoveGroundEquipment();
+        if (canRemoveAndPlaceGroundEquipment && manageGroundEquipment) RemoveGroundEquipment();
         return Task.CompletedTask;
     }
 
     public override Task OnBeforeDeboarding()
     {
+        if (!canRemoveAndPlaceGroundEquipment || !manageGroundEquipment) return Task.CompletedTask;
         return PlaceGroundEquipment();
     }
 

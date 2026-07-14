@@ -6,7 +6,6 @@ public static class Logger
     private static string? _logFilePath;
     private static readonly List<(string line, LogLevel level)> _buffer = new();
     private const int MaxBufferSize = 1000;
-    public static bool ShowDebugInUi { get; set; } = false;
 
     public enum LogLevel
     {

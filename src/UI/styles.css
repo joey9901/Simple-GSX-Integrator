@@ -160,7 +160,8 @@ main {
 }
 
 #aircraft-state {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
 }
 
@@ -211,6 +212,16 @@ main {
     margin-top: 2px;
     color: var(--text-muted);
     transition: color var(--transition);
+}
+
+.state-chip.clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.state-chip.clickable:hover {
+    border-color: var(--gold-border);
+    background: var(--surface-hi);
 }
 
 .state-chip.good {
@@ -306,6 +317,20 @@ main {
 .card-status.bypassed {
     background: var(--surface-hi);
     color: var(--text-muted);
+}
+
+.card-status.failed {
+    background: #3d1c1c;
+    color: var(--red);
+}
+
+.card-status.notcallable {
+    background: #2a1f00;
+    color: var(--orange);
+}
+
+.service-card.notcallable {
+    border-color: #4a3500;
 }
 
 .service-card .card-body {

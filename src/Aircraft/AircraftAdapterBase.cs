@@ -4,11 +4,18 @@ namespace SimpleGsxIntegrator.Aircraft;
 
 public abstract class AircraftAdapterBase : IAircraftAdapter
 {
-    public virtual bool canRemoveAndPlaceGroundEquipment { get; set; } = false;
-    public virtual bool canRemoveCovers { get; set; } = false;
-    public virtual bool canCloseDoors { get; set; } = false;
+    // Aircraft capabilities — defined by the adapter class, never modified at runtime.
+    public virtual bool canRemoveAndPlaceGroundEquipment => false;
+    public virtual bool canRemoveCovers => false;
+    public virtual bool canManageDoors => false;
 
-    public virtual bool removeCovers { get; set; } = false;
+    // User preferences — loaded from config when the aircraft is identified.
+    public bool removeCovers { get; set; } = false;
+    public bool manageGroundEquipment { get; set; } = false;
+    public bool manageDoors { get; set; } = false;
+
+    public abstract string DisplayName { get; }
+    public abstract string[] TitleKeywords { get; }
 
     public virtual string parkingBrakeVariable => "BRAKE PARKING INDICATOR";
     public virtual string beaconLightVariable => "LIGHT BEACON";
