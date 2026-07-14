@@ -47,6 +47,7 @@ public static class Pmdg737Constants
     public const string LVAR_CARGO_MAIN = "L:MainCargoDoor";
     public const string LVAR_EQUIPMENT_HATCH = "L:EEDoor";
     public const string LVAR_WHEEL_CHOCKS = "L:NGXWheelChocks";
+    public const string LVAR_GPU = "L:GPU_S_Hose_NGXu";
 
     public const string CLIENT_DATA_CONTROL_NAME = "PMDG_NG3_Control";
 
