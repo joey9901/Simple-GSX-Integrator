@@ -12,8 +12,7 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canManageDoors => true;
 
-    private bool? _gpuConnected;
-    public override bool? GpuConnected => _gpuConnected;
+    public override bool? GpuConnected => _vars.Gpu > 0.5;
     public override bool? ChocksSet => _vars.WheelChocks > 0.5;
     public override int? OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
@@ -145,7 +144,6 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
             data.dwDefineID != (uint)SimDef.Pmdg737Vars) return;
 
         _vars = (Pmdg737VarsStruct)data.dwData[0];
-        _gpuConnected = _vars.Gpu > 0.5;
         UpdateDoorStates();
     }
 
