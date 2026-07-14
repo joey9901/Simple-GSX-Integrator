@@ -56,6 +56,7 @@ public static class Pmdg777Constants
     public const string LVAR_WHEEL_CHOCKS = "L:7X7X_WheelChocks";
     public const string LVAR_EXT_PWR_SEC = "L:switch_07_b";    // secondary GPU
     public const string LVAR_EXT_PWR_PRIM = "L:switch_08_b";    // primary GPU
+    public const string LVAR_GPU = "L:7X7X_Power_Door";
 
     public static string GetDoorName(uint evtCode)
     {

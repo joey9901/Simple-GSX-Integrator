@@ -12,8 +12,9 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     public override bool canRemoveAndPlaceGroundEquipment => true;
     public override bool canManageDoors => true;
 
+    private bool? _gpuConnected;
+    public override bool? GpuConnected => _gpuConnected;
     public override bool? ChocksSet => _vars.WheelChocks > 0.5;
-    public override bool? GpuConnected => _vars.ExtPwrSec > 0.5 || _vars.ExtPwrPrim > 0.5;
     public override int? OpenDoorCount => Pmdg777Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -29,6 +30,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         public double WheelChocks;
         public double ExtPwrSec;     // L:switch_07_b  (secondary GPU)
         public double ExtPwrPrim;    // L:switch_08_b  (primary GPU)
+        public double Gpu;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -80,6 +82,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         AddLVar(sc, Pmdg777Constants.LVAR_WHEEL_CHOCKS);
         AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_SEC);
         AddLVar(sc, Pmdg777Constants.LVAR_EXT_PWR_PRIM);
+        AddLVar(sc, Pmdg777Constants.LVAR_GPU);
 
         sc.RegisterDataDefineStruct<Pmdg777VarsStruct>(SimDef.Pmdg777Vars);
         Logger.Debug("Pmdg777Adapter: L:var definitions registered");
@@ -144,6 +147,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
             data.dwDefineID != (uint)SimDef.Pmdg777Vars) return;
 
         _vars = (Pmdg777VarsStruct)data.dwData[0];
+        _gpuConnected = _vars.Gpu > 0.5;
         UpdateDoorStates();
     }
 
