@@ -1,6 +1,7 @@
 ﻿const state = {
     simconnect: false,
     gsx: false,
+    remotePort: "8744",
     systemActive: false,
     aircraft: '',
     beacon: null,
@@ -13,20 +14,21 @@
     services: { boarding: null, pushback: null, deboard: null },
 };
 
-let receivedRealData = false;
-
 function send(obj) {
     window.chrome.webview.postMessage(JSON.stringify(obj));
 }
 
 function handleMessage(msg) {
-    receivedRealData = true;
     switch (msg.type) {
         case 'simconnect': state.simconnect = msg.connected; render(); break;
         case 'gsx':
             state.gsx = msg.running;
             if (!msg.running) state.services = { boarding: null, pushback: null, deboard: null };
             render();
+            break;
+        case 'remotePort':
+            console.log(msg.remotePort);
+            state.remotePort = msg.remotePort;
             break;
         case 'system': state.systemActive = msg.active; render(); break;
         case 'aircraft': state.aircraft = msg.title || ''; render(); break;
@@ -467,6 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.chrome.webview.addEventListener('message', e => {
         try { handleMessage(JSON.parse(e.data)); } catch (err) { console.error('Failed to parse message:', err); }
     });
+
+    document.getElementById("btn-gsx-menu").addEventListener("click", () => { window.open("http://127.0.0.1:" + state.remotePort + "/"); });
 
     document.getElementById('btn-settings')?.addEventListener('click', () => send({ type: 'openConfig' }));
     document.getElementById('chip-moved')?.addEventListener('click', () => send({ type: 'toggleHasMoved' }));

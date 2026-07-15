@@ -14,4 +14,5 @@ public static class GsxConstants
     public const string CateringState = "L:FSDT_GSX_CATERING_STATE";
 
     public const string RemoteControl = "L:FSDT_GSX_SET_REMOTECONTROL";
+    public const string RemotePort = "L:FSDT_GSX_REMOTE_PORT";
 }

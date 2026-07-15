@@ -29,7 +29,7 @@ internal enum SimDef : uint
     A300GroundState = 514,  // combined read: chocks + gpu + cargo door
 
     Md11Chocks = 520,       // L:MD11_EXT_CHOCKS (write)
-    Md11Gpu    = 521,       // L:MD11_EXT_GPU (write)
+    Md11Gpu = 521,       // L:MD11_EXT_GPU (write)
     Md11GroundState = 522,  // combined read: chocks + gpu
 }
 

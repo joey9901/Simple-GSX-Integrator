@@ -10,7 +10,7 @@ public sealed class ProcessWatcher : IDisposable
 
     public event Action? MsfsExited;
 
-    public void StartIfMsfsRunning()
+    public void Run()
     {
         // Already watching - don't start a second loop.
         if (_cts != null) return;

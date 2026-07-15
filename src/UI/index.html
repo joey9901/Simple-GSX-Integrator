@@ -24,6 +24,7 @@
             <div class="header-version" id="app-version">v1.4.3</div>
         </div>
         <div id="aircraft-name" class="header-aircraft">No aircraft loaded</div>
+        <button id="btn-gsx-menu" class="btn-icon" title="GSX Menu">⫶☰</button>
         <button id="btn-settings" class="btn-icon" title="Aircraft settings">⚙</button>
     </header>
 
@@ -49,7 +50,7 @@
             <div id="aircraft-state">
 
                 <div class="state-chip" id="chip-brake">
-                    <div class="icon brake-icon">P</div>
+                    <div class="icon">🅿</div>
                     <div>
                         <div class="label">Parking Brake</div>
                         <div class="value">—</div>
@@ -57,7 +58,7 @@
                 </div>
 
                 <div class="state-chip" id="chip-beacon">
-                    <div class="icon">💡</div>
+                    <div class="icon">🚨</div>
                     <div>
                         <div class="label">Beacon</div>
                         <div class="value">—</div>
@@ -65,14 +66,7 @@
                 </div>
 
                 <div class="state-chip" id="chip-engines">
-                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777" />
-                            <rect x="7" y="2" width="4" height="5" rx="1" fill="#999" />
-                            <rect x="13" y="2" width="4" height="5" rx="1" fill="#999" />
-                            <rect x="0" y="8" width="5" height="4" rx="1" fill="#888" />
-                            <rect x="19" y="8" width="5" height="4" rx="1" fill="#888" />
-                        </svg></div>
+                    <div class="icon">✇</div>
                     <div>
                         <div class="label">Engines</div>
                         <div class="value">—</div>
@@ -88,14 +82,7 @@
                 </div>
 
                 <div class="state-chip clickable" id="chip-engines-ran" title="Click to toggle">
-                    <div class="icon"><svg viewBox="0 0 24 18" width="20" height="16"
-                            xmlns="http://www.w3.org/2000/svg">
-                            <rect x="4" y="5" width="16" height="12" rx="1.5" fill="#777" />
-                            <rect x="7" y="2" width="4" height="5" rx="1" fill="#999" />
-                            <rect x="13" y="2" width="4" height="5" rx="1" fill="#999" />
-                            <rect x="0" y="8" width="5" height="4" rx="1" fill="#888" />
-                            <rect x="19" y="8" width="5" height="4" rx="1" fill="#888" />
-                        </svg></div>
+                    <div class="icon">✇</div>
                     <div>
                         <div class="label">Engines Ran</div>
                         <div class="value">—</div>
@@ -210,7 +197,7 @@
                 <label class="cfg-row"><input type="checkbox" id="chkCrewComms"><span>Realistic Crew
                         Comms</span></label>
                 <label class="cfg-row"><input type="checkbox" id="chkRemoteControl"><span>Disable GSX Remote
-                        Control</span></label>
+                        Control (Experimental)</span></label>
 
                 <div id="cfg-aircraft-section" class="hidden">
                     <div class="cfg-section-label" style="margin-top:14px">Aircraft Settings</div>

@@ -67,7 +67,7 @@ internal static class Program
         _procWatcher = new ProcessWatcher();
         _hotkeys.Start();
 
-        _procWatcher.StartIfMsfsRunning();
+        _procWatcher.Run();
 
         _manager.Connected += OnSimConnectConnected;
         _manager.Disconnected += OnSimConnectDisconnected;
@@ -80,14 +80,15 @@ internal static class Program
 
         _flightState.AircraftChanged += OnAircraftTitleChanged;
 
-        _flightState.BeaconChanged += OnBeaconChangedForDisplay;
-        _flightState.ParkingBrakeChanged += OnParkingBrakeChangedForDisplay;
-        _flightState.EngineChanged += OnEngineChangedForDisplay;
-        _flightState.EnginesEverRunChanged += OnEnginesEverRunChangedForDisplay;
-        _flightState.HasMovedChanged += OnHasMovedChangedForDisplay;
+        _flightState.BeaconChanged += RefreshAircraftStateDetails;
+        _flightState.ParkingBrakeChanged += RefreshAircraftStateDetails;
+        _flightState.EngineChanged += RefreshAircraftStateDetails;
+        _flightState.EnginesEverRunChanged += RefreshAircraftStateDetails;
+        _flightState.HasMovedChanged += RefreshAircraftStateDetails;
 
         _gsxMonitor.GsxStarted += OnGsxStarted;
         _gsxMonitor.GsxStopped += OnGsxStopped;
+        _gsxMonitor.RemotePortChanged += OnRemotePortChanged;
         _gsxMonitor.BoardingStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "boarding", status = s.ToString().ToLower() }));
         _gsxMonitor.DeboardingStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "deboard", status = s.ToString().ToLower() }));
         _gsxMonitor.PushbackStateChanged += s => _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "serviceStatus", service = "pushback", status = s.ToString().ToLower() }));
@@ -100,7 +101,6 @@ internal static class Program
         _procWatcher.MsfsExited += OnMsfsExited;
 
         _MainWindow.Show();
-        Logger.Debug("UI window shown.");
 
         TryConnectSimConnect();
 
@@ -151,7 +151,7 @@ internal static class Program
         _sc = sc;
         _simConnectTimer?.Start(); // restart pump timer (may have been stopped on disconnect)
 
-        _procWatcher.StartIfMsfsRunning();
+        _procWatcher.Run();
 
         _automationManager.OnSimConnectConnected(sc);
         _automationManager.CurrentAdapter?.OnSimConnectConnected(sc);
@@ -228,7 +228,7 @@ internal static class Program
         CurrentAircraftTitle = displayTitle;
 
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
-        _MainWindow.Invoke(() => RefreshAircraftStateDetails());
+        _MainWindow.Invoke(() => RefreshAircraftStateDetails(false));
         try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
         catch { }
     }
@@ -263,9 +263,21 @@ internal static class Program
         }
     }
 
+    public static void OnRemotePortChanged(string port)
+    {
+        Logger.Debug($"Port changed, sending to JS: {port}");
+        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "remotePort", remotePort = port }));
+    }
+
+    public static void RefreshRemotePort()
+    {
+        var port = _gsxMonitor?.RemotePort;
+        if (!string.IsNullOrEmpty(port))
+            _MainWindow.SendMessage(new { type = "remotePort", remotePort = port });
+    }
+
     private static void OnGsxStarted()
     {
-        Logger.Debug("GSX started.");
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = true }));
         RefreshServiceStates();
         ApplyRemoteControlSetting();
@@ -399,9 +411,11 @@ internal static class Program
 
     private static void ApplyRemoteControlSetting()
     {
-        if (!_gsxMonitor.IsGsxRunning || string.IsNullOrEmpty(CurrentAircraftTitle)) return;
+        if (string.IsNullOrEmpty(CurrentAircraftTitle)) return;
         var cfg = ConfigManager.GetAircraftConfig(CurrentAircraftTitle);
-        _gsxMonitor.SetRemoteControl(!cfg.DisableRemoteControl);
+        _gsxMonitor.ShouldDisableRemoteControl = cfg.DisableRemoteControl;
+        if (cfg.DisableRemoteControl && _gsxMonitor.IsGsxRunning)
+            _gsxMonitor.SetRemoteControl(false);
     }
 
     public static void RegisterActivationForCurrentAircraft()
@@ -452,14 +466,9 @@ internal static class Program
         Logger.Info($"Hotkey '{hotkeyType}' updated to '{hotkeyString}'.");
     }
 
-    private static void OnBeaconChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-    private static void OnParkingBrakeChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-    private static void OnEngineChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-    private static void OnEnginesEverRunChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-    private static void OnHasMovedChangedForDisplay(bool _) { RefreshAircraftStateDetails(); }
-
-    public static void RefreshDisplayState() => RefreshAircraftStateDetails();
     public static void RefreshGroundEquipState() => SendGroundEquipState(_automationManager?.CurrentAdapter);
+
+    public static void RefreshDisplayState() => RefreshAircraftStateDetails(false);
 
     public static void RefreshServiceStates()
     {
@@ -472,7 +481,7 @@ internal static class Program
         });
     }
 
-    private static void RefreshAircraftStateDetails()
+    private static void RefreshAircraftStateDetails(bool _)
     {
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new
         {

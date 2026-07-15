@@ -7,7 +7,7 @@ namespace SimpleGsxIntegrator.Gsx;
 public sealed class GsxMonitor
 {
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct ScalarStruct { public double Value; }
+    private struct RemoteControlStruct { public double RemoteControl; }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
     private struct GsxStateStruct
@@ -20,6 +20,8 @@ public sealed class GsxMonitor
         public double PushbackState;
         public double RefuelingState;
         public double CateringState;
+        public double RemoteControl;
+        public double RemotePort;
     }
 
     private SimConnect? _sc;
@@ -29,6 +31,11 @@ public sealed class GsxMonitor
     private GsxServiceState _pushbackState = GsxServiceState.Unknown;
     private GsxServiceState _refuelingState = GsxServiceState.Unknown;
     private GsxServiceState _cateringState = GsxServiceState.Unknown;
+
+    public bool ShouldDisableRemoteControl { get; set; }
+
+    private string _remotePort = "8744";
+    public string RemotePort => _remotePort;
 
     public bool IsGsxRunning
     {
@@ -67,14 +74,16 @@ public sealed class GsxMonitor
     public event Action<GsxServiceState>? PushbackStateChanged;
     public event Action<GsxServiceState>? RefuelingStateChanged;
     public event Action<GsxServiceState>? CateringStateChanged;
+    public event Action<string>? RemotePortChanged;
 
     public void OnSimConnectConnected(SimConnect sc)
     {
         _sc = sc;
 
+        // Write-only SimDef for SetDataOnSimObject — must not also appear in GsxState read definition
         sc.AddToDataDefinition(SimDef.GsxRemoteControl, GsxConstants.RemoteControl, null,
             SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-        sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.GsxRemoteControl);
+        sc.RegisterDataDefineStruct<RemoteControlStruct>(SimDef.GsxRemoteControl);
 
         AddGsxVar(sc, GsxConstants.CouatlStarted);
         AddGsxVar(sc, GsxConstants.MenuOpen);
@@ -84,6 +93,8 @@ public sealed class GsxMonitor
         AddGsxVar(sc, GsxConstants.PushbackState);
         AddGsxVar(sc, GsxConstants.RefuelingState);
         AddGsxVar(sc, GsxConstants.CateringState);
+        AddGsxVar(sc, GsxConstants.RemoteControl);
+        AddGsxVar(sc, GsxConstants.RemotePort);
 
         sc.RegisterDataDefineStruct<GsxStateStruct>(SimDef.GsxState);
 
@@ -104,7 +115,7 @@ public sealed class GsxMonitor
         try
         {
             _sc.SetDataOnSimObject(SimDef.GsxRemoteControl, SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                SIMCONNECT_DATA_SET_FLAG.DEFAULT, new ScalarStruct { Value = enabled ? 1.0 : 0.0 });
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT, new RemoteControlStruct { RemoteControl = enabled ? 1.0 : 0.0 });
             Logger.Debug($"GsxMonitor: {GsxConstants.RemoteControl} = {(enabled ? 1.0 : 0.0)}");
         }
         catch (Exception ex)
@@ -144,6 +155,20 @@ public sealed class GsxMonitor
         UpdateState(ref _pushbackState, PushbackStateChanged, raw.PushbackState);
         UpdateState(ref _refuelingState, RefuelingStateChanged, raw.RefuelingState);
         UpdateState(ref _cateringState, CateringStateChanged, raw.CateringState);
+
+        if (ShouldDisableRemoteControl && raw.RemoteControl == 1.0)
+            SetRemoteControl(false);
+
+        if (raw.RemotePort != 0)
+        {
+            var port = ((int)raw.RemotePort).ToString();
+            if (port != _remotePort)
+            {
+                _remotePort = port;
+                RemotePortChanged?.Invoke(_remotePort);
+                Logger.Debug($"Remote Port changed: {_remotePort}");
+            }
+        }
     }
 
     private static void UpdateState(

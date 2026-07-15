@@ -131,6 +131,7 @@ public class MainWindow : Form
         Program.RefreshDisplayState();
         Program.RefreshGroundEquipState();
         Program.RefreshServiceStates();
+        Program.RefreshRemotePort();
         SendMessage(new { type = "hotkeys", activation = cfg.Hotkeys.ActivationKey, reset = cfg.Hotkeys.ResetKey });
         _ = Task.Run(RunUpdateCheckAsync);
     }
