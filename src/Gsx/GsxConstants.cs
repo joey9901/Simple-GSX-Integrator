@@ -12,4 +12,6 @@ public static class GsxConstants
     public const string PushbackState = "L:FSDT_GSX_DEPARTURE_STATE";
     public const string RefuelingState = "L:FSDT_GSX_REFUELING_STATE";
     public const string CateringState = "L:FSDT_GSX_CATERING_STATE";
+
+    public const string RemoteControl = "L:FSDT_GSX_SET_REMOTECONTROL";
 }

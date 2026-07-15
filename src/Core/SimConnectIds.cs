@@ -8,6 +8,7 @@ internal enum SimDef : uint
     GsxState = 200,
     GsxMenuOpen = 201,
     GsxMenuChoice = 202,
+    GsxRemoteControl = 203,  // L:FSDT_GSX_SET_REMOTECONTROL (write)
 
     Pmdg777Vars = 300,
     Pmdg777Control = 301,

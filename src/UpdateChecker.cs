@@ -29,7 +29,8 @@ public static class UpdateChecker
             using var client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(5);
 
-            var json = await client.GetStringAsync(UpdateCheckUrl);
+            var bytes = await client.GetByteArrayAsync(UpdateCheckUrl);
+            var json = System.Text.Encoding.UTF8.GetString(bytes);
             Logger.Debug($"Received JSON: {json}");
 
             var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(json, new JsonSerializerOptions

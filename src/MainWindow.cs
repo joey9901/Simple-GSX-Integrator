@@ -292,6 +292,7 @@ public class MainWindow : Form
                 refuelBeforeBoarding = cfg.RefuelBeforeBoarding,
                 cateringOnNewFlight = cfg.CateringOnNewFlight,
                 realisticCrewComms = cfg.RealisticCrewComms,
+                disableRemoteControl = cfg.DisableRemoteControl,
                 removeCovers = cfg.RemoveCovers,
                 manageGroundEquipment = cfg.ManageGroundEquipment,
                 manageDoors = cfg.ManageDoors,

@@ -127,6 +127,7 @@ public static class ConfigManager
                         if (key == "RefuelBeforeBoarding") ac.RefuelBeforeBoarding = ParseBool(val);
                         if (key == "CateringOnNewFlight") ac.CateringOnNewFlight = ParseBool(val);
                         if (key == "RealisticCrewComms") ac.RealisticCrewComms = ParseBool(val);
+                        if (key == "DisableRemoteControl") ac.DisableRemoteControl = ParseBool(val);
                         if (key == "RemoveCovers") ac.RemoveCovers = ParseBool(val);
                         if (key == "ManageGroundEquipment") ac.ManageGroundEquipment = ParseBool(val);
                         if (key == "ManageDoors") ac.ManageDoors = ParseBool(val);
@@ -168,6 +169,7 @@ public static class ConfigManager
                 lines.Add($"RefuelBeforeBoarding={ac.RefuelBeforeBoarding.ToString().ToLowerInvariant()}");
                 lines.Add($"CateringOnNewFlight={ac.CateringOnNewFlight.ToString().ToLowerInvariant()}");
                 lines.Add($"RealisticCrewComms={ac.RealisticCrewComms.ToString().ToLowerInvariant()}");
+                lines.Add($"DisableRemoteControl={ac.DisableRemoteControl.ToString().ToLowerInvariant()}");
                 lines.Add($"RemoveCovers={ac.RemoveCovers.ToString().ToLowerInvariant()}");
                 lines.Add($"ManageGroundEquipment={ac.ManageGroundEquipment.ToString().ToLowerInvariant()}");
                 lines.Add($"ManageDoors={ac.ManageDoors.ToString().ToLowerInvariant()}");

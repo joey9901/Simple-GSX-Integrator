@@ -26,6 +26,7 @@ public sealed class AircraftConfig
     public bool RefuelBeforeBoarding { get; set; } = false;
     public bool CateringOnNewFlight { get; set; } = false;
     public bool RealisticCrewComms { get; set; } = false;
+    public bool DisableRemoteControl { get; set; } = false;
     public bool RemoveCovers { get; set; } = false;
     public bool ManageGroundEquipment { get; set; } = false;
     public bool ManageDoors { get; set; } = false;

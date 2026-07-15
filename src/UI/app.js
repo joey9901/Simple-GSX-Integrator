@@ -13,11 +13,9 @@
     services: { boarding: null, pushback: null, deboard: null },
 };
 
-const isPreview = !window.chrome?.webview;
 let receivedRealData = false;
 
 function send(obj) {
-    if (isPreview) return;
     window.chrome.webview.postMessage(JSON.stringify(obj));
 }
 
@@ -72,35 +70,6 @@ function handleMessage(msg) {
             hideConfigModal();
             break;
     }
-}
-
-if (!isPreview) {
-    console.log('WebView2 detected, listening for messages');
-    window.chrome.webview.addEventListener('message', e => {
-        try { handleMessage(JSON.parse(e.data)); } catch (err) { console.error('Failed to parse message:', err); }
-    });
-
-    setTimeout(() => {
-        if (!receivedRealData) {
-            console.log('No real data received, injecting test data');
-            handleMessage({ type: 'simconnect', connected: false });
-            handleMessage({ type: 'gsx', running: false });
-            handleMessage({ type: 'system', active: false });
-            handleMessage({ type: 'aircraft', title: 'No aircraft loaded' });
-            handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: false, enginesEverRan: false, hasMoved: false });
-            handleMessage({ type: 'hotkeys', activation: '—', reset: '—' });
-        }
-    }, 1000);
-} else {
-    console.log('Preview mode detected, injecting test data');
-    setTimeout(() => {
-        handleMessage({ type: 'simconnect', connected: true });
-        handleMessage({ type: 'gsx', running: true });
-        handleMessage({ type: 'system', active: false });
-        handleMessage({ type: 'aircraft', title: 'FlyByWire A380X (A380-842)' });
-        handleMessage({ type: 'state', beaconOn: false, enginesOn: false, parkingBrake: true, enginesEverRan: true, hasMoved: true });
-        handleMessage({ type: 'hotkeys', activation: 'ALT+G', reset: 'ALT+B' });
-    }, 200);
 }
 
 function render() {
@@ -438,6 +407,7 @@ function showConfigModal(msg) {
     document.getElementById('chkRefuel').checked = !!msg.config.refuelBeforeBoarding;
     document.getElementById('chkCatering').checked = !!msg.config.cateringOnNewFlight;
     document.getElementById('chkCrewComms').checked = !!msg.config.realisticCrewComms;
+    document.getElementById('chkRemoteControl').checked = !!msg.config.disableRemoteControl;
 
     const caps = msg.caps || {};
     const hasCaps = caps.canManageGroundEquipment || caps.canRemoveCovers || caps.canManageDoors;
@@ -465,6 +435,7 @@ function saveConfig() {
         refuelBeforeBoarding: document.getElementById('chkRefuel').checked,
         cateringOnNewFlight: document.getElementById('chkCatering').checked,
         realisticCrewComms: document.getElementById('chkCrewComms').checked,
+        disableRemoteControl: document.getElementById('chkRemoteControl').checked,
         manageGroundEquipment: document.getElementById('rowGpu').classList.contains('hidden') ? savedConfig?.manageGroundEquipment ?? false : document.getElementById('chkGpu').checked,
         removeCovers: document.getElementById('rowCovers').classList.contains('hidden') ? savedConfig?.removeCovers ?? false : document.getElementById('chkCovers').checked,
         manageDoors: document.getElementById('rowDoors').classList.contains('hidden') ? savedConfig?.manageDoors ?? false : document.getElementById('chkDoors').checked,
@@ -492,6 +463,10 @@ function setModal(which, visible) {
 
 document.addEventListener('DOMContentLoaded', () => {
     render();
+
+    window.chrome.webview.addEventListener('message', e => {
+        try { handleMessage(JSON.parse(e.data)); } catch (err) { console.error('Failed to parse message:', err); }
+    });
 
     document.getElementById('btn-settings')?.addEventListener('click', () => send({ type: 'openConfig' }));
     document.getElementById('chip-moved')?.addEventListener('click', () => send({ type: 'toggleHasMoved' }));

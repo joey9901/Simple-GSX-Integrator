@@ -7,6 +7,8 @@ class Program
     [STAThread]
     static void Main(string[] args)
     {
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
         var runningProcesses = Process.GetProcessesByName("SimpleGSXIntegrator");
         if (runningProcesses.Length > 0)
         {

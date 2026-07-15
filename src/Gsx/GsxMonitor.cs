@@ -6,6 +6,9 @@ namespace SimpleGsxIntegrator.Gsx;
 
 public sealed class GsxMonitor
 {
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct ScalarStruct { public double Value; }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
     private struct GsxStateStruct
     {
@@ -19,6 +22,7 @@ public sealed class GsxMonitor
         public double CateringState;
     }
 
+    private SimConnect? _sc;
     private bool _gsxRunning;
     private GsxServiceState _boardingState = GsxServiceState.Unknown;
     private GsxServiceState _deboardingState = GsxServiceState.Unknown;
@@ -66,6 +70,12 @@ public sealed class GsxMonitor
 
     public void OnSimConnectConnected(SimConnect sc)
     {
+        _sc = sc;
+
+        sc.AddToDataDefinition(SimDef.GsxRemoteControl, GsxConstants.RemoteControl, null,
+            SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.RegisterDataDefineStruct<ScalarStruct>(SimDef.GsxRemoteControl);
+
         AddGsxVar(sc, GsxConstants.CouatlStarted);
         AddGsxVar(sc, GsxConstants.MenuOpen);
         AddGsxVar(sc, GsxConstants.MenuChoice);
@@ -86,6 +96,21 @@ public sealed class GsxMonitor
             0, 0, 0);
 
         Logger.Debug("GsxMonitor: SimConnect vars registered");
+    }
+
+    public void SetRemoteControl(bool enabled)
+    {
+        if (_sc == null) return;
+        try
+        {
+            _sc.SetDataOnSimObject(SimDef.GsxRemoteControl, SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT, new ScalarStruct { Value = enabled ? 1.0 : 0.0 });
+            Logger.Debug($"GsxMonitor: {GsxConstants.RemoteControl} = {(enabled ? 1.0 : 0.0)}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning($"GsxMonitor: SetRemoteControl failed: {ex.Message}");
+        }
     }
 
     private void AddGsxVar(SimConnect sc, string lvar)

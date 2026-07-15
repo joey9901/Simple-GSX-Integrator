@@ -268,6 +268,7 @@ internal static class Program
         Logger.Debug("GSX started.");
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = true }));
         RefreshServiceStates();
+        ApplyRemoteControlSetting();
     }
 
     private static void OnGroundStateChanged()
@@ -393,6 +394,14 @@ internal static class Program
         adapter.removeCovers = cfg.RemoveCovers;
         adapter.manageGroundEquipment = cfg.ManageGroundEquipment;
         adapter.manageDoors = cfg.ManageDoors;
+        ApplyRemoteControlSetting();
+    }
+
+    private static void ApplyRemoteControlSetting()
+    {
+        if (!_gsxMonitor.IsGsxRunning || string.IsNullOrEmpty(CurrentAircraftTitle)) return;
+        var cfg = ConfigManager.GetAircraftConfig(CurrentAircraftTitle);
+        _gsxMonitor.SetRemoteControl(!cfg.DisableRemoteControl);
     }
 
     public static void RegisterActivationForCurrentAircraft()
