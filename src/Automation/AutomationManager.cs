@@ -25,7 +25,6 @@ public sealed class AutomationManager
     /// Set once pushback has been attempted.
     /// This aims to stop boarding being called if user forgot to turn on APU
     /// and loses power, causing the beacon to turn OFF
-    /// (can only occur if boarding was not performed)
     private bool _pushbackAttempted;
 
     private SimConnect? _sc;
@@ -62,6 +61,7 @@ public sealed class AutomationManager
     }
 
     public string? CurrentAircraftDisplayName => _currentAdapter?.DisplayName;
+    private string ConfigAircraftTitle => _currentAdapter?.DisplayName ?? _flightState.AircraftTitle;
 
     public void SetCurrentAdapter(AircraftAdapterBase? adapter)
     {
@@ -87,7 +87,7 @@ public sealed class AutomationManager
     private void AutoDeactivate()
     {
         if (!_activated) return;
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(ConfigAircraftTitle);
         if (!cfg.RealisticCrewComms) return;
         Logger.Info("AutomationManager: Realistic crew comms enabled, deactivating. Re-activate to call next service.");
         ToggleActivation();
@@ -192,7 +192,7 @@ public sealed class AutomationManager
 
     private void OnActivationLvarTriggered(double value)
     {
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(ConfigAircraftTitle);
 
         if (string.IsNullOrEmpty(cfg.ActivationLvar)) return;
         if (Math.Abs(value - cfg.ActivationValue) < 0.001)
@@ -338,7 +338,7 @@ public sealed class AutomationManager
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_refuelingDone || _boardingDone) return;
 
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(ConfigAircraftTitle);
         if (!cfg.RefuelBeforeBoarding) return;
         if (cfg.CateringOnNewFlight && !_cateringDone) return;
 
@@ -356,7 +356,7 @@ public sealed class AutomationManager
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
         if (_cateringDone || _boardingDone) return;
 
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(ConfigAircraftTitle);
         if (!cfg.CateringOnNewFlight) return;
 
         _ = CallServiceAsync("Catering",
@@ -377,7 +377,7 @@ public sealed class AutomationManager
         if (_gsxMonitor.DeboardingState == GsxServiceState.Active ||
             _gsxMonitor.DeboardingState == GsxServiceState.Requested) return;
 
-        var cfg = ConfigManager.GetAircraftConfig(_flightState.AircraftTitle);
+        var cfg = ConfigManager.GetAircraftConfig(ConfigAircraftTitle);
         if (cfg.RefuelBeforeBoarding && !_refuelingDone) return;
         if (cfg.CateringOnNewFlight && !_cateringDone) return;
 
@@ -574,7 +574,7 @@ public sealed class AutomationManager
     {
         equipment = null!;
         if (_currentAdapter is not IGroundEquipment e) return false;
-        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).ManageGroundEquipment) return false;
+        if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).ManageGroundEquipment) return false;
         equipment = e;
         return true;
     }
@@ -583,7 +583,7 @@ public sealed class AutomationManager
     {
         covers = null!;
         if (_currentAdapter is not IEngineCovers c) return false;
-        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).RemoveCovers) return false;
+        if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).RemoveCovers) return false;
         covers = c;
         return true;
     }
@@ -592,7 +592,7 @@ public sealed class AutomationManager
     {
         doors = null!;
         if (_currentAdapter is not IClosableDoors d) return false;
-        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).ManageDoors) return false;
+        if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).ManageDoors) return false;
         doors = d;
         return true;
     }
