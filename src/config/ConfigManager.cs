@@ -12,7 +12,7 @@ public static class ConfigManager
     public static AppConfig GetConfig() => _config;
 
     private static string NormalizeTitle(string title) =>
-        AircraftRegistry.FindDisplayName(title) ?? title;
+        Program.ResolveAdapter("", title)?.DisplayName ?? title;
 
     public static AircraftConfig GetAircraftConfig(string aircraftTitle)
     {

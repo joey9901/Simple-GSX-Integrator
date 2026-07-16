@@ -5,6 +5,7 @@ namespace SimpleGsxIntegrator.Aircraft.TFDi;
 
 internal sealed class TfdiMd11Adapter : AircraftAdapterBase, IGroundEquipment
 {
+    public override string DisplayName => "TFDi MD-11";
     public override string parkingBrakeVariable => TfdiMd11Constants.LVar_ParkingBrake;
 
     private bool? _chocksSet;

@@ -226,8 +226,6 @@ public sealed class FlightStateTracker
             }
         }
 
-        // First poll - seed previous values then fire initial-state notifications so the UI
-        // populates immediately when the app connects to an already-running simulator.
         if (_firstPoll)
         {
             _firstPoll = false;

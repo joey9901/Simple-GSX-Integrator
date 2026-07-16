@@ -250,26 +250,22 @@ public class MainWindow : Form
 
     private void ShowPickerModal(List<string> saved, string? current)
     {
-        var withFamily = new Dictionary<string, List<string>>();
+        // Saved titles are already normalized to their adapter's display name (or left as the
+        // raw title when no adapter matched), so a saved title is "known" iff it equals one.
+        var knownFamilies = Program.GetKnownAdapterDisplayNames();
+        var withFamily = new List<string>();
         var withoutFamily = new List<string>();
 
         foreach (var title in saved)
         {
-            var family = Aircraft.AircraftRegistry.FindDisplayName(title);
-            if (family != null)
-            {
-                if (!withFamily.ContainsKey(family)) withFamily[family] = new();
-                withFamily[family].Add(title);
-            }
+            if (knownFamilies.Contains(title)) withFamily.Add(title);
             else withoutFamily.Add(title);
         }
 
         SendMessage(new
         {
             type = "showPicker",
-            withFamily = withFamily.OrderBy(kv => kv.Key)
-                               .Select(kv => new { family = kv.Key, titles = kv.Value.OrderBy(x => x).ToList() })
-                               .ToList(),
+            withFamily = withFamily.OrderBy(x => x).Select(title => new { family = title, titles = new[] { title } }).ToList(),
             withoutFamily = withoutFamily.OrderBy(x => x).ToList(),
             currentTitle = current
         });
@@ -280,7 +276,7 @@ public class MainWindow : Form
         if (string.IsNullOrEmpty(title)) return;
         _pendingConfigTitle = title;
 
-        var adapter = Aircraft.AircraftRegistry.Resolve("", title).Adapter;
+        var adapter = Program.CreateAdapterByDisplayName(title);
         var cfg = Config.ConfigManager.GetAircraftConfig(title);
 
         SendMessage(new

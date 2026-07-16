@@ -5,6 +5,8 @@ namespace SimpleGsxIntegrator.Aircraft.A330;
 
 public sealed class IniA330Adapter : AircraftAdapterBase, IGroundEquipment, IEngineCovers
 {
+    public override string DisplayName => "Microsoft/iniBuilds A330";
+
     private bool? _chocksSet;
     private bool? _gpuConnected;
     public bool? ChocksSet => _chocksSet;

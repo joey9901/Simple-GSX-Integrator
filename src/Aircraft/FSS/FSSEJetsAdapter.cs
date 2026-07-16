@@ -5,6 +5,8 @@ namespace SimpleGsxIntegrator.Aircraft.FSS;
 
 internal sealed class FSSEJetsAdapter : AircraftAdapterBase, IGroundEquipment
 {
+    public override string DisplayName => "FSS E-Jets Series";
+
     private bool? _gpuConnected;
     private bool? _chocksSet;
     public bool? GpuConnected => _gpuConnected;

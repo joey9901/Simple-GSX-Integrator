@@ -1,6 +1,17 @@
 using System.Runtime.InteropServices;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Aircraft;
+using SimpleGsxIntegrator.Aircraft.A300;
+using SimpleGsxIntegrator.Aircraft.A330;
+using SimpleGsxIntegrator.Aircraft.Aerosoft;
+using SimpleGsxIntegrator.Aircraft.Fenix;
+using SimpleGsxIntegrator.Aircraft.FlyByWire;
+using SimpleGsxIntegrator.Aircraft.FSLabs;
+using SimpleGsxIntegrator.Aircraft.FSS;
+using SimpleGsxIntegrator.Aircraft.iniBuilds;
+using SimpleGsxIntegrator.Aircraft.JustFlight;
+using SimpleGsxIntegrator.Aircraft.Pmdg;
+using SimpleGsxIntegrator.Aircraft.TFDi;
 using SimpleGsxIntegrator.Automation;
 using SimpleGsxIntegrator.Config;
 using SimpleGsxIntegrator.Core;
@@ -28,7 +39,6 @@ internal static class Program
     public static bool IsSimConnectConnected => _manager?.IsConnected ?? false;
     public static bool IsGsxRunning => _gsxMonitor?.IsGsxRunning ?? false;
     public static bool IsSystemActive => _automationManager?.IsActivated ?? false;
-    private static string? _resolvedDisplayName;
     private static string _rawAircraftTitle = string.Empty;
     private static Mutex? _singleInstanceMutex;
     private static bool _closeWithSim;
@@ -174,8 +184,10 @@ internal static class Program
     {
         _sc = null;
         _simConnectTimer?.Stop();
-        _resolvedDisplayName = null;
-        _automationManager.SetCurrentAdapter(null, null);
+        _rawAircraftTitle = string.Empty;
+        CurrentAircraftPath = string.Empty;
+        CurrentAircraftTitle = string.Empty;
+        _automationManager.SetCurrentAdapter(null);
         Logger.Debug("SimConnect disconnected.");
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = false }));
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = false }));
@@ -194,24 +206,72 @@ internal static class Program
     {
         if (data.dwRequestID != 900) return;
 
-        string aircraftPath = data.szString?.Trim() ?? string.Empty;
-        if (string.IsNullOrEmpty(aircraftPath)) return;
-        if (aircraftPath == CurrentAircraftPath) return;
+        var path = data.szString?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(path) || path == CurrentAircraftPath) return;
 
-        CurrentAircraftPath = aircraftPath;
-        Logger.Debug($"Aircraft loaded: {aircraftPath}");
+        CurrentAircraftPath = path;
+        Logger.Debug($"Aircraft loaded: {path}");
 
-        LoadAdapterForAircraft(aircraftPath, _rawAircraftTitle);
+        ApplyResolvedAdapter(path, _rawAircraftTitle);
+    }
 
-        if (!string.IsNullOrEmpty(_rawAircraftTitle))
+    private static readonly (Func<string, string, bool> Matches, Func<AircraftAdapterBase> Create)[] AdapterCatalog =
+    {
+        ((path, title) => path.Contains("PMDG 777", StringComparison.OrdinalIgnoreCase), () => new Pmdg777Adapter()),
+        ((path, title) => path.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase), () => new Pmdg737Adapter()),
+        ((path, title) => path.Contains("a346-pro", StringComparison.OrdinalIgnoreCase), () => new AeroA346Adapter()),
+        ((path, title) => path.Contains("TFDi_Design_MD-11", StringComparison.OrdinalIgnoreCase), () => new TfdiMd11Adapter()),
+        ((path, title) => path.Contains("FSLabs", StringComparison.OrdinalIgnoreCase), () => new FSLabsA320Adapter()),
+        ((path, title) => path.Contains("FlyByWire_A380", StringComparison.OrdinalIgnoreCase), () => new FbwA380Adapter()),
+        ((path, title) => path.Contains("FlyByWire_A320", StringComparison.OrdinalIgnoreCase), () => new FbwA32NXAdapter()),
+        ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("a300", StringComparison.OrdinalIgnoreCase), () => new IniA300Adapter()),
+        ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("a330", StringComparison.OrdinalIgnoreCase), () => new IniA330Adapter()),
+        ((path, title) => path.Contains("inibuilds-a340", StringComparison.OrdinalIgnoreCase), () => new IniA340Adapter()),
+        ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("A350", StringComparison.OrdinalIgnoreCase), () => new IniA350Adapter()),
+        ((path, title) => path.Contains("FNX_320", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_321", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_319", StringComparison.OrdinalIgnoreCase), () => new FenixA320Adapter()),
+        ((path, title) => path.Contains("Just Flight Fokker", StringComparison.OrdinalIgnoreCase), () => new JustFlightF100Adapter()),
+
+        ((path, title) => title.Contains("FSS Embraer", StringComparison.OrdinalIgnoreCase), () => new FSSEJetsAdapter()),
+    };
+
+    public static AircraftAdapterBase? ResolveAdapter(string aircraftPath, string aircraftTitle)
+    {
+        var path = aircraftPath ?? "";
+        var title = aircraftTitle ?? "";
+
+        foreach (var entry in AdapterCatalog)
+            if (entry.Matches(path, title))
+                return entry.Create();
+
+        return null;
+    }
+
+    public static IReadOnlySet<string> GetKnownAdapterDisplayNames() =>
+        AdapterCatalog.Select(entry => entry.Create().DisplayName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    public static AircraftAdapterBase? CreateAdapterByDisplayName(string displayName)
+    {
+        foreach (var entry in AdapterCatalog)
         {
-            var correct = _resolvedDisplayName ?? AircraftRegistry.FindDisplayName(_rawAircraftTitle) ?? _rawAircraftTitle;
-            if (correct != CurrentAircraftTitle)
-            {
-                CurrentAircraftTitle = correct;
-                _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = CurrentAircraftTitle }));
-            }
+            var adapter = entry.Create();
+            if (string.Equals(adapter.DisplayName, displayName, StringComparison.OrdinalIgnoreCase))
+                return adapter;
         }
+        return null;
+    }
+
+    private static void ApplyResolvedAdapter(string path, string title)
+    {
+        var adapter = ResolveAdapter(path, title);
+        var displayName = adapter?.DisplayName ?? title;
+
+        if (displayName != CurrentAircraftTitle)
+        {
+            CurrentAircraftTitle = displayName;
+            _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = CurrentAircraftTitle }));
+        }
+
+        LoadAdapterForAircraft(adapter);
     }
 
     private static void OnActivationChanged(bool isActive)
@@ -223,19 +283,22 @@ internal static class Program
 
     private static void OnAircraftTitleChanged(string title)
     {
+        bool isFirstTitleSinceConnect = string.IsNullOrEmpty(_rawAircraftTitle);
         _rawAircraftTitle = title;
-        var displayTitle = _resolvedDisplayName ?? AircraftRegistry.FindDisplayName(title) ?? title;
-        CurrentAircraftTitle = displayTitle;
 
-        _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
+        if (isFirstTitleSinceConnect)
+        {
+            ApplyResolvedAdapter(CurrentAircraftPath, title);
+        }
+        else
+        {
+            CurrentAircraftTitle = "";
+            _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = "" }));
+        }
+
         _MainWindow.Invoke(() => RefreshAircraftStateDetails(false));
 
-        // Best-effort resolve with whatever path we currently have (may be stale from the
-        // previous aircraft), then always request a fresh path so OnSystemStateReceived
-        // can correct it once the real one arrives.
-        if (!string.IsNullOrEmpty(CurrentAircraftPath))
-            LoadAdapterForAircraft(CurrentAircraftPath, title);
-
+        // Request the correct path; OnSystemStateReceived will (re)resolve once it arrives.
         try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
         catch { }
     }
@@ -338,67 +401,40 @@ internal static class Program
         }
     }
 
-    private static void LoadAdapterForAircraft(string aircraftPath, string currentAircraftTitle)
+    private static void LoadAdapterForAircraft(AircraftAdapterBase? adapter)
     {
-        if (string.IsNullOrEmpty(aircraftPath)) return;
-
-        var match = AircraftRegistry.Resolve(aircraftPath, currentAircraftTitle);
-
-        Logger.Debug("Aircraft path: " + aircraftPath);
-
-        _resolvedDisplayName = match.Level != AircraftSupportLevel.Unknown ? match.DisplayName : null;
-
-        if (match.DisplayName == _automationManager.CurrentAircraftDisplayName && _automationManager.CurrentAdapter != null)
+        if (adapter?.DisplayName == _automationManager.CurrentAircraftDisplayName && _automationManager.CurrentAdapter != null)
         {
-            Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPath}', skipping.");
+            Logger.Debug("LoadAdapterForAircraft: adapter already loaded, skipping.");
             return;
         }
 
         var prevAdapter = _automationManager.CurrentAdapter;
         if (prevAdapter != null) prevAdapter.GroundEquipmentStateChanged -= OnGroundStateChanged;
-        _automationManager.SetCurrentAdapter(match.Adapter, match.DisplayName);
-        if (match.Adapter != null)
+        _automationManager.SetCurrentAdapter(adapter);
+
+        if (adapter == null)
         {
-            match.Adapter.GroundEquipmentStateChanged += OnGroundStateChanged;
+            Logger.Info("No profile found for this aircraft.");
+            SendGroundEquipState(null);
+            return;
         }
 
-        // Reset ground equip section; adapters that poll (PMDG) will re-populate via event within a few seconds.
-        // Adapters that write (A330) will populate on next place/remove operation.
-        SendGroundEquipState(match.Adapter);
+        adapter.GroundEquipmentStateChanged += OnGroundStateChanged;
+        SendGroundEquipState(adapter);
 
-        if (_sc != null && match.Adapter != null)
-        {
-            _flightState.OnSimConnectConnected(_sc, match.Adapter);
-        }
+        if (_sc != null)
+            adapter.OnSimConnectConnected(_sc);
 
-        switch (match.Level)
-        {
-            case AircraftSupportLevel.Custom:
-                Logger.Success($"Custom Profile for {match.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
-                if (_sc != null)
-                {
-                    Logger.Debug($"Registering Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
-                    match.Adapter!.OnSimConnectConnected(_sc);
-                }
-                else
-                {
-                    Logger.Debug($"Adapter '{match.Adapter!.GetType().Name}' created but SimConnect not yet connected.");
-                }
-                break;
+        var options = new List<string>();
+        if (adapter is IGroundEquipment) options.Add("Ground Equipment");
+        if (adapter is IEngineCovers) options.Add("Engine Covers");
+        if (adapter is IClosableDoors) options.Add("Closable Doors");
+        if (adapter is ICargoDoor) options.Add("Cargo Door");
 
-            case AircraftSupportLevel.Native:
-                Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
-                if (_sc != null && match.Adapter != null)
-                {
-                    Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter.GetType().Name}' with Active SimConnect.");
-                    match.Adapter.OnSimConnectConnected(_sc);
-                }
-                break;
-
-            case AircraftSupportLevel.Unknown:
-                Logger.Info("No Custom Profile found for this Aircraft.\nDoors and Ground Equipment will NOT be managed Automatically. Native GSX support is Unknown.");
-                break;
-        }
+        Logger.Success(options.Count > 0
+            ? $"{adapter.DisplayName} detected. Options: {string.Join(", ", options)}"
+            : $"{adapter.DisplayName} detected. No automation options available.");
     }
 
     public static void PrintCurrentState()

@@ -61,12 +61,11 @@ public sealed class AutomationManager
         get { return _currentAdapter; }
     }
 
-    public string? CurrentAircraftDisplayName { get; private set; }
+    public string? CurrentAircraftDisplayName => _currentAdapter?.DisplayName;
 
-    public void SetCurrentAdapter(AircraftAdapterBase? adapter, string? displayName)
+    public void SetCurrentAdapter(AircraftAdapterBase? adapter)
     {
         _currentAdapter = adapter;
-        CurrentAircraftDisplayName = displayName;
     }
 
     public void ToggleActivation()
@@ -133,13 +132,13 @@ public sealed class AutomationManager
         {
             if (beaconOn)
             {
-                _ = equipment.SetGpu(false);
-                _ = equipment.SetChocks(false);
+                equipment.SetGpu(false);
+                equipment.SetChocks(false);
             }
             else
             {
-                _ = equipment.SetGpu(true);
-                _ = equipment.SetChocks(true);
+                equipment.SetGpu(true);
+                equipment.SetChocks(true);
             }
         }
 

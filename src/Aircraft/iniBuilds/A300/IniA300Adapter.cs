@@ -5,6 +5,8 @@ namespace SimpleGsxIntegrator.Aircraft.A300;
 
 public sealed class IniA300Adapter : AircraftAdapterBase, IGroundEquipment, IEngineCovers, ICargoDoor
 {
+    public override string DisplayName => "iniBuilds A300";
+
     private bool? _chocksSet;
     private bool? _gpuConnected;
     private bool? _cargoDoorOpen;

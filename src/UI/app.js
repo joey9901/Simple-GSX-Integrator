@@ -340,9 +340,7 @@ function renderGroundEquip(msg) {
     const doorsChip = document.getElementById('chip-doors-open');
     const hasDoors = msg.showDoors && msg.openDoors !== null && msg.openDoors !== undefined;
     doorsChip?.classList.toggle('hidden', !hasDoors);
-    if (hasDoors) setChip('chip-doors-open', true,
-        msg.openDoors === 0 ? 'ALL CLOSED' : `${msg.openDoors} OPEN`,
-        msg.openDoors === 0);
+    if (hasDoors) setChip('chip-doors-open', true, msg.openDoors === 0 ? 'ALL CLOSED' : `DOORS OPEN`, msg.openDoors === 0);
 }
 
 let pickerSelected = null;

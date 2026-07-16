@@ -6,6 +6,8 @@ namespace SimpleGsxIntegrator.Aircraft;
 
 public class AircraftAdapterBase : IAircraftAdapter
 {
+    public virtual string DisplayName => GetType().Name;
+
     public virtual string parkingBrakeVariable => "BRAKE PARKING INDICATOR";
     public virtual string beaconLightVariable => "LIGHT BEACON";
     public virtual string engine1RunningVariable => "GENERAL ENG COMBUSTION:1";
