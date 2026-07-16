@@ -5,47 +5,13 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-public sealed class Pmdg737Adapter : AircraftAdapterBase
+public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors
 {
-    public override string DisplayName => "PMDG B737";
-    public override string[] TitleKeywords => ["PMDG", "737"];
-    public override bool canRemoveAndPlaceGroundEquipment => true;
-    public override bool canManageDoors => true;
+    public bool? GpuConnected => _vars.Gpu > 0.5;
+    public bool? ChocksSet => _vars.WheelChocks > 0.5;
+    public bool AnyDoorOpen => _doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds);
+    public int OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
-    public override bool? GpuConnected => _vars.Gpu > 0.5;
-    public override bool? ChocksSet => _vars.WheelChocks > 0.5;
-    public override int? OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-
-    private struct Pmdg737VarsStruct
-    {
-        // Order must match AddToDataDefinition calls exactly
-        public double FwdLeftCabinDoor;       // L:FwdLeftCabinDoor
-        public double AftLeftCabinDoor;       // L:AftLeftCabinDoor
-        public double FwdRightCabinDoor;      // L:FwdRightCabinDoor
-        public double AftRightCabinDoor;      // L:AftRightCabinDoor
-        public double OverwingAftLeftExit;    // L:OverwingAftLeftEmerExit
-        public double OverwingAftRightExit;   // L:OverwingAftRightEmerExit
-        public double OverwingFwdLeftExit;    // L:OverwingFwdLeftEmerExit
-        public double OverwingFwdRightExit;   // L:OverwingFwdRightEmerExit
-        public double FwdLwrCargoDoor;        // L:FwdLwrCargoDoor
-        public double AftLwrCargoDoor;        // L:AftLwrCargoDoor
-        public double MainCargoDoor;          // L:MainCargoDoor
-        public double EquipmentHatchDoor;     // L:EEDoor
-        public double WheelChocks;            // L:NGXWheelChocks
-        public double Gpu;                    // L:GPU_S_Hose_NGXu
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct Pmdg737ControlStruct
-    {
-        public uint Event;
-        public uint Parameter;
-    }
-
-
-    private SimConnect? _sc;
     private Pmdg737VarsStruct _vars;
     private readonly DoorStateTracker _doorTracker = new();
 
@@ -54,7 +20,7 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     public override void OnSimConnectConnected(SimConnect sc)
     {
-        _sc = sc;
+        base.OnSimConnectConnected(sc);
 
         RegisterLVars(sc);
         RegisterControlChannel(sc);
@@ -65,7 +31,6 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     private void RegisterLVars(SimConnect sc)
     {
-        // Doors (order must match Pmdg737VarsStruct field order)
         AddLVar(sc, Pmdg737Constants.LVAR_DOOR_FWD_L);
         AddLVar(sc, Pmdg737Constants.LVAR_DOOR_AFT_L);
         AddLVar(sc, Pmdg737Constants.LVAR_DOOR_FWD_R);
@@ -124,7 +89,7 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
     {
         try
         {
-            _sc?.RequestDataOnSimObject(
+            SimConnection?.RequestDataOnSimObject(
                 SimReq.Pmdg737Vars,
                 SimDef.Pmdg737Vars,
                 SimConnect.SIMCONNECT_OBJECT_ID_USER,
@@ -147,10 +112,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
         UpdateDoorStates();
     }
 
-    private async Task CloseAllOpenDoorsAsync()
+    public async Task CloseOpenDoors()
     {
-        if (!manageDoors) return;
-
         var open = Pmdg737Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
 
         if (open.Count == 0)
@@ -186,22 +149,11 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
         }
     }
 
-    private void CloseDoor(uint doorId)
-    {
-        if (!_doorTracker.IsOpen(doorId))
-        {
-            Logger.Debug($"Pmdg737Adapter: {Pmdg737Constants.GetDoorName(doorId)} is already Closed");
-            return;
-        }
-
-        Logger.Info($"Pmdg737Adapter: Closing {Pmdg737Constants.GetDoorName(doorId)}");
-        SendPmdgEvent(doorId, 1);
-    }
+    public Task SetGpu(bool connected) => connected ? PlaceGroundEquipment() : RemoveGroundEquipment();
+    public Task SetChocks(bool placed) => placed ? PlaceGroundEquipment() : RemoveGroundEquipment();
 
     private async Task PlaceGroundEquipment()
     {
-        if (!manageGroundEquipment) return;
-
         if (_vars.WheelChocks >= 0.5)
         {
             Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
@@ -217,10 +169,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
     }
 
-    private async Task RemoveGroundEquipmentAsync()
+    private async Task RemoveGroundEquipment()
     {
-        if (!manageGroundEquipment) return;
-
         if (_vars.WheelChocks <= 0.5)
         {
             Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
@@ -235,45 +185,9 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
     }
 
-    public override async Task OnBeforePushback()
-    {
-        if (canRemoveAndPlaceGroundEquipment && manageGroundEquipment) await RemoveGroundEquipmentAsync();
-
-        if (canManageDoors && manageDoors)
-        {
-            await CloseAllOpenDoorsAsync();
-
-            var deadline = DateTime.UtcNow.AddSeconds(60);
-            while (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds) && DateTime.UtcNow < deadline)
-            {
-                await Task.Delay(5_000);
-                await CloseAllOpenDoorsAsync();
-            }
-
-            if (_doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds))
-                Logger.Warning("Pmdg737Adapter: Doors still open after 60s - Proceeding with Pushback");
-            else
-                Logger.Info("Pmdg737Adapter: All Doors Confirmed Closed");
-        }
-    }
-
-    public override Task OnBeforeDeboarding()
-    {
-        if (!canRemoveAndPlaceGroundEquipment || !manageGroundEquipment) return Task.CompletedTask;
-        return PlaceGroundEquipment();
-    }
-
-    public override async Task OnBoardingCompleted()
-    {
-        if (!canManageDoors || !manageDoors) return;
-        await Task.Delay(15_000);
-        await CloseAllOpenDoorsAsync();
-    }
-
     public override void Dispose()
     {
         _doorTracker.Reset();
-        _sc = null;
         Logger.Debug("Pmdg737Adapter: disposed");
     }
 
@@ -301,12 +215,12 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
     {
         foreach (uint evtCode in Pmdg737Constants.AllDoorIds)
             _doorTracker.Update(evtCode, GetRawDoorValue(evtCode), Pmdg737Constants.GetDoorName(evtCode));
-        NotifyGroundStateChanged();
+        NotifyGroundEquipmentStateChanged();
     }
 
     private void SendPmdgEvent(uint evtCode, uint param)
     {
-        if (_sc == null) return;
+        if (SimConnection == null) return;
 
         var now = DateTime.UtcNow;
         var last = _lastSent.GetOrAdd(evtCode, DateTime.MinValue);
@@ -322,12 +236,12 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase
 
     private void SendPmdgEventNow(uint evtCode, uint param)
     {
-        if (_sc == null) return;
+        if (SimConnection == null) return;
 
         try
         {
             var cmd = new Pmdg737ControlStruct { Event = evtCode, Parameter = param };
-            _sc.SetClientData(
+            SimConnection.SetClientData(
                 Pmdg737DataId.Control,
                 SimDef.Pmdg737Control,
                 SIMCONNECT_CLIENT_DATA_SET_FLAG.DEFAULT,

@@ -175,7 +175,7 @@ internal static class Program
         _sc = null;
         _simConnectTimer?.Stop();
         _resolvedDisplayName = null;
-        _automationManager.SetCurrentAdapter(null);
+        _automationManager.SetCurrentAdapter(null, null);
         Logger.Debug("SimConnect disconnected.");
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = false }));
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "gsx", running = false }));
@@ -205,7 +205,7 @@ internal static class Program
 
         if (!string.IsNullOrEmpty(_rawAircraftTitle))
         {
-            var correct = _resolvedDisplayName ?? AircraftAdapterMatcher.FindByTitle(_rawAircraftTitle)?.DisplayName ?? _rawAircraftTitle;
+            var correct = _resolvedDisplayName ?? AircraftRegistry.FindDisplayName(_rawAircraftTitle) ?? _rawAircraftTitle;
             if (correct != CurrentAircraftTitle)
             {
                 CurrentAircraftTitle = correct;
@@ -224,21 +224,20 @@ internal static class Program
     private static void OnAircraftTitleChanged(string title)
     {
         _rawAircraftTitle = title;
-        var displayTitle = _resolvedDisplayName ?? AircraftAdapterMatcher.FindByTitle(title)?.DisplayName ?? title;
+        var displayTitle = _resolvedDisplayName ?? AircraftRegistry.FindDisplayName(title) ?? title;
         CurrentAircraftTitle = displayTitle;
 
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
         _MainWindow.Invoke(() => RefreshAircraftStateDetails(false));
 
-        // Path arrives before title — re-resolve now that title is available.
-        // LoadAdapterForAircraft's type-dedup guard makes this safe to call unconditionally.
+        // Best-effort resolve with whatever path we currently have (may be stale from the
+        // previous aircraft), then always request a fresh path so OnSystemStateReceived
+        // can correct it once the real one arrives.
         if (!string.IsNullOrEmpty(CurrentAircraftPath))
             LoadAdapterForAircraft(CurrentAircraftPath, title);
-        else
-        {
-            try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
-            catch { }
-        }
+
+        try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
+        catch { }
     }
 
     private static void OnActivationKeyPressed()
@@ -299,14 +298,24 @@ internal static class Program
 
     private static void SendGroundEquipState(AircraftAdapterBase? adapter)
     {
+        var ground = adapter as IGroundEquipment;
+        var closableDoors = adapter as IClosableDoors;
+        var cargoDoor = adapter as ICargoDoor;
+
+        int? openDoors = closableDoors != null
+            ? closableDoors.OpenDoorCount
+            : cargoDoor != null
+                ? cargoDoor.DoorOpen == true ? 1 : cargoDoor.DoorOpen == false ? 0 : null
+                : null;
+
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new
         {
             type = "groundEquip",
-            canManageGroundEquipment = adapter?.canRemoveAndPlaceGroundEquipment ?? false,
-            showDoors = adapter?.canManageDoors ?? false,
-            chocks = adapter?.ChocksSet,
-            gpu = adapter?.GpuConnected,
-            openDoors = adapter?.OpenDoorCount,
+            canManageGroundEquipment = ground != null,
+            showDoors = closableDoors != null || cargoDoor != null,
+            chocks = ground?.ChocksSet,
+            gpu = ground?.GpuConnected,
+            openDoors,
         }));
     }
 
@@ -333,29 +342,24 @@ internal static class Program
     {
         if (string.IsNullOrEmpty(aircraftPath)) return;
 
-        var match = AircraftAdapterMatcher.Resolve(aircraftPath, currentAircraftTitle);
+        var match = AircraftRegistry.Resolve(aircraftPath, currentAircraftTitle);
 
         Logger.Debug("Aircraft path: " + aircraftPath);
 
-        _resolvedDisplayName = match.Kind != AircraftAdapterMatcher.MatchKind.Unknown ? match.Adapter?.DisplayName : null;
+        _resolvedDisplayName = match.Level != AircraftSupportLevel.Unknown ? match.DisplayName : null;
 
-        if (match.Adapter?.GetType() == _automationManager.CurrentAdapter?.GetType() && _automationManager.CurrentAdapter != null)
+        if (match.DisplayName == _automationManager.CurrentAircraftDisplayName && _automationManager.CurrentAdapter != null)
         {
             Logger.Debug($"LoadAdapterForAircraft: adapter already loaded for '{aircraftPath}', skipping.");
             return;
         }
 
         var prevAdapter = _automationManager.CurrentAdapter;
-        if (prevAdapter != null) prevAdapter.GroundStateChanged -= OnGroundStateChanged;
-        _automationManager.SetCurrentAdapter(match.Adapter);
+        if (prevAdapter != null) prevAdapter.GroundEquipmentStateChanged -= OnGroundStateChanged;
+        _automationManager.SetCurrentAdapter(match.Adapter, match.DisplayName);
         if (match.Adapter != null)
         {
-            match.Adapter.GroundStateChanged += OnGroundStateChanged;
-            var displayName = match.Adapter.DisplayName;
-            var adapterCfg = ConfigManager.GetAircraftConfig(displayName);
-            match.Adapter.removeCovers = adapterCfg.RemoveCovers;
-            match.Adapter.manageGroundEquipment = adapterCfg.ManageGroundEquipment;
-            match.Adapter.manageDoors = adapterCfg.ManageDoors;
+            match.Adapter.GroundEquipmentStateChanged += OnGroundStateChanged;
         }
 
         // Reset ground equip section; adapters that poll (PMDG) will re-populate via event within a few seconds.
@@ -367,14 +371,14 @@ internal static class Program
             _flightState.OnSimConnectConnected(_sc, match.Adapter);
         }
 
-        switch (match.Kind)
+        switch (match.Level)
         {
-            case AircraftAdapterMatcher.MatchKind.Adapter:
-                Logger.Success($"Custom Profile for {match.Adapter!.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
+            case AircraftSupportLevel.Custom:
+                Logger.Success($"Custom Profile for {match.DisplayName} Found! Doors and Ground Equipment will be managed Automatically.");
                 if (_sc != null)
                 {
                     Logger.Debug($"Registering Adapter '{match.Adapter!.GetType().Name}' with Active SimConnect.");
-                    match.Adapter.OnSimConnectConnected(_sc);
+                    match.Adapter!.OnSimConnectConnected(_sc);
                 }
                 else
                 {
@@ -382,8 +386,8 @@ internal static class Program
                 }
                 break;
 
-            case AircraftAdapterMatcher.MatchKind.NativeIntegration:
-                Logger.Success($"{match.Adapter!.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
+            case AircraftSupportLevel.Native:
+                Logger.Success($"{match.DisplayName} Detected. Aircraft has Native GSX Integration.\nGround Equipment & Door Closing is handled by its own Systems.");
                 if (_sc != null && match.Adapter != null)
                 {
                     Logger.Debug($"Registering NativeIntegration Adapter '{match.Adapter.GetType().Name}' with Active SimConnect.");
@@ -391,11 +395,7 @@ internal static class Program
                 }
                 break;
 
-            case AircraftAdapterMatcher.MatchKind.NonFunctional:
-                Logger.Warning($"{match.Adapter!.DisplayName} Detected. This Aircraft was Tested and found to be Non-Functional.");
-                break;
-
-            case AircraftAdapterMatcher.MatchKind.Unknown:
+            case AircraftSupportLevel.Unknown:
                 Logger.Info("No Custom Profile found for this Aircraft.\nDoors and Ground Equipment will NOT be managed Automatically. Native GSX support is Unknown.");
                 break;
         }
@@ -408,12 +408,7 @@ internal static class Program
 
     public static void ApplyAdapterConfig(string configTitle)
     {
-        var adapter = _automationManager.CurrentAdapter;
-        if (adapter == null || adapter.DisplayName != configTitle) return;
-        var cfg = ConfigManager.GetAircraftConfig(configTitle);
-        adapter.removeCovers = cfg.RemoveCovers;
-        adapter.manageGroundEquipment = cfg.ManageGroundEquipment;
-        adapter.manageDoors = cfg.ManageDoors;
+        if (_automationManager.CurrentAdapter == null || _automationManager.CurrentAircraftDisplayName != configTitle) return;
         ApplyRemoteControlSetting();
     }
 

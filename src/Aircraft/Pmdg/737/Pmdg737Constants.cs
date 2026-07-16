@@ -1,4 +1,33 @@
+using System.Runtime.InteropServices;
+
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct Pmdg737VarsStruct
+{
+    // Order must match the AddToDataDefinition calls in Pmdg737Adapter
+    public double FwdLeftCabinDoor;
+    public double AftLeftCabinDoor;
+    public double FwdRightCabinDoor;
+    public double AftRightCabinDoor;
+    public double OverwingAftLeftExit;
+    public double OverwingAftRightExit;
+    public double OverwingFwdLeftExit;
+    public double OverwingFwdRightExit;
+    public double FwdLwrCargoDoor;
+    public double AftLwrCargoDoor;
+    public double MainCargoDoor;
+    public double EquipmentHatchDoor;
+    public double WheelChocks;
+    public double Gpu;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct Pmdg737ControlStruct
+{
+    public uint Event;
+    public uint Parameter;
+}
 
 public static class Pmdg737Constants
 {

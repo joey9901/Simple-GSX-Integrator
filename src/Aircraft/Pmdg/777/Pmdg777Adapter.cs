@@ -5,42 +5,13 @@ using SimpleGsxIntegrator.Core;
 
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
-public sealed class Pmdg777Adapter : AircraftAdapterBase
+public sealed class Pmdg777Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors
 {
-    public override string DisplayName => "PMDG B777";
-    public override string[] TitleKeywords => ["PMDG", "777"];
-    public override bool canRemoveAndPlaceGroundEquipment => true;
-    public override bool canManageDoors => true;
+    public bool? GpuConnected => _vars.Gpu > 0.5;
+    public bool? ChocksSet => _vars.WheelChocks > 0.5;
+    public bool AnyDoorOpen => _doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds);
+    public int OpenDoorCount => Pmdg777Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
-    public override bool? GpuConnected => _vars.Gpu > 0.5;
-    public override bool? ChocksSet => _vars.WheelChocks > 0.5;
-    public override int? OpenDoorCount => Pmdg777Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct Pmdg777VarsStruct
-    {
-        // Doors – order must match the AddToDataDefinition calls below
-        public double Door1L, Door1R, Door2L, Door2R, Door3L, Door3R;
-        public double Door4L, Door4R, Door5L, Door5R;
-        public double CargoDoorFwd, CargoDoorAft, CargoDoorMain, CargoDoorBulk;
-        public double AvionicsDoor, EEHatch;
-
-        // Ground equipment
-        public double WheelChocks;
-        public double ExtPwrSec;     // L:switch_07_b  (secondary GPU)
-        public double ExtPwrPrim;    // L:switch_08_b  (primary GPU)
-        public double Gpu;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    private struct Pmdg777ControlStruct
-    {
-        public uint Event;
-        public uint Parameter;
-    }
-
-
-    private SimConnect? _sc;
     private Pmdg777VarsStruct _vars;
     private readonly DoorStateTracker _doorTracker = new();
 
@@ -49,7 +20,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     public override void OnSimConnectConnected(SimConnect sc)
     {
-        _sc = sc;
+        base.OnSimConnectConnected(sc);
 
         RegisterLVars(sc);
         RegisterControlChannel(sc);
@@ -60,7 +31,6 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     private void RegisterLVars(SimConnect sc)
     {
-        // Doors (order must match Pmdg777VarsStruct field order)
         AddLVar(sc, Pmdg777Constants.LVAR_DOOR_1L);
         AddLVar(sc, Pmdg777Constants.LVAR_DOOR_1R);
         AddLVar(sc, Pmdg777Constants.LVAR_DOOR_2L);
@@ -117,7 +87,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     {
         Task.Run(async () =>
         {
-            await Task.Delay(3000); // Give PMDG time to initialise
+            await Task.Delay(3000);
             RequestDataSnapshot();
         });
     }
@@ -126,7 +96,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     {
         try
         {
-            _sc?.RequestDataOnSimObject(
+            SimConnection?.RequestDataOnSimObject(
                 SimReq.Pmdg777Vars,
                 SimDef.Pmdg777Vars,
                 SimConnect.SIMCONNECT_OBJECT_ID_USER,
@@ -149,12 +119,9 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         UpdateDoorStates();
     }
 
-    private async Task CloseAllOpenDoorsAsync()
+    public async Task CloseOpenDoors()
     {
-        if (!manageDoors) return;
-
         var open = Pmdg777Constants.AllDoorIds.Where(_doorTracker.IsOpen).ToList();
-
         if (open.Count == 0) return;
 
         Logger.Debug($"Pmdg777Adapter: Closing {open.Count} open door(s)");
@@ -167,22 +134,11 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         }
     }
 
-    private void CloseDoor(uint doorId)
-    {
-        if (!_doorTracker.IsOpen(doorId))
-        {
-            Logger.Debug($"Pmdg777Adapter: {Pmdg777Constants.GetDoorName(doorId)} is already Closed");
-            return;
-        }
-
-        Logger.Info($"Pmdg777Adapter: Closing {Pmdg777Constants.GetDoorName(doorId)}");
-        SendPmdgEvent(doorId, 1);
-    }
+    public Task SetGpu(bool connected) => connected ? PlaceGroundEquipment() : RemoveGroundEquipment();
+    public Task SetChocks(bool placed) => placed ? PlaceGroundEquipment() : RemoveGroundEquipment();
 
     private async Task PlaceGroundEquipment()
     {
-        if (!manageGroundEquipment) return;
-
         if (_vars.WheelChocks >= 0.5)
         {
             Logger.Debug("Pmdg777Adapter: Chocks already Set - skipping CDU Sequence");
@@ -198,17 +154,15 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_L2, 1);
     }
 
-    private async Task RemoveGroundEquipmentAsync()
+    private async Task RemoveGroundEquipment()
     {
-        if (!manageGroundEquipment) return;
-
         if (_vars.WheelChocks <= 0.5)
         {
             Logger.Debug("Pmdg777Adapter: Chocks already Removed - skipping CDU Sequence");
             return;
         }
 
-        // This presses the OVHD GPU buttons to turn OFF GPU (NOT DISCONNECT)
+        // Presses the OVHD GPU buttons to turn OFF GPU (NOT DISCONNECT)
         if (_vars.ExtPwrSec > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_SEC, 1);
         if (_vars.ExtPwrPrim > 0.5) SendPmdgEvent(Pmdg777Constants.EVT_OH_ELEC_GRD_PWR_PRIM, 1);
 
@@ -220,45 +174,9 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
         SendPmdgEventNow(Pmdg777Constants.EVT_CDU_C_R6, 1);
     }
 
-    public override async Task OnBeforePushback()
-    {
-        if (canRemoveAndPlaceGroundEquipment && manageGroundEquipment) await RemoveGroundEquipmentAsync();
-
-        if (canManageDoors && manageDoors)
-        {
-            await CloseAllOpenDoorsAsync();
-
-            var deadline = DateTime.UtcNow.AddSeconds(60);
-            while (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds) && DateTime.UtcNow < deadline)
-            {
-                await Task.Delay(5_000);
-                await CloseAllOpenDoorsAsync();
-            }
-
-            if (_doorTracker.IsAnyOpen(Pmdg777Constants.AllDoorIds))
-                Logger.Warning("Pmdg777Adapter: Doors still open after 60s - Proceeding with Pushback");
-            else
-                Logger.Info("Pmdg777Adapter: All Doors Confirmed Closed");
-        }
-    }
-
-    public override Task OnBeforeDeboarding()
-    {
-        if (!canRemoveAndPlaceGroundEquipment || !manageGroundEquipment) return Task.CompletedTask;
-        return PlaceGroundEquipment();
-    }
-
-    public override async Task OnBoardingCompleted()
-    {
-        if (!canManageDoors || !manageDoors) return;
-        await Task.Delay(15_000);
-        await CloseAllOpenDoorsAsync();
-    }
-
     public override void Dispose()
     {
         _doorTracker.Reset();
-        _sc = null;
         Logger.Debug("Pmdg777Adapter: disposed");
     }
 
@@ -290,12 +208,12 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
     {
         foreach (uint evtCode in Pmdg777Constants.AllDoorIds)
             _doorTracker.Update(evtCode, GetRawDoorValue(evtCode), Pmdg777Constants.GetDoorName(evtCode));
-        NotifyGroundStateChanged();
+        NotifyGroundEquipmentStateChanged();
     }
 
     private void SendPmdgEvent(uint evtCode, uint param)
     {
-        if (_sc == null) return;
+        if (SimConnection == null) return;
 
         var now = DateTime.UtcNow;
         var last = _lastSent.GetOrAdd(evtCode, DateTime.MinValue);
@@ -311,12 +229,12 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase
 
     private void SendPmdgEventNow(uint evtCode, uint param)
     {
-        if (_sc == null) return;
+        if (SimConnection == null) return;
 
         try
         {
             var cmd = new Pmdg777ControlStruct { Event = evtCode, Parameter = param };
-            _sc.SetClientData(
+            SimConnection.SetClientData(
                 Pmdg777DataId.Control,
                 SimDef.Pmdg777Control,
                 SIMCONNECT_CLIENT_DATA_SET_FLAG.DEFAULT,

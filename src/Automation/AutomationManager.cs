@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Aircraft;
 using SimpleGsxIntegrator.Config;
@@ -62,9 +61,12 @@ public sealed class AutomationManager
         get { return _currentAdapter; }
     }
 
-    public void SetCurrentAdapter(AircraftAdapterBase? adapter)
+    public string? CurrentAircraftDisplayName { get; private set; }
+
+    public void SetCurrentAdapter(AircraftAdapterBase? adapter, string? displayName)
     {
         _currentAdapter = adapter;
+        CurrentAircraftDisplayName = displayName;
     }
 
     public void ToggleActivation()
@@ -127,6 +129,20 @@ public sealed class AutomationManager
 
     private void OnBeaconChanged(bool beaconOn)
     {
+        if (GetGroundEquipmentOption(out var equipment))
+        {
+            if (beaconOn)
+            {
+                _ = equipment.SetGpu(false);
+                _ = equipment.SetChocks(false);
+            }
+            else
+            {
+                _ = equipment.SetGpu(true);
+                _ = equipment.SetChocks(true);
+            }
+        }
+
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         EvaluateServices();
     }
@@ -140,10 +156,8 @@ public sealed class AutomationManager
     private async void OnSpawnedAtGate()
     {
         await Task.Delay(10_000);
-        var adapter = _currentAdapter;
-        if (adapter == null) return;
-        Logger.Debug($"AutomationManager: Spawned at Gate, Calling OnSpawned on '{adapter.GetType().Name}'");
-        await adapter.OnSpawned();
+        if (GetEngineCoversOption(out var covers))
+            await covers.RemoveCovers();
     }
 
     private void OnMenuStateChanged()
@@ -214,18 +228,18 @@ public sealed class AutomationManager
         {
             case GsxServiceState.Requested:
                 Logger.Success("Boarding: Requested");
-                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingRequested();
                 AutoDeactivate();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Boarding: Active");
-                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingActive();
+                if (_currentAdapter is ICargoDoor cargoDoorActive) _ = cargoDoorActive.OpenCargoDoor();
                 AutoDeactivate();
                 break;
             case GsxServiceState.Completed when !_boardingDone:
                 _boardingDone = true;
                 Logger.Success("Boarding: Complete");
-                if (_currentAdapter != null) _ = _currentAdapter.OnBoardingCompleted();
+                if (_currentAdapter is ICargoDoor cargoDoorDone) _ = cargoDoorDone.CloseCargoDoor();
+                if (GetClosableDoorsOption(out var doors)) _ = CloseDoorsAfterDelay(doors, TimeSpan.FromSeconds(15));
                 break;
         }
     }
@@ -236,18 +250,17 @@ public sealed class AutomationManager
         {
             case GsxServiceState.Requested:
                 Logger.Success("Deboarding: Requested");
-                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingRequested();
                 AutoDeactivate();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Deboarding: Active");
-                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingActive();
+                if (_currentAdapter is ICargoDoor cargoDoorActive) _ = cargoDoorActive.OpenCargoDoor();
                 AutoDeactivate();
                 break;
             case GsxServiceState.Completed when !_deboardingDone:
                 _deboardingDone = true;
                 Logger.Success("Deboarding: Complete");
-                if (_currentAdapter != null) _ = _currentAdapter.OnDeboardingCompleted();
+                if (_currentAdapter is ICargoDoor cargoDoorDone) _ = cargoDoorDone.CloseCargoDoor();
                 Logger.Debug("Deboarding Complete - Resetting Session and deactivating system");
                 ResetSession();
                 if (_activated) ToggleActivation();
@@ -261,7 +274,6 @@ public sealed class AutomationManager
         {
             case GsxServiceState.Requested:
                 Logger.Success("Pushback: Requested");
-                if (_currentAdapter != null) _ = _currentAdapter.OnPushbackRequested();
                 break;
             case GsxServiceState.Active:
                 _pushbackDone = true; // GSX doesn't always set pushback state to completed so we set pushback done here
@@ -270,7 +282,6 @@ public sealed class AutomationManager
             case GsxServiceState.Completed:
                 _pushbackDone = true;
                 Logger.Success("Pushback: Complete");
-                if (_currentAdapter != null) _ = _currentAdapter.OnPushbackCompleted();
                 break;
         }
     }
@@ -281,7 +292,6 @@ public sealed class AutomationManager
         {
             case GsxServiceState.Requested:
                 Logger.Success("Refueling: Requested");
-                if (_currentAdapter != null) _ = _currentAdapter.OnRefuelingRequested();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Refueling: Active");
@@ -289,7 +299,6 @@ public sealed class AutomationManager
             case GsxServiceState.Completed:
                 _refuelingDone = true;
                 Logger.Success("Refueling: Complete");
-                if (_currentAdapter != null) _ = _currentAdapter.OnRefuelingCompleted();
                 if (_activated) EvaluateBoarding();
                 break;
         }
@@ -301,7 +310,6 @@ public sealed class AutomationManager
         {
             case GsxServiceState.Requested:
                 Logger.Success("Catering: Requested");
-                if (_currentAdapter != null) _ = _currentAdapter.OnCateringRequested();
                 break;
             case GsxServiceState.Active:
                 Logger.Success("Catering: Active");
@@ -309,7 +317,6 @@ public sealed class AutomationManager
             case GsxServiceState.Completed:
                 _cateringDone = true;
                 Logger.Success("Catering: Complete");
-                if (_currentAdapter != null) _ = _currentAdapter.OnCateringCompleted();
                 if (_activated) EvaluateRefueling();
                 if (_activated) EvaluateBoarding();
                 break;
@@ -423,27 +430,41 @@ public sealed class AutomationManager
 
         _ = CallServiceAsync("Deboarding",
             GetDeboardingState,
-            TriggerDeboardingAsync,
+            _gsxMenu.CallDeboardingAsync,
             EvaluateDeboarding,
             "deboard");
     }
 
     private async Task TriggerPushbackAsync()
     {
-        if (_currentAdapter != null)
-            await _currentAdapter.OnBeforePushback();
+        if (GetClosableDoorsOption(out var doors))
+            await CloseDoorsWithRetry(doors);
         else
             await Task.Delay(2_000);
 
         await _gsxMenu.CallPushbackAsync();
     }
 
-    private async Task TriggerDeboardingAsync()
+    private async Task CloseDoorsWithRetry(IClosableDoors doors)
     {
-        if (_currentAdapter != null)
-            await _currentAdapter.OnBeforeDeboarding();
+        await doors.CloseOpenDoors();
 
-        await _gsxMenu.CallDeboardingAsync();
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (doors.AnyDoorOpen && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(5_000);
+            await doors.CloseOpenDoors();
+        }
+
+        Logger.Info(doors.AnyDoorOpen
+            ? "AutomationManager: Doors still open after 60s - Proceeding with Pushback"
+            : "AutomationManager: All Doors Confirmed Closed");
+    }
+
+    private async Task CloseDoorsAfterDelay(IClosableDoors doors, TimeSpan delay)
+    {
+        await Task.Delay(delay);
+        await doors.CloseOpenDoors();
     }
 
     private async Task CallServiceAsync(
@@ -548,6 +569,33 @@ public sealed class AutomationManager
     {
         _pushbackAttempted = false;
         EvaluatePushback();
+    }
+
+    private bool GetGroundEquipmentOption(out IGroundEquipment equipment)
+    {
+        equipment = null!;
+        if (_currentAdapter is not IGroundEquipment e) return false;
+        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).ManageGroundEquipment) return false;
+        equipment = e;
+        return true;
+    }
+
+    private bool GetEngineCoversOption(out IEngineCovers covers)
+    {
+        covers = null!;
+        if (_currentAdapter is not IEngineCovers c) return false;
+        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).RemoveCovers) return false;
+        covers = c;
+        return true;
+    }
+
+    private bool GetClosableDoorsOption(out IClosableDoors doors)
+    {
+        doors = null!;
+        if (_currentAdapter is not IClosableDoors d) return false;
+        if (!ConfigManager.GetAircraftConfig(_flightState.AircraftTitle).ManageDoors) return false;
+        doors = d;
+        return true;
     }
 
     public void PrintState()

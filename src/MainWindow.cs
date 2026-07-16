@@ -255,7 +255,7 @@ public class MainWindow : Form
 
         foreach (var title in saved)
         {
-            var family = Aircraft.AircraftAdapterMatcher.FindByTitle(title)?.DisplayName;
+            var family = Aircraft.AircraftRegistry.FindDisplayName(title);
             if (family != null)
             {
                 if (!withFamily.ContainsKey(family)) withFamily[family] = new();
@@ -280,14 +280,19 @@ public class MainWindow : Form
         if (string.IsNullOrEmpty(title)) return;
         _pendingConfigTitle = title;
 
-        var meta = Aircraft.AircraftAdapterMatcher.FindByTitle(title);
+        var adapter = Aircraft.AircraftRegistry.Resolve("", title).Adapter;
         var cfg = Config.ConfigManager.GetAircraftConfig(title);
 
         SendMessage(new
         {
             type = "showConfig",
             title,
-            caps = new { canManageGroundEquipment = meta?.canRemoveAndPlaceGroundEquipment ?? false, canRemoveCovers = meta?.canRemoveCovers ?? false, canManageDoors = meta?.canManageDoors ?? false },
+            caps = new
+            {
+                canManageGroundEquipment = adapter is Aircraft.IGroundEquipment,
+                canRemoveCovers = adapter is Aircraft.IEngineCovers,
+                canManageDoors = adapter is Aircraft.IClosableDoors or Aircraft.ICargoDoor,
+            },
             config = new
             {
                 refuelBeforeBoarding = cfg.RefuelBeforeBoarding,

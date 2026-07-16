@@ -1,4 +1,28 @@
+using System.Runtime.InteropServices;
+
 namespace SimpleGsxIntegrator.Aircraft.Pmdg;
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct Pmdg777VarsStruct
+{
+    // Order must match the AddToDataDefinition calls in Pmdg777Adapter
+    public double Door1L, Door1R, Door2L, Door2R, Door3L, Door3R;
+    public double Door4L, Door4R, Door5L, Door5R;
+    public double CargoDoorFwd, CargoDoorAft, CargoDoorMain, CargoDoorBulk;
+    public double AvionicsDoor, EEHatch;
+
+    public double WheelChocks;
+    public double ExtPwrSec;
+    public double ExtPwrPrim;
+    public double Gpu;
+}
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct Pmdg777ControlStruct
+{
+    public uint Event;
+    public uint Parameter;
+}
 
 public static class Pmdg777Constants
 {

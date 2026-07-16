@@ -8,25 +8,5 @@ public interface IAircraftAdapter : IDisposable
 
     void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data);
 
-    Task OnSpawned();
-
-    Task OnBeforePushback();
-    Task OnBeforeDeboarding();
-
-    Task OnRefuelingRequested();
-    Task OnRefuelingCompleted();
-
-    Task OnCateringRequested();
-    Task OnCateringCompleted();
-
-    Task OnBoardingRequested();
-    Task OnBoardingActive();
-    Task OnBoardingCompleted();
-
-    Task OnDeboardingRequested();
-    Task OnDeboardingActive();
-    Task OnDeboardingCompleted();
-
-    Task OnPushbackRequested();
-    Task OnPushbackCompleted();
+    event Action? GroundEquipmentStateChanged; // Used to update the UI, ground equipment vars are updated internally
 }
