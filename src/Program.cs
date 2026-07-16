@@ -201,7 +201,7 @@ internal static class Program
         CurrentAircraftPath = aircraftPath;
         Logger.Debug($"Aircraft loaded: {aircraftPath}");
 
-        LoadAdapterForAircraft(aircraftPath);
+        LoadAdapterForAircraft(aircraftPath, _rawAircraftTitle);
 
         if (!string.IsNullOrEmpty(_rawAircraftTitle))
         {
@@ -229,8 +229,16 @@ internal static class Program
 
         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "aircraft", title = displayTitle }));
         _MainWindow.Invoke(() => RefreshAircraftStateDetails(false));
-        try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
-        catch { }
+
+        // Path arrives before title — re-resolve now that title is available.
+        // LoadAdapterForAircraft's type-dedup guard makes this safe to call unconditionally.
+        if (!string.IsNullOrEmpty(CurrentAircraftPath))
+            LoadAdapterForAircraft(CurrentAircraftPath, title);
+        else
+        {
+            try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
+            catch { }
+        }
     }
 
     private static void OnActivationKeyPressed()
@@ -321,11 +329,11 @@ internal static class Program
         }
     }
 
-    private static void LoadAdapterForAircraft(string aircraftPath)
+    private static void LoadAdapterForAircraft(string aircraftPath, string currentAircraftTitle)
     {
         if (string.IsNullOrEmpty(aircraftPath)) return;
 
-        var match = AircraftAdapterMatcher.Resolve(aircraftPath);
+        var match = AircraftAdapterMatcher.Resolve(aircraftPath, currentAircraftTitle);
 
         Logger.Debug("Aircraft path: " + aircraftPath);
 

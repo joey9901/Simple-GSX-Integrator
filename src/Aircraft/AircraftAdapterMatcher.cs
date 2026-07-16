@@ -2,6 +2,7 @@
 using SimpleGsxIntegrator.Aircraft.A330;
 using SimpleGsxIntegrator.Aircraft.Fenix;
 using SimpleGsxIntegrator.Aircraft.FlyByWire;
+using SimpleGsxIntegrator.Aircraft.FSS;
 using SimpleGsxIntegrator.Aircraft.iniBuilds;
 using SimpleGsxIntegrator.Aircraft.Pmdg;
 using SimpleGsxIntegrator.Aircraft.TFDi;
@@ -18,16 +19,25 @@ public static class AircraftAdapterMatcher
     [
         new Pmdg777Adapter(),
         new Pmdg737Adapter(),
-        new IniA330Adapter(),
+
+        new AerosoftA346Adapter(),
+
+        new FSSEJetsAdapter(),
+
+        new JustFlightF100Adapter(),
+
+        new TfdiMd11Adapter(),
+
+        new FSLabsA320Adapter(),
+
+        new FbwA32NXAdapter(),
+        new FbwA380Adapter(),
+
         new IniA300Adapter(),
+        new IniA330Adapter(),
         new IniA340Adapter(),
         new IniA350Adapter(),
-        new TfdiMd11Adapter(),
-        new FbwA380Adapter(),
-        new FbwA32NXAdapter(),
-        new FSLabsA320Adapter(),
-        new AerosoftA346Adapter(),
-        new JustFlightF100Adapter(),
+
         new FenixA320Adapter(),
     ];
 
@@ -38,7 +48,7 @@ public static class AircraftAdapterMatcher
             a.TitleKeywords.All(k => title.Contains(k, StringComparison.OrdinalIgnoreCase)));
     }
 
-    public static MatchResult Resolve(string aircraftPath)
+    public static MatchResult Resolve(string aircraftPath, string currentAircraftTitle)
     {
         if (string.IsNullOrEmpty(aircraftPath)) return Unknown;
 
@@ -47,9 +57,10 @@ public static class AircraftAdapterMatcher
 
         if (Contains(aircraftPath, "a346-pro")) return Native(new AerosoftA346Adapter());
 
-        if (Contains(aircraftPath, "Just Flight Fokker")) return Native(new JustFlightF100Adapter());
+        Logger.Debug($"AircraftTitle: {currentAircraftTitle}");
+        if (Contains(currentAircraftTitle, "FSS Embraer")) return Native(new FSSEJetsAdapter());
 
-        if (ContainsAll(aircraftPath, "inibuilds", "a330")) return Adapter(new IniA330Adapter());
+        if (Contains(aircraftPath, "Just Flight Fokker")) return Native(new JustFlightF100Adapter());
 
         if (Contains(aircraftPath, "TFDi_Design_MD-11")) return Adapter(new TfdiMd11Adapter());
 
@@ -58,9 +69,10 @@ public static class AircraftAdapterMatcher
         if (Contains(aircraftPath, "FlyByWire_A380")) return Native(new FbwA380Adapter());
         if (Contains(aircraftPath, "FlyByWire_A320")) return Native(new FbwA32NXAdapter());
 
+        if (ContainsAll(aircraftPath, "inibuilds", "a300")) return Adapter(new IniA300Adapter());
+        if (ContainsAll(aircraftPath, "inibuilds", "a330")) return Adapter(new IniA330Adapter());
         if (Contains(aircraftPath, "inibuilds-a340")) return Native(new IniA340Adapter());
         if (ContainsAll(aircraftPath, "inibuilds", "A350")) return Native(new IniA350Adapter());
-        if (ContainsAll(aircraftPath, "inibuilds", "a300")) return Adapter(new IniA300Adapter());
 
         if (Contains(aircraftPath, "FNX_320", "FNX_321", "FNX_319")) return Native(new FenixA320Adapter());
 
