@@ -12,6 +12,7 @@ using SimpleGsxIntegrator.Aircraft.iniBuilds;
 using SimpleGsxIntegrator.Aircraft.JustFlight;
 using SimpleGsxIntegrator.Aircraft.Pmdg;
 using SimpleGsxIntegrator.Aircraft.TFDi;
+using SimpleGsxIntegrator.Aircraft.iFly;
 using SimpleGsxIntegrator.Automation;
 using SimpleGsxIntegrator.Config;
 using SimpleGsxIntegrator.Core;
@@ -230,6 +231,7 @@ internal static class Program
         ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("A350", StringComparison.OrdinalIgnoreCase), () => new IniA350Adapter()),
         ((path, title) => path.Contains("FNX_320", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_321", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_319", StringComparison.OrdinalIgnoreCase), () => new FenixA320Adapter()),
         ((path, title) => path.Contains("Just Flight Fokker", StringComparison.OrdinalIgnoreCase), () => new JustFlightF100Adapter()),
+        ((path, title) => path.Contains("iFly 737", StringComparison.OrdinalIgnoreCase), () => new IFly737Adapter()),
 
         ((path, title) => title.Contains("FSS Embraer", StringComparison.OrdinalIgnoreCase), () => new FSSEJetsAdapter()),
     };
@@ -412,6 +414,9 @@ internal static class Program
         var prevAdapter = _automationManager.CurrentAdapter;
         if (prevAdapter != null) prevAdapter.GroundEquipmentStateChanged -= OnGroundStateChanged;
         _automationManager.SetCurrentAdapter(adapter);
+
+        if (_sc != null)
+            _flightState.OnSimConnectConnected(_sc, adapter);
 
         if (adapter == null)
         {
