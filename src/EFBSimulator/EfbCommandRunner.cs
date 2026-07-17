@@ -57,13 +57,13 @@ public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
                 case NavigateTo cmd:
                     {
                         var found = await JsClickAsync(page, cmd.Selector);
-                        if (!found) Logger.Debug($"PuppeteerEfbCommandRunner: '{cmd.Selector}' not found (may be a modded EFB)");
+                        if (!found) Logger.Debug($"EfbCommandRunner: '{cmd.Selector}' not found (may be a modded EFB)");
                         break;
                     }
                 case ClickElement cmd:
                     {
                         var found = await JsClickAsync(page, cmd.Selector);
-                        if (!found) Logger.Warning($"PuppeteerEfbCommandRunner: '{cmd.Selector}' not found");
+                        if (!found) Logger.Warning($"EfbCommandRunner: '{cmd.Selector}' not found");
                         break;
                     }
                 case DispatchClick cmd:
@@ -78,7 +78,7 @@ public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            Logger.Warning($"PuppeteerEfbCommandRunner: {command} failed ({ex.Message})");
+            Logger.Warning($"EfbCommandRunner: {command} failed ({ex.Message})");
         }
     }
 

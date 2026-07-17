@@ -65,7 +65,9 @@ public sealed class AutomationManager
 
     public void SetCurrentAdapter(AircraftAdapterBase? adapter)
     {
+        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged -= StartGroundEquipmentSyncIfNeeded;
         _currentAdapter = adapter;
+        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged += StartGroundEquipmentSyncIfNeeded;
     }
 
     public void ToggleActivation()
@@ -128,22 +130,56 @@ public sealed class AutomationManager
 
     private void OnBeaconChanged(bool beaconOn)
     {
-        if (GetGroundEquipmentOption(out var equipment))
-        {
-            if (beaconOn)
-            {
-                equipment.SetGpu(false);
-                equipment.SetChocks(false);
-            }
-            else
-            {
-                equipment.SetGpu(true);
-                equipment.SetChocks(true);
-            }
-        }
+        StartGroundEquipmentSyncIfNeeded(); // Prevents queueing of GPU and Chock state changes when button is spammed
 
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         EvaluateServices();
+    }
+
+    private bool _groundEquipmentSyncRunning;
+
+    private void StartGroundEquipmentSyncIfNeeded()
+    {
+        if (_groundEquipmentSyncRunning) return;
+        if (!GetGroundEquipmentOption(out var equipment)) return;
+        if (IsGroundEquipmentInDesiredState(equipment)) return;
+
+        _groundEquipmentSyncRunning = true;
+        _ = RunGroundEquipmentSyncLoopAsync();
+    }
+
+    private async Task RunGroundEquipmentSyncLoopAsync()
+    {
+        try
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (!GetGroundEquipmentOption(out var equipment)) return;
+                if (IsGroundEquipmentInDesiredState(equipment)) return;
+
+                await ApplyDesiredGroundEquipmentStateAsync(equipment);
+                await Task.Delay(1_000);
+            }
+            Logger.Warning("AutomationManager: Ground equipment still mismatched with beacon after 30s");
+        }
+        finally
+        {
+            _groundEquipmentSyncRunning = false;
+        }
+    }
+
+    private bool IsGroundEquipmentInDesiredState(IGroundEquipment equipment)
+    {
+        var shouldBePresent = !_flightState.BeaconOn;
+        return equipment.GpuConnected == shouldBePresent && equipment.ChocksSet == shouldBePresent;
+    }
+
+    private async Task ApplyDesiredGroundEquipmentStateAsync(IGroundEquipment equipment)
+    {
+        var shouldBePresent = !_flightState.BeaconOn;
+        if (equipment.GpuConnected != shouldBePresent) await equipment.SetGpu(shouldBePresent);
+        if (equipment.ChocksSet != shouldBePresent) await equipment.SetChocks(shouldBePresent);
     }
 
     private void OnParkingBrakeChanged(bool brakeSet)
