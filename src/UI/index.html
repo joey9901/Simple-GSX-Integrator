@@ -73,7 +73,7 @@
                     </div>
                 </div>
 
-                <div class="state-chip clickable" id="chip-moved" title="Click to toggle">
+                <div class="state-chip clickable" id="chip-moved" title="Click to Toggle 'Has Moved'">
                     <div class="icon">→</div>
                     <div>
                         <div class="label">Has Moved</div>
@@ -81,7 +81,7 @@
                     </div>
                 </div>
 
-                <div class="state-chip clickable" id="chip-engines-ran" title="Click to toggle">
+                <div class="state-chip clickable" id="chip-engines-ran" title="Click to Toggle 'Engines Ran'">
                     <div class="icon">✇</div>
                     <div>
                         <div class="label">Engines Ran</div>
@@ -194,9 +194,13 @@
                 <label class="cfg-row"><input type="checkbox" id="chkRefuel"><span>Refuel before Boarding</span></label>
                 <label class="cfg-row"><input type="checkbox" id="chkCatering"><span>Catering before
                         Boarding</span></label>
-                <label class="cfg-row"><input type="checkbox" id="chkCrewComms"><span>Realistic Crew
+                <label class="cfg-row"><input type="checkbox" id="chkCrewComms"
+                        title="Automatically Disables the System after every Service Request. This way, you have to 'speak to ground crew' to ask for the next service. "><span>Realistic
+                        Crew
                         Comms</span></label>
-                <label class="cfg-row"><input type="checkbox" id="chkRemoteControl"><span>Disable GSX Remote
+                <label class="cfg-row"><input type="checkbox" id="chkRemoteControl"
+                        title="Tries to Overwrite the GSX Remote Control Setting some Aircraft Developers integrated into their EFB, disallowing Menu Navigation outside of their EFB."><span>Disable
+                        GSX Remote
                         Control (Experimental)</span></label>
 
                 <div id="cfg-aircraft-section" class="hidden">
