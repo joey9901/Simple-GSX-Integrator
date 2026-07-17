@@ -37,6 +37,8 @@ internal enum SimDef : uint
     FSSEJetsChockL = 602,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_L (write)
     FSSEJetsChockR = 603,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_R (write)
     FSSEJetsGroundState = 604,  // combined read: GPU + 3 chocks
+
+    IFly737GroundState = 700,  // combined read: 3 chocks + GPU (write happens via EFB automation, not L:vars)
 }
 
 internal enum SimReq : uint
@@ -57,6 +59,8 @@ internal enum SimReq : uint
     Md11GroundState = 520,
 
     FSSEJetsGroundState = 600,
+
+    IFly737GroundState = 700,
 }
 
 internal enum Pmdg777DataId : uint

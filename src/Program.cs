@@ -16,6 +16,7 @@ using SimpleGsxIntegrator.Aircraft.iFly;
 using SimpleGsxIntegrator.Automation;
 using SimpleGsxIntegrator.Config;
 using SimpleGsxIntegrator.Core;
+using SimpleGsxIntegrator.Efb;
 using SimpleGsxIntegrator.Gsx;
 using SimpleGsxIntegrator.Infrastructure;
 
@@ -34,6 +35,7 @@ internal static class Program
     private static System.Windows.Forms.Timer _simConnectTimer = null!;
 
     private static SimConnect? _sc;
+    private static readonly IEfbCommandRunner _efbRunner = new EfbCommandRunner();
 
     public static string CurrentAircraftPath { get; private set; } = string.Empty;
     public static string CurrentAircraftTitle { get; private set; } = string.Empty;
@@ -231,7 +233,7 @@ internal static class Program
         ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("A350", StringComparison.OrdinalIgnoreCase), () => new IniA350Adapter()),
         ((path, title) => path.Contains("FNX_320", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_321", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_319", StringComparison.OrdinalIgnoreCase), () => new FenixA320Adapter()),
         ((path, title) => path.Contains("Just Flight Fokker", StringComparison.OrdinalIgnoreCase), () => new JustFlightF100Adapter()),
-        ((path, title) => path.Contains("iFly 737", StringComparison.OrdinalIgnoreCase), () => new IFly737Adapter()),
+        ((path, title) => path.Contains("iFly 737", StringComparison.OrdinalIgnoreCase), () => new IFly737Adapter(_efbRunner)),
 
         ((path, title) => title.Contains("FSS Embraer", StringComparison.OrdinalIgnoreCase), () => new FSSEJetsAdapter()),
     };
@@ -413,6 +415,7 @@ internal static class Program
 
         var prevAdapter = _automationManager.CurrentAdapter;
         if (prevAdapter != null) prevAdapter.GroundEquipmentStateChanged -= OnGroundStateChanged;
+        _ = _efbRunner.ResetAsync(); // tear down any previous aircraft's EFB session before the new adapter pre-warms its own
         _automationManager.SetCurrentAdapter(adapter);
 
         if (_sc != null)
