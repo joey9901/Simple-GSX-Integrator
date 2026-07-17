@@ -32,11 +32,11 @@ internal enum SimDef : uint
     Md11Gpu = 521,       // L:MD11_EXT_GPU (write)
     Md11GroundState = 522,  // combined read: chocks + gpu
 
-    FSSEJetsToggleGpu    = 600,  // L:FSS_EXX_TOGGLE_CGPU (write, rising-edge)
-    FSSEJetsChockF       = 601,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_F (write)
-    FSSEJetsChockL       = 602,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_L (write)
-    FSSEJetsChockR       = 603,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_R (write)
-    FSSEJetsGroundState  = 604,  // combined read: GPU + 3 chocks
+    FSSEJetsToggleGpu = 600,  // L:FSS_EXX_TOGGLE_CGPU (write, rising-edge)
+    FSSEJetsChockF = 601,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_F (write)
+    FSSEJetsChockL = 602,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_L (write)
+    FSSEJetsChockR = 603,  // L:FSS_EXX_GNDOBJ_WHEEL_CHOKE_R (write)
+    FSSEJetsGroundState = 604,  // combined read: GPU + 3 chocks
 }
 
 internal enum SimReq : uint

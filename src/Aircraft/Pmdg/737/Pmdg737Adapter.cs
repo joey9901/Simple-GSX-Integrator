@@ -7,7 +7,7 @@ namespace SimpleGsxIntegrator.Aircraft.Pmdg;
 
 public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors
 {
-    public override string DisplayName => "PMDG B73X";
+    public override string DisplayName => "PMDG 73X";
 
     public bool? GpuConnected => _vars.Gpu > 0.5;
     public bool? ChocksSet => _vars.WheelChocks > 0.5;
