@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Microsoft.FlightSimulator.SimConnect;
 using SimpleGsxIntegrator.Aircraft;
 using SimpleGsxIntegrator.Config;
@@ -65,9 +66,10 @@ public sealed class AutomationManager
 
     public void SetCurrentAdapter(AircraftAdapterBase? adapter)
     {
-        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged -= StartGroundEquipmentSyncIfNeeded;
+        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged -= OnGroundEquipmentStateChanged;
         _currentAdapter = adapter;
-        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged += StartGroundEquipmentSyncIfNeeded;
+        _initialDoorsCheckDone = false;
+        if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged += OnGroundEquipmentStateChanged;
     }
 
     public void ToggleActivation()
@@ -128,17 +130,53 @@ public sealed class AutomationManager
         _gsxMonitor.CateringStateChanged += OnCateringStateChanged;
     }
 
+    private bool _initialDoorsCheckDone;
+
     private void OnBeaconChanged(bool beaconOn)
     {
-        StartGroundEquipmentSyncIfNeeded(); // Prevents queueing of GPU and Chock state changes when button is spammed
+        StartGroundEquipmentSync();
+        CloseAndArmDoors();
 
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         EvaluateServices();
     }
 
+    private void OnGroundEquipmentStateChanged()
+    {
+        StartGroundEquipmentSync();
+
+        if (_initialDoorsCheckDone) return;
+        _initialDoorsCheckDone = true;
+        CloseAndArmDoors();
+    }
+
+    private void CloseAndArmDoors()
+    {
+        if (_gsxMonitor.BoardingState != GsxServiceState.Active &&
+            _gsxMonitor.BoardingState != GsxServiceState.Requested &&
+            _gsxMonitor.DeboardingState != GsxServiceState.Active &&
+            _gsxMonitor.DeboardingState != GsxServiceState.Requested)
+        {
+            CloseAllDoors();
+            ArmAllDoors();
+        }
+    }
+
+    private void CloseAllDoors()
+    {
+        if (!GetClosableDoorsOption(out var doors)) return;
+        doors.CloseOpenDoors();
+    }
+
+    private void ArmAllDoors()
+    {
+        if (!GetArmableDoorsOption(out var doors)) return;
+        doors.ArmAllDoors();
+    }
+
     private bool _groundEquipmentSyncRunning;
 
-    private void StartGroundEquipmentSyncIfNeeded()
+    private void StartGroundEquipmentSync()
     {
         if (_groundEquipmentSyncRunning) return;
         if (!GetGroundEquipmentOption(out var equipment)) return;
@@ -169,17 +207,23 @@ public sealed class AutomationManager
         }
     }
 
-    private bool IsGroundEquipmentInDesiredState(IGroundEquipment equipment)
-    {
-        var shouldBePresent = !_flightState.BeaconOn;
-        return equipment.GpuConnected == shouldBePresent && equipment.ChocksSet == shouldBePresent;
-    }
+    private bool IsGroundEquipmentInDesiredState(IGroundEquipment equipment) =>
+        equipment.GpuConnected == ShouldGroundEquipmentBePresent && equipment.ChocksSet == ShouldGroundEquipmentBePresent;
+
+    private bool ShouldGroundEquipmentBePresent => !_flightState.BeaconOn;
 
     private async Task ApplyDesiredGroundEquipmentStateAsync(IGroundEquipment equipment)
     {
-        var shouldBePresent = !_flightState.BeaconOn;
-        if (equipment.GpuConnected != shouldBePresent) await equipment.SetGpu(shouldBePresent);
-        if (equipment.ChocksSet != shouldBePresent) await equipment.SetChocks(shouldBePresent);
+        if (_flightState.BeaconOn) // beacon on means GPU disconnects before chocks
+        {
+            if (equipment.GpuConnected != ShouldGroundEquipmentBePresent) await equipment.SetGpu(ShouldGroundEquipmentBePresent);
+            if (equipment.ChocksSet != ShouldGroundEquipmentBePresent) await equipment.SetChocks(ShouldGroundEquipmentBePresent);
+        }
+        else // beacon off chocks are set first
+        {
+            if (equipment.ChocksSet != ShouldGroundEquipmentBePresent) await equipment.SetChocks(ShouldGroundEquipmentBePresent);
+            if (equipment.GpuConnected != ShouldGroundEquipmentBePresent) await equipment.SetGpu(ShouldGroundEquipmentBePresent);
+        }
     }
 
     private void OnParkingBrakeChanged(bool brakeSet)
@@ -628,6 +672,15 @@ public sealed class AutomationManager
     {
         doors = null!;
         if (_currentAdapter is not IClosableDoors d) return false;
+        if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).ManageDoors) return false;
+        doors = d;
+        return true;
+    }
+
+    private bool GetArmableDoorsOption(out IArmableDoors doors)
+    {
+        doors = null!;
+        if (_currentAdapter is not IArmableDoors d) return false;
         if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).ManageDoors) return false;
         doors = d;
         return true;

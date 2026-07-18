@@ -4,13 +4,8 @@ using SimpleGsxIntegrator.Efb;
 
 namespace SimpleGsxIntegrator.Aircraft.iFly;
 
-internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment
+internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors, IArmableDoors
 {
-    // GPU is a pure toggle in the EFB (not an absolute set), and the confirmed SimConnect read lags
-    // several seconds behind a command actually finishing. A second reconcile trigger firing inside
-    // that lag window would see stale "not yet matching" state and send another toggle, flipping GPU
-    // right back. This cooldown suppresses a repeat request for the same value until that lag has
-    // had time to clear, while still letting a genuine retry-after-failure through afterwards.
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromSeconds(4);
 
     private readonly IEfbCommandRunner _efb;
@@ -21,6 +16,12 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment
     private bool? _lastGpuRequest;
     private DateTime _lastChocksRequestTime;
     private DateTime _lastGpuRequestTime;
+
+    private bool _anyOpenDoors = false;
+    private int _openDoorCount = 0;
+
+    public bool AnyDoorOpen => _anyOpenDoors;
+    public int OpenDoorCount => _openDoorCount;
 
     public override string DisplayName => "iFly 737Max";
     public override string parkingBrakeVariable => IFly737Constants.LVar_ParkingBrake;
@@ -38,34 +39,109 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment
     {
         base.OnSimConnectConnected(sc);
 
-        sc.AddToDataDefinition(SimDef.IFly737GroundState, IFly737Constants.LVar_NoseChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-        sc.AddToDataDefinition(SimDef.IFly737GroundState, IFly737Constants.LVar_LeftChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-        sc.AddToDataDefinition(SimDef.IFly737GroundState, IFly737Constants.LVar_RightChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-        sc.AddToDataDefinition(SimDef.IFly737GroundState, IFly737Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
-        sc.RegisterDataDefineStruct<IFly737GroundStateStruct>(SimDef.IFly737GroundState);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_NoseChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_LeftChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_RightChock, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Gpu, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Aft_Cargo, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Fwd_Cargo, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_R_Mid_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_L_Mid_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_L_Fwd_OverWing_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_R_Fwd_OverWing_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_L_Aft_OverWing_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_R_Aft_OverWing_Exit, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Fwd_Entry, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Aft_Entry, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Fwd_Service, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.AddToDataDefinition(SimDef.IFly737Vars, IFly737Constants.LVar_Aft_Service, "Number", SIMCONNECT_DATATYPE.FLOAT64, 0.0f, SimConnect.SIMCONNECT_UNUSED);
+        sc.RegisterDataDefineStruct<IFly737VarsStruct>(SimDef.IFly737Vars);
         sc.RequestDataOnSimObject(
-            SimReq.IFly737GroundState, SimDef.IFly737GroundState,
+            SimReq.IFly737Vars, SimDef.IFly737Vars,
             SimConnect.SIMCONNECT_OBJECT_ID_USER,
             SIMCONNECT_PERIOD.SECOND,
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
 
-        // Pre-warm the browser now so the first real command doesn't pay the launch+load cost.
+        // Pre-load the browser now so the first real command doesn't have to wait for load time
         _ = _efb.RunAsync(_efbUrl, Array.Empty<EfbCommand>());
     }
 
     public override void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
-        if (data.dwRequestID != (uint)SimReq.IFly737GroundState) return;
+        if (data.dwRequestID != (uint)SimReq.IFly737Vars) return;
 
-        var s = (IFly737GroundStateStruct)data.dwData[0];
-        var chocksSet = s.NoseChock > 0.5 || s.LeftChock > 0.5 || s.RightChock > 0.5;
-        var gpuConnected = s.Gpu > 0.5;
+        var values = (IFly737VarsStruct)data.dwData[0];
+
+        UpdateGroundEquipment(values);
+        UpdateDoors(values);
+
+        NotifyGroundEquipmentStateChanged();
+    }
+
+    private void UpdateGroundEquipment(IFly737VarsStruct values)
+    {
+        var chocksSet = values.NoseChock > 0.5 || values.LeftChock > 0.5 || values.RightChock > 0.5;
+        var gpuConnected = values.Gpu > 0.5;
 
         if (_chocksSet == chocksSet && _gpuConnected == gpuConnected) return;
         _chocksSet = chocksSet;
         _gpuConnected = gpuConnected;
-        NotifyGroundEquipmentStateChanged();
+    }
+
+    private void UpdateDoors(IFly737VarsStruct values)
+    {
+        var numberOfOpenDoors = 0;
+
+        numberOfOpenDoors += values.AftCargoDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.FwdCargoDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.RMidExitDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.LMidExitDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.LFwdOverWingDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.RFwdOverWingDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.LAftOverWingDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.RAftOverWingDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.FwdEntryDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.AftEntryDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.FwdServiceDoor > 0 ? 1 : 0;
+        numberOfOpenDoors += values.AftServiceDoor > 0 ? 1 : 0;
+
+        _openDoorCount = numberOfOpenDoors;
+        _anyOpenDoors = numberOfOpenDoors > 0;
+    }
+
+    public Task CloseOpenDoors()
+    {
+        Logger.Debug($"IFly737Adapter: Attempting to Close All Doors.");
+        return _efb.RunAsync(_efbUrl, new EfbCommand[]
+        {
+            new NavigateTo(IFly737Constants.DoorsSelector),
+            new ClickElement(IFly737Constants.CloseAllDoorsSelector),
+            new NavigateTo(IFly737Constants.HomeButtonSelector),
+        });
+    }
+
+    public async Task ArmAllDoors()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline && AnyDoorOpen)
+        {
+            await Task.Delay(1_000);
+        }
+
+        if (AnyDoorOpen)
+        {
+            Logger.Warning("IFly737Adapter: Failed to Arm All Doors - doors still open after 15s wait");
+            return;
+        }
+
+        Logger.Debug("IFly737Adapter: Attempting to Arm All Doors.");
+        await _efb.RunAsync(_efbUrl, new EfbCommand[]
+        {
+            new NavigateTo(IFly737Constants.DoorsSelector),
+            new ClickElement(IFly737Constants.ArmAllDoorsSelector),
+            new NavigateTo(IFly737Constants.HomeButtonSelector),
+        });
     }
 
     public Task SetChocks(bool placed)
@@ -101,7 +177,6 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment
             new NavigateTo(IFly737Constants.HomeButtonSelector),
         });
     }
-
     public override void Dispose()
     {
         Logger.Debug("IFly737Adapter: disposed");

@@ -20,6 +20,11 @@ public interface IClosableDoors
     Task CloseOpenDoors();
 }
 
+public interface IArmableDoors
+{
+    Task ArmAllDoors();
+}
+
 public interface ICargoDoor
 {
     bool? DoorOpen { get; }

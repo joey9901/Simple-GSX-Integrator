@@ -15,7 +15,7 @@ public sealed class Pmdg777Adapter : AircraftAdapterBase, IGroundEquipment, IClo
     public int OpenDoorCount => Pmdg777Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
     private Pmdg777VarsStruct _vars;
-    private readonly DoorStateTracker _doorTracker = new();
+    private readonly PmdgDoorStateTracker _doorTracker = new();
 
     private readonly ConcurrentDictionary<uint, DateTime> _lastSent = new();
     private static readonly TimeSpan DebounceWindow = TimeSpan.FromSeconds(4);

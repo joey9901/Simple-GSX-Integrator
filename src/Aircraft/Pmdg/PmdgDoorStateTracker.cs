@@ -1,6 +1,6 @@
 namespace SimpleGsxIntegrator.Aircraft;
 
-internal sealed class DoorStateTracker
+internal sealed class PmdgDoorStateTracker
 {
     public enum DoorState { Unknown, Open, Closed }
 
