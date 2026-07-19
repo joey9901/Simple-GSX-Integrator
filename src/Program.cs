@@ -113,6 +113,8 @@ internal static class Program
 
         _procWatcher.MsfsExited += OnMsfsExited;
 
+        Application.ApplicationExit += OnApplicationExit;
+
         _MainWindow.Show();
 
         TryConnectSimConnect();
@@ -224,7 +226,7 @@ internal static class Program
         ((path, title) => path.Contains("PMDG 737", StringComparison.OrdinalIgnoreCase), () => new Pmdg737Adapter()),
         ((path, title) => path.Contains("a346-pro", StringComparison.OrdinalIgnoreCase), () => new AeroA346Adapter()),
         ((path, title) => path.Contains("TFDi_Design_MD-11", StringComparison.OrdinalIgnoreCase), () => new TfdiMd11Adapter()),
-        ((path, title) => path.Contains("FSLabs", StringComparison.OrdinalIgnoreCase), () => new FSLabsA320Adapter()),
+        ((path, title) => path.Contains("FSLabs", StringComparison.OrdinalIgnoreCase), () => new FSLabsA320Adapter(_efbRunner, _gsxMenu)),
         ((path, title) => path.Contains("FlyByWire_A380", StringComparison.OrdinalIgnoreCase), () => new FbwA380Adapter()),
         ((path, title) => path.Contains("FlyByWire_A320", StringComparison.OrdinalIgnoreCase), () => new FbwA32NXAdapter()),
         ((path, title) => path.Contains("inibuilds", StringComparison.OrdinalIgnoreCase) && path.Contains("a300", StringComparison.OrdinalIgnoreCase), () => new IniA300Adapter()),
@@ -324,6 +326,13 @@ internal static class Program
         Logger.Warning("MSFS process no longer detected - exiting.");
         _retryConnectCts?.Cancel();
         Application.Exit();
+    }
+
+    // Catches every exit path (window close, MSFS-exited auto-close, etc.) in one place - without this,
+    // the Chromium process Puppeteer launched for EFB automation is left running orphaned on the user's PC.
+    private static void OnApplicationExit(object? sender, EventArgs e)
+    {
+        _efbRunner.ResetAsync().GetAwaiter().GetResult();
     }
 
     private static void OnSimConnectTimerTick(object? sender, EventArgs e)
@@ -443,11 +452,6 @@ internal static class Program
         Logger.Success(options.Count > 0
             ? $"{adapter.DisplayName} detected. Options: {string.Join(", ", options)}"
             : $"{adapter.DisplayName} detected. No automation options available.");
-    }
-
-    public static void PrintCurrentState()
-    {
-        _automationManager?.PrintState();
     }
 
     public static void ApplyAdapterConfig(string configTitle)

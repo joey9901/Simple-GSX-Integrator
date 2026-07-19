@@ -31,3 +31,9 @@ public interface ICargoDoor
     Task OpenCargoDoor();
     Task CloseCargoDoor();
 }
+
+public interface IEfbRunner
+{
+    Task PreloadEfb();
+    Task DisposeEfb();
+}

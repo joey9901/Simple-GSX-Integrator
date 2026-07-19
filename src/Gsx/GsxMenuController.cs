@@ -96,6 +96,16 @@ public sealed class GsxMenuController
         return CallServiceAsync("Deboarding", MenuItemDeboarding);
     }
 
+    /// Opens and closes the GSX menu briefly - used as a state-update trigger for certain aircraft systems
+    /// (e.g., FSLabs GPU state) that react to menu state changes without needing a menu interaction.
+    public async Task FlashMenuAsync()
+    {
+        if (_sc == null) return;
+        OpenMenu();
+        await Task.Delay(300);
+        CloseMenu();
+    }
+
     private async Task CallServiceAsync(string name, int menuItem, bool closeAfter = true)
     {
         if (_sc == null)

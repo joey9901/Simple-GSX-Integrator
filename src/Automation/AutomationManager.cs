@@ -69,6 +69,7 @@ public sealed class AutomationManager
         if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged -= OnGroundEquipmentStateChanged;
         _currentAdapter = adapter;
         _initialDoorsCheckDone = false;
+        _initialStateReadDone = false;
         if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged += OnGroundEquipmentStateChanged;
     }
 
@@ -131,9 +132,19 @@ public sealed class AutomationManager
     }
 
     private bool _initialDoorsCheckDone;
+    private bool _initialStateReadDone;
 
     private void OnBeaconChanged(bool beaconOn)
     {
+        if (_flightState.IsInMenu) return;
+
+        if (_gsxMonitor.BoardingState == GsxServiceState.Active ||
+            _gsxMonitor.BoardingState == GsxServiceState.Requested ||
+            _gsxMonitor.PushbackState == GsxServiceState.Active ||
+            _gsxMonitor.PushbackState == GsxServiceState.Requested ||
+            _gsxMonitor.DeboardingState == GsxServiceState.Active ||
+            _gsxMonitor.DeboardingState == GsxServiceState.Requested) return;
+
         StartGroundEquipmentSync();
         CloseAndArmDoors();
 
@@ -152,14 +163,10 @@ public sealed class AutomationManager
 
     private void CloseAndArmDoors()
     {
-        if (_gsxMonitor.BoardingState != GsxServiceState.Active &&
-            _gsxMonitor.BoardingState != GsxServiceState.Requested &&
-            _gsxMonitor.DeboardingState != GsxServiceState.Active &&
-            _gsxMonitor.DeboardingState != GsxServiceState.Requested)
-        {
-            CloseAllDoors();
-            ArmAllDoors();
-        }
+        if (_flightState.IsInMenu) return;
+
+        CloseAllDoors();
+        ArmAllDoors();
     }
 
     private void CloseAllDoors()
@@ -178,9 +185,18 @@ public sealed class AutomationManager
 
     private void StartGroundEquipmentSync()
     {
+        // Skip the IsInMenu check on the very first state read (before FlightStateTracker has read initial menu state)
+        if (_initialStateReadDone && _flightState.IsInMenu) return;
         if (_groundEquipmentSyncRunning) return;
-        if (!GetGroundEquipmentOption(out var equipment)) return;
-        if (IsGroundEquipmentInDesiredState(equipment)) return;
+
+        var hasOption = GetGroundEquipmentOption(out var equipment);
+        if (!hasOption) return;
+
+        _initialStateReadDone = true; // After first equipment read, enforce IsInMenu going forward
+
+        var inDesiredState = IsGroundEquipmentInDesiredState(equipment);
+
+        if (inDesiredState) return;
 
         _groundEquipmentSyncRunning = true;
         _ = RunGroundEquipmentSyncLoopAsync();
@@ -237,15 +253,24 @@ public sealed class AutomationManager
         await Task.Delay(10_000);
         if (GetEngineCoversOption(out var covers))
             await covers.RemoveCovers();
+
+        if (GetEfbPreloadableOption(out var efb))
+            await efb.PreloadEfb();
     }
 
-    private void OnMenuStateChanged()
+    private async void OnMenuStateChanged()
     {
         if (_flightState.IsInMenu)
         {
             Logger.Debug("AutomationManager: Entered Menu - Resetting Session");
+
+            if (GetEfbPreloadableOption(out var efb))
+                await efb.DisposeEfb();
+
             ResetSession(printLog: false);
         }
+
+        if (!_gsxMonitor.IsGsxRunning) await _gsxMenu.FlashMenuAsync(); // tries to start GSX (it gets stuck sometimes)
     }
 
     private void OnAircraftChanged(string title)
@@ -686,23 +711,11 @@ public sealed class AutomationManager
         return true;
     }
 
-    public void PrintState()
+    private bool GetEfbPreloadableOption(out IEfbRunner efb)
     {
-        Logger.Info("=== Automation State ===");
-        Logger.Info($"  Activated:\t\t{_activated}");
-        Logger.Info($"  Aircraft:\t\t{_flightState.AircraftTitle}");
-        Logger.Info($"  Beacon:\t\t{_flightState.BeaconOn}");
-        Logger.Info($"  Brake:\t\t{_flightState.ParkingBrake}");
-        Logger.Info($"  On Ground:\t\t{_flightState.OnGround}");
-        Logger.Info($"  Engine Running:\t{_flightState.EngineOn}");
-        Logger.Info($"  Ground Speed:\t{_flightState.GroundSpeed:F1} kts");
-        Logger.Info($"  Has Moved:\t\t{_flightState.HasMoved}");
-        Logger.Info($"  Engines Ran:\t\t{_flightState.HasEnginesEverRun}");
-        Logger.Info($"  Refueling:\t\tGSX={_gsxMonitor.RefuelingState}\t\tDone={_refuelingDone}");
-        Logger.Info($"  Catering:\t\tGSX={_gsxMonitor.CateringState}\t\tDone={_cateringDone}");
-        Logger.Info($"  Boarding:\t\tGSX={_gsxMonitor.BoardingState}\t\tDone={_boardingDone}");
-        Logger.Info($"  Pushback:\t\tGSX={_gsxMonitor.PushbackState}\t\tDone={_pushbackDone}\tAttempted={_pushbackAttempted}");
-        Logger.Info($"  Deboarding:\t\tGSX={_gsxMonitor.DeboardingState}\t\tDone={_deboardingDone}");
-        Logger.Info("========================");
+        efb = null!;
+        if (_currentAdapter is not IEfbRunner e) return false;
+        efb = e;
+        return true;
     }
 }

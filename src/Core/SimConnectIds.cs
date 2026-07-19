@@ -39,6 +39,8 @@ internal enum SimDef : uint
     FSSEJetsGroundState = 604,
 
     IFly737Vars = 700,
+
+    FSLabsA320Vars = 800,
 }
 
 internal enum SimReq : uint
@@ -55,12 +57,16 @@ internal enum SimReq : uint
     Pmdg737Vars = 400,
 
     A330GroundState = 500,
+
     A300GroundState = 510,
+
     Md11GroundState = 520,
 
     FSSEJetsGroundState = 600,
 
     IFly737Vars = 700,
+
+    FSLabsA320Vars = 800,
 }
 
 internal enum Pmdg777DataId : uint

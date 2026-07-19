@@ -34,12 +34,6 @@ public sealed class FlightStateTracker
     private FlightStateStruct _state;
     private FlightStateStruct _prevState;
     private bool _firstPoll = true;
-    private const double MovedThreshold = 3.0; // knots
-
-    private bool _enginesHaveRun;
-    private bool _hasMoved;
-
-    private bool _onSpawnedHandled;
 
     private string? _activationLvar;
     private double _lastActivationValue = double.NaN;
@@ -83,29 +77,22 @@ public sealed class FlightStateTracker
         get { return _state.LiveryName ?? string.Empty; }
     }
 
+    private bool _enginesHaveRun;
     public bool HasEnginesEverRun
     {
         get { return _enginesHaveRun; }
     }
 
+    private bool _hasMoved;
     public bool HasMoved
     {
         get { return _hasMoved; }
     }
 
+    private bool _isInMenu = true;
     public bool IsInMenu
     {
-        get
-        {
-            if ((_state.CameraState >= 32 && _state.CameraState != 34)
-                || _state.CameraState == 12) // menu
-                return true;
-            else if (_state.CameraState == 31 && _state.UserInputEnabled == 1) // restart
-                return true;
-            else if (_state.UserInputEnabled == 0) // walkaround
-                return false;
-            return false;
-        }
+        get { return _isInMenu; }
     }
 
     private bool _prevIsInMenu;
@@ -210,22 +197,6 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
-        if (!IsInMenu)
-        {
-            if (EngineOn && !_enginesHaveRun)
-            {
-                _enginesHaveRun = true;
-                EnginesEverRunChanged?.Invoke(true);
-            }
-
-            if (!_hasMoved && _enginesHaveRun && _state.GroundSpeed > MovedThreshold)
-            {
-                _hasMoved = true;
-                HasMovedChanged?.Invoke(true);
-                Logger.Debug($"FlightStateTracker: HasMoved = true (speed={_state.GroundSpeed:F1}kts)");
-            }
-        }
-
         if (_firstPoll)
         {
             _firstPoll = false;
@@ -240,6 +211,22 @@ public sealed class FlightStateTracker
             return;
         }
 
+        if (_isInMenu)
+        {
+            if (_state.CameraState == 2.0)
+            {
+                _isInMenu = false;
+                SpawnedAtGate?.Invoke();
+            }
+        }
+        else
+        {
+            if (_state.CameraState == 31.0 || _state.CameraState == 32.0 || _state.CameraState == 12.0)
+            {
+                _isInMenu = true;
+            }
+        }
+
         if (!string.IsNullOrEmpty(AircraftTitle) && _state.AircraftTitle != _prevState.AircraftTitle)
         {
             _prevState.AircraftTitle = _state.AircraftTitle;
@@ -247,26 +234,12 @@ public sealed class FlightStateTracker
             AircraftChanged?.Invoke(AircraftTitle);
         }
 
-        if (IsInMenu != _prevIsInMenu)
+        if (_isInMenu != _prevIsInMenu)
         {
             Logger.Debug($"FlightStateTracker: Menu state changed → {(IsInMenu ? "IN MENU" : "IN FLIGHT")}");
             MenuStateChanged?.Invoke();
         }
-
-        _prevIsInMenu = IsInMenu;
-
-        bool atGate = _state.OnGround != 0 && !EngineOn;
-
-        if (!IsInMenu && atGate && !_onSpawnedHandled)
-        {
-            _onSpawnedHandled = true;
-            Logger.Debug($"FlightStateTracker: OnSpawned");
-            SpawnedAtGate?.Invoke();
-        }
-        else if (IsInMenu)
-        {
-            _onSpawnedHandled = false;
-        }
+        _prevIsInMenu = _isInMenu;
 
         if (_state.BeaconLight != _prevState.BeaconLight)
         {

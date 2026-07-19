@@ -4,7 +4,7 @@ using SimpleGsxIntegrator.Efb;
 
 namespace SimpleGsxIntegrator.Aircraft.iFly;
 
-internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors, IArmableDoors
+internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IClosableDoors, IArmableDoors, IEfbRunner
 {
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromSeconds(4);
 
@@ -62,9 +62,6 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
             SIMCONNECT_PERIOD.SECOND,
             SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
             0, 0, 0);
-
-        // Pre-load the browser now so the first real command doesn't have to wait for load time
-        _ = _efb.RunAsync(_efbUrl, Array.Empty<EfbCommand>());
     }
 
     public override void OnSimObjectData(SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -77,6 +74,17 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
         UpdateDoors(values);
 
         NotifyGroundEquipmentStateChanged();
+    }
+
+    public async Task PreloadEfb()
+    {
+        await _efb.RunAsync(_efbUrl, Array.Empty<EfbCommand>());
+    }
+
+    public async Task DisposeEfb()
+    {
+        if (_efb is IAsyncDisposable disposable)
+            await disposable.DisposeAsync();
     }
 
     private void UpdateGroundEquipment(IFly737VarsStruct values)
@@ -144,15 +152,15 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
         });
     }
 
-    public Task SetChocks(bool placed)
+    public async Task SetChocks(bool placed)
     {
-        if (_chocksSet == placed) return Task.CompletedTask;
-        if (_lastChocksRequest == placed && DateTime.UtcNow - _lastChocksRequestTime < RequestCooldown) return Task.CompletedTask;
+        if (_chocksSet == placed) return;
+        if (_lastChocksRequest == placed && DateTime.UtcNow - _lastChocksRequestTime < RequestCooldown) return;
         _lastChocksRequest = placed;
         _lastChocksRequestTime = DateTime.UtcNow;
 
         Logger.Debug($"IFly737Adapter: Attempting Chocks → {(placed ? "SET" : "REMOVED")}");
-        return _efb.RunAsync(_efbUrl, new EfbCommand[]
+        await _efb.RunAsync(_efbUrl, new EfbCommand[]
         {
             new NavigateTo(IFly737Constants.GroundServicesSelector),
             new SetCheckbox(IFly737Constants.NoseWheelSelector, placed),
@@ -160,23 +168,34 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
             new SetCheckbox(IFly737Constants.MainRightWheelSelector, placed),
             new NavigateTo(IFly737Constants.HomeButtonSelector),
         });
+
+        // Wait up to 5s for L:var to confirm the change
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline && _chocksSet != placed)
+            await Task.Delay(500);
     }
 
-    public Task SetGpu(bool connected)
+    public async Task SetGpu(bool connected)
     {
-        if (_gpuConnected == connected) return Task.CompletedTask;
-        if (_lastGpuRequest == connected && DateTime.UtcNow - _lastGpuRequestTime < RequestCooldown) return Task.CompletedTask;
+        if (_gpuConnected == connected) return;
+        if (_lastGpuRequest == connected && DateTime.UtcNow - _lastGpuRequestTime < RequestCooldown) return;
         _lastGpuRequest = connected;
         _lastGpuRequestTime = DateTime.UtcNow;
 
         Logger.Debug($"IFly737Adapter: Attempting GPU → {(connected ? "ON" : "OFF")}");
-        return _efb.RunAsync(_efbUrl, new EfbCommand[]
+        await _efb.RunAsync(_efbUrl, new EfbCommand[]
         {
             new NavigateTo(IFly737Constants.GroundServicesSelector),
             new DispatchClick(IFly737Constants.GpuSelector),
             new NavigateTo(IFly737Constants.HomeButtonSelector),
         });
+
+        // Wait up to 5s for L:var to confirm the change
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline && _gpuConnected != connected)
+            await Task.Delay(500);
     }
+
     public override void Dispose()
     {
         Logger.Debug("IFly737Adapter: disposed");

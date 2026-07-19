@@ -6,6 +6,9 @@ namespace SimpleGsxIntegrator.Efb;
 /// Shared across every aircraft that needs EFB automation - the URL is supplied per call, not fixed at construction.</summary>
 public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
 {
+    // Debug aid: flip to true and rebuild to watch the automation happen in a visible browser window.
+    private const bool ShowBrowserWindow = false;
+
     private readonly SemaphoreSlim _lock = new(1, 1);
     private IBrowser? _browser;
     private IPage? _page;
@@ -33,7 +36,7 @@ public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
             await new BrowserFetcher().DownloadAsync();
             _browser = await Puppeteer.LaunchAsync(new LaunchOptions
             {
-                Headless = true,
+                Headless = !ShowBrowserWindow,
                 Args = new[] { "--disable-gpu", "--no-sandbox" }
             });
             _page = await _browser.NewPageAsync();
@@ -101,6 +104,12 @@ public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
             const el = document.querySelector(sel);
             if (el && el.checked !== shouldCheck) el.click();
         }", selector, shouldCheck);
+
+    private static Task SetToggleByClassAsync(IPage page, string selector, string activeClass, bool shouldBeActive) => page.EvaluateFunctionAsync(@"
+        (sel, activeClass, shouldBeActive) => {
+            const el = document.querySelector(sel);
+            if (el && el.classList.contains(activeClass) !== shouldBeActive) el.click();
+        }", selector, activeClass, shouldBeActive);
 
     public async Task ResetAsync()
     {
