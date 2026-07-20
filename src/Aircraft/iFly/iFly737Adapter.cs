@@ -10,6 +10,8 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     private readonly IEfbCommandRunner _efb;
     private readonly string _efbUrl;
+    private bool _efbLoaded = false;
+
     private bool? _chocksSet;
     private bool? _gpuConnected;
     private bool? _lastChocksRequest;
@@ -78,11 +80,13 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     public async Task PreloadEfb()
     {
+        _efbLoaded = true;
         await _efb.RunAsync(_efbUrl, Array.Empty<EfbCommand>());
     }
 
     public async Task DisposeEfb()
     {
+        _efbLoaded = false;
         if (_efb is IAsyncDisposable disposable)
             await disposable.DisposeAsync();
     }
@@ -120,6 +124,7 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     public Task CloseOpenDoors()
     {
+        if (!_efbLoaded) _ = PreloadEfb();
         Logger.Debug($"IFly737Adapter: Attempting to Close All Doors.");
         return _efb.RunAsync(_efbUrl, new EfbCommand[]
         {
@@ -131,6 +136,7 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     public async Task ArmAllDoors()
     {
+        if (!_efbLoaded) _ = PreloadEfb();
         var deadline = DateTime.UtcNow.AddSeconds(15);
         while (DateTime.UtcNow < deadline && AnyDoorOpen)
         {
@@ -154,6 +160,7 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     public async Task SetChocks(bool placed)
     {
+        if (!_efbLoaded) _ = PreloadEfb();
         if (_chocksSet == placed) return;
         if (_lastChocksRequest == placed && DateTime.UtcNow - _lastChocksRequestTime < RequestCooldown) return;
         _lastChocksRequest = placed;
@@ -177,6 +184,7 @@ internal sealed class IFly737Adapter : AircraftAdapterBase, IGroundEquipment, IC
 
     public async Task SetGpu(bool connected)
     {
+        if (!_efbLoaded) _ = PreloadEfb();
         if (_gpuConnected == connected) return;
         if (_lastGpuRequest == connected && DateTime.UtcNow - _lastGpuRequestTime < RequestCooldown) return;
         _lastGpuRequest = connected;

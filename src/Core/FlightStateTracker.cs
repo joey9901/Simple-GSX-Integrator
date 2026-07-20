@@ -48,6 +48,7 @@ public sealed class FlightStateTracker
         get { return _state.ParkingBrake != 0; }
     }
 
+    private bool _prevEngineOn = false;
     public bool EngineOn
     {
         get
@@ -77,25 +78,38 @@ public sealed class FlightStateTracker
         get { return _state.LiveryName ?? string.Empty; }
     }
 
-    private bool _enginesHaveRun;
+    private bool _enginesHaveRun = false;
     public bool HasEnginesEverRun
     {
         get { return _enginesHaveRun; }
     }
 
-    private bool _hasMoved;
+    private bool _hasMoved = false;
     public bool HasMoved
     {
         get { return _hasMoved; }
     }
 
-    private bool _isInMenu = true;
+    private bool _prevIsInMenu = true; // this can trigger OnSpawned if app wasnt loaded in menu
+
+    private bool _isInMenu = false;
     public bool IsInMenu
     {
         get { return _isInMenu; }
     }
 
-    private bool _prevIsInMenu;
+    private static readonly TimeSpan SpawnSettleDuration = TimeSpan.FromSeconds(5);
+    private DateTime _settleUntil = DateTime.MinValue;
+    private bool _settlingBaselinePending;
+
+    // True for a short window after spawning into flight, while the addon's own systems are
+    // still applying their default panel preset. Beacon/engine readings during this window
+    // don't reflect a genuine user action, so consumers should not react to them.
+    public bool IsSettling
+    {
+        get { return DateTime.UtcNow < _settleUntil; }
+    }
+
 
     public event Action<bool>? BeaconChanged;
     public event Action<bool>? ParkingBrakeChanged;
@@ -136,7 +150,7 @@ public sealed class FlightStateTracker
             SimDef.FlightState,
             SimConnect.SIMCONNECT_OBJECT_ID_USER,
             SIMCONNECT_PERIOD.SECOND,
-            SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+            SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT, // unconditional heartbeat - our own diffing needs a steady poll for debouncing to resolve, CHANGED would stall it while values are stable
             0, 0, 0);
 
         Logger.Debug("FlightStateTracker: SimConnect vars registered");
@@ -197,10 +211,16 @@ public sealed class FlightStateTracker
     {
         _state = s;
 
+        if (_state.CameraState == 31.0 || _state.CameraState == 32.0 || _state.CameraState == 12.0)
+            _isInMenu = true;
+        else if (_state.CameraState == 2.0)
+            _isInMenu = false;
+
         if (_firstPoll)
         {
             _firstPoll = false;
             _prevState = s;
+            _prevIsInMenu = IsInMenu;
             Logger.Debug($"FlightStateTracker: initial state - Beacon={BeaconOn} Brake={ParkingBrake} Engine={EngineOn} Speed={GroundSpeed:F1}kts Title='{AircraftTitle}' Livery='{LiveryName}'");
 
             if (!string.IsNullOrEmpty(AircraftTitle))
@@ -211,22 +231,6 @@ public sealed class FlightStateTracker
             return;
         }
 
-        if (_isInMenu)
-        {
-            if (_state.CameraState == 2.0)
-            {
-                _isInMenu = false;
-                SpawnedAtGate?.Invoke();
-            }
-        }
-        else
-        {
-            if (_state.CameraState == 31.0 || _state.CameraState == 32.0 || _state.CameraState == 12.0)
-            {
-                _isInMenu = true;
-            }
-        }
-
         if (!string.IsNullOrEmpty(AircraftTitle) && _state.AircraftTitle != _prevState.AircraftTitle)
         {
             _prevState.AircraftTitle = _state.AircraftTitle;
@@ -234,14 +238,36 @@ public sealed class FlightStateTracker
             AircraftChanged?.Invoke(AircraftTitle);
         }
 
-        if (_isInMenu != _prevIsInMenu)
+        if (_prevIsInMenu != IsInMenu)
         {
+            var spawnedIntoFlight = _prevIsInMenu && !IsInMenu;
+
+            _prevIsInMenu = IsInMenu;
             Logger.Debug($"FlightStateTracker: Menu state changed → {(IsInMenu ? "IN MENU" : "IN FLIGHT")}");
             MenuStateChanged?.Invoke();
-        }
-        _prevIsInMenu = _isInMenu;
 
-        if (_state.BeaconLight != _prevState.BeaconLight)
+            if (spawnedIntoFlight)
+            {
+                _settleUntil = DateTime.UtcNow.Add(SpawnSettleDuration);
+                _settlingBaselinePending = true;
+                SpawnedAtGate?.Invoke();
+                return;
+            }
+        }
+
+        if (IsInMenu) return;
+
+        if (IsSettling) return;
+
+        if (_settlingBaselinePending)
+        {
+            _settlingBaselinePending = false;
+            _prevState = _state;
+            _prevEngineOn = EngineOn;
+            return;
+        }
+
+        if (_prevState.BeaconLight != _state.BeaconLight)
         {
             _prevState.BeaconLight = _state.BeaconLight;
             Logger.Debug($"FlightStateTracker: beacon → {(BeaconOn ? "ON" : "OFF")}");
@@ -255,16 +281,26 @@ public sealed class FlightStateTracker
             ParkingBrakeChanged?.Invoke(ParkingBrake);
         }
 
-        if (_state.Engine1Running != _prevState.Engine1Running)
+        if (EngineOn != _prevEngineOn)
         {
-            _prevState.Engine1Running = _state.Engine1Running;
+            _prevEngineOn = EngineOn;
             Logger.Debug($"FlightStateTracker: engine → {(EngineOn ? "RUNNING" : "OFF")}");
             EngineChanged?.Invoke(EngineOn);
         }
 
-        if (Math.Abs(_state.GroundSpeed - _prevState.GroundSpeed) > 0.5)
+        if (_prevEngineOn && !_enginesHaveRun)
         {
-            _prevState.GroundSpeed = _state.GroundSpeed;
+            _enginesHaveRun = true;
+            EnginesEverRunChanged?.Invoke(true);
+        }
+
+        if (_state.GroundSpeed > 5)
+        {
+            if (!_hasMoved)
+            {
+                _hasMoved = true;
+                HasMovedChanged?.Invoke(_hasMoved);
+            }
         }
     }
 

@@ -12,6 +12,7 @@ public sealed class AutomationManager
     private readonly FlightStateTracker _flightState;
     private readonly GsxMonitor _gsxMonitor;
     private readonly GsxMenuController _gsxMenu;
+    private readonly object _stateLock = new object();
 
     private AircraftAdapterBase? _currentAdapter;
 
@@ -69,7 +70,7 @@ public sealed class AutomationManager
         if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged -= OnGroundEquipmentStateChanged;
         _currentAdapter = adapter;
         _initialDoorsCheckDone = false;
-        _initialStateReadDone = false;
+        _groundEquipmentSyncEnabled = false;
         if (_currentAdapter != null) _currentAdapter.GroundEquipmentStateChanged += OnGroundEquipmentStateChanged;
     }
 
@@ -132,7 +133,7 @@ public sealed class AutomationManager
     }
 
     private bool _initialDoorsCheckDone;
-    private bool _initialStateReadDone;
+    private bool _groundEquipmentSyncEnabled;
 
     private void OnBeaconChanged(bool beaconOn)
     {
@@ -154,6 +155,7 @@ public sealed class AutomationManager
 
     private void OnGroundEquipmentStateChanged()
     {
+        if (_flightState.IsInMenu || _flightState.IsSettling) return;
         StartGroundEquipmentSync();
 
         if (_initialDoorsCheckDone) return;
@@ -163,7 +165,7 @@ public sealed class AutomationManager
 
     private void CloseAndArmDoors()
     {
-        if (_flightState.IsInMenu) return;
+        if (_flightState.IsInMenu || _flightState.IsSettling) return;
 
         CloseAllDoors();
         ArmAllDoors();
@@ -185,21 +187,37 @@ public sealed class AutomationManager
 
     private void StartGroundEquipmentSync()
     {
-        // Skip the IsInMenu check on the very first state read (before FlightStateTracker has read initial menu state)
-        if (_initialStateReadDone && _flightState.IsInMenu) return;
-        if (_groundEquipmentSyncRunning) return;
+        lock (_stateLock)
+        {
+            if (_flightState.IsInMenu || _flightState.IsSettling) return;
+            if (_groundEquipmentSyncRunning) return;
 
-        var hasOption = GetGroundEquipmentOption(out var equipment);
-        if (!hasOption) return;
+            var hasOption = GetGroundEquipmentOption(out var equipment);
+            if (!hasOption) return;
 
-        _initialStateReadDone = true; // After first equipment read, enforce IsInMenu going forward
+            if (!_groundEquipmentSyncEnabled)
+            {
+                // Beacon reading "on" straight out of spawn reflects whatever panel preset the
+                // aircraft loaded with, not a genuine user action - stay hands-off entirely until
+                // beacon is actually confirmed off at least once. From that point on the aircraft
+                // is genuinely cold and dark, and normal bidirectional syncing takes over for the
+                // rest of this spawn.
+                if (!ShouldGroundEquipmentBePresent) return;
+                _groundEquipmentSyncEnabled = true;
+            }
 
-        var inDesiredState = IsGroundEquipmentInDesiredState(equipment);
+            var inDesiredState = IsGroundEquipmentInDesiredState(equipment);
 
-        if (inDesiredState) return;
+            if (inDesiredState) return;
 
-        _groundEquipmentSyncRunning = true;
-        _ = RunGroundEquipmentSyncLoopAsync();
+            _groundEquipmentSyncRunning = true;
+        }
+
+        _ = RunGroundEquipmentSyncLoopAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                Logger.Error($"Ground equipment sync failed: {t.Exception?.InnerException?.Message}");
+        }, TaskScheduler.Default);
     }
 
     private async Task RunGroundEquipmentSyncLoopAsync()
@@ -219,7 +237,10 @@ public sealed class AutomationManager
         }
         finally
         {
-            _groundEquipmentSyncRunning = false;
+            lock (_stateLock)
+            {
+                _groundEquipmentSyncRunning = false;
+            }
         }
     }
 
@@ -248,29 +269,88 @@ public sealed class AutomationManager
         EvaluateServices();
     }
 
-    private async void OnSpawnedAtGate()
+    private void OnSpawnedAtGate()
     {
-        await Task.Delay(10_000);
-        if (GetEngineCoversOption(out var covers))
-            await covers.RemoveCovers();
-
-        if (GetEfbPreloadableOption(out var efb))
-            await efb.PreloadEfb();
-    }
-
-    private async void OnMenuStateChanged()
-    {
-        if (_flightState.IsInMenu)
+        lock (_stateLock)
         {
-            Logger.Debug("AutomationManager: Entered Menu - Resetting Session");
-
-            if (GetEfbPreloadableOption(out var efb))
-                await efb.DisposeEfb();
-
-            ResetSession(printLog: false);
+            // Every spawn gets its own fresh "ignore the loaded-in panel state" check - the adapter
+            // instance persists across reloads of the same aircraft, so this must not be a one-time,
+            // adapter-lifetime flag.
+            _groundEquipmentSyncEnabled = false;
+            _initialDoorsCheckDone = false;
         }
 
-        if (!_gsxMonitor.IsGsxRunning) await _gsxMenu.FlashMenuAsync(); // tries to start GSX (it gets stuck sometimes)
+        _ = RunSpawnedAtGateAsync();
+    }
+
+    private static readonly TimeSpan EfbPreloadRetryInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan EfbPreloadRetryTimeout = TimeSpan.FromSeconds(60);
+
+    private async Task RunSpawnedAtGateAsync()
+    {
+        try
+        {
+            await Task.Delay(10_000);
+            if (GetEngineCoversOption(out var covers))
+                await covers.RemoveCovers();
+
+            if (GetEfbPreloadableOption(out var efb))
+                await PreloadEfbWithRetryAsync(efb);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"OnSpawnedAtGate failed: {ex.Message}");
+        }
+    }
+
+    private async Task PreloadEfbWithRetryAsync(IEfbRunner efb)
+    {
+        var deadline = DateTime.UtcNow.Add(EfbPreloadRetryTimeout);
+        while (true)
+        {
+            try
+            {
+                await efb.PreloadEfb();
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    Logger.Warning($"EFB preload gave up after {EfbPreloadRetryTimeout.TotalSeconds}s: {ex.Message}");
+                    return;
+                }
+                Logger.Debug($"EFB preload not ready yet ({ex.Message}), retrying in {EfbPreloadRetryInterval.TotalSeconds}s");
+                await Task.Delay(EfbPreloadRetryInterval);
+            }
+        }
+    }
+
+    private void OnMenuStateChanged()
+    {
+        _ = RunMenuStateChangedAsync();
+    }
+
+    private async Task RunMenuStateChangedAsync()
+    {
+        try
+        {
+            if (_flightState.IsInMenu)
+            {
+                Logger.Debug("AutomationManager: Entered Menu - Resetting Session");
+
+                if (GetEfbPreloadableOption(out var efb))
+                    await efb.DisposeEfb();
+
+                ResetSession(printLog: false);
+            }
+
+            if (!_gsxMonitor.IsGsxRunning) await _gsxMenu.FlashMenuAsync(); // tries to start GSX (it gets stuck sometimes)
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"OnMenuStateChanged failed: {ex.Message}");
+        }
     }
 
     private void OnAircraftChanged(string title)
@@ -476,7 +556,7 @@ public sealed class AutomationManager
         if (!_activated || !_gsxMonitor.IsGsxRunning) return;
         if (_flightState.EngineOn || _flightState.HasEnginesEverRun) return;
         if (_flightState.HasMoved || _flightState.BeaconOn) return;
-        if (!_flightState.ParkingBrake) return;
+        if (!IsChocksSetOrParkingBrakeSet()) return;
         if (_boardingDone || _pushbackAttempted) return;
 
         if (_gsxMonitor.DeboardingState == GsxServiceState.Active ||
@@ -682,6 +762,16 @@ public sealed class AutomationManager
         if (!ConfigManager.GetAircraftConfig(ConfigAircraftTitle).ManageGroundEquipment) return false;
         equipment = e;
         return true;
+    }
+
+    // Chocks aren't readable on every aircraft (or ground equipment management may be disabled) -
+    // fall back to parking brake alone when that's the case.
+    private bool IsChocksSetOrParkingBrakeSet()
+    {
+        if (GetGroundEquipmentOption(out var equipment) && equipment.ChocksSet.HasValue)
+            return equipment.ChocksSet.Value || _flightState.ParkingBrake;
+
+        return _flightState.ParkingBrake;
     }
 
     private bool GetEngineCoversOption(out IEngineCovers covers)

@@ -44,7 +44,11 @@ public sealed class EfbCommandRunner : IEfbCommandRunner, IAsyncDisposable
 
         if (_currentUrl != efbUrl)
         {
-            await _page.GoToAsync(efbUrl, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Networkidle2 } });
+            await _page.GoToAsync(efbUrl, new NavigationOptions
+            {
+                WaitUntil = new[] { WaitUntilNavigation.Networkidle2 },
+                Timeout = 15_000 // 15 second timeout to prevent indefinite hangs
+            });
             _currentUrl = efbUrl;
         }
 

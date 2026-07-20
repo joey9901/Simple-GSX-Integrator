@@ -130,6 +130,7 @@ internal static class Program
     private static void TryConnectSimConnect()
     {
         _retryConnectCts?.Cancel();
+        _retryConnectCts?.Dispose();
         _retryConnectCts = new CancellationTokenSource();
         var token = _retryConnectCts.Token;
 
@@ -155,7 +156,10 @@ internal static class Program
                         Logger.Debug("SimConnect reconnected.");
                         _MainWindow.Invoke(() => _MainWindow.SendMessage(new { type = "simconnect", connected = true }));
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"SimConnect reconnect failed: {ex.Message}");
+                    }
                 }
             }, token);
         }
@@ -304,7 +308,6 @@ internal static class Program
 
         _MainWindow.Invoke(() => RefreshAircraftStateDetails(false));
 
-        // Request the correct path; OnSystemStateReceived will (re)resolve once it arrives.
         try { _sc?.RequestSystemState((SimReq)900, "AircraftLoaded"); }
         catch { }
     }
@@ -328,11 +331,27 @@ internal static class Program
         Application.Exit();
     }
 
-    // Catches every exit path (window close, MSFS-exited auto-close, etc.) in one place - without this,
-    // the Chromium process Puppeteer launched for EFB automation is left running orphaned on the user's PC.
     private static void OnApplicationExit(object? sender, EventArgs e)
     {
-        _efbRunner.ResetAsync().GetAwaiter().GetResult();
+        try
+        {
+            _simConnectTimer?.Dispose();
+            _retryConnectCts?.Dispose();
+
+            var resetTask = _efbRunner.ResetAsync();
+            if (resetTask.Wait(TimeSpan.FromSeconds(5)))
+            {
+                Logger.Debug("EFB runner reset completed");
+            }
+            else
+            {
+                Logger.Warning("EFB runner reset timed out after 5 seconds");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Error during application exit: {ex.Message}");
+        }
     }
 
     private static void OnSimConnectTimerTick(object? sender, EventArgs e)
@@ -424,7 +443,13 @@ internal static class Program
 
         var prevAdapter = _automationManager.CurrentAdapter;
         if (prevAdapter != null) prevAdapter.GroundEquipmentStateChanged -= OnGroundStateChanged;
-        _ = _efbRunner.ResetAsync(); // tear down any previous aircraft's EFB session before the new adapter pre-warms its own
+
+        _ = _efbRunner.ResetAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+                Logger.Error($"EFB reset failed during aircraft change: {t.Exception?.InnerException?.Message}");
+        }, TaskScheduler.Default);
+
         _automationManager.SetCurrentAdapter(adapter);
 
         if (_sc != null)

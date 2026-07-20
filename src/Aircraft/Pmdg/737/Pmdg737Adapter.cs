@@ -9,8 +9,12 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClo
 {
     public override string DisplayName => "PMDG 73X";
 
-    public bool? GpuConnected => _vars.Gpu > 0.5;
-    public bool? ChocksSet => _vars.WheelChocks > 0.5;
+    private bool _gpuIsConnecting = false;
+    private bool _gpuRemoving = false;
+    public bool? GpuConnected => (_vars.Gpu > 0.5 || _gpuIsConnecting) && !_gpuRemoving;
+    private bool _chocksAreSetting = false;
+    private bool _chocksAreRemoving = false;
+    public bool? ChocksSet => (_vars.WheelChocks > 0.5 || _chocksAreSetting) && !_chocksAreRemoving;
     public bool AnyDoorOpen => _doorTracker.IsAnyOpen(Pmdg737Constants.AllDoorIds);
     public int OpenDoorCount => Pmdg737Constants.AllDoorIds.Count(id => _doorTracker.IsOpen(id));
 
@@ -111,7 +115,12 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClo
             data.dwDefineID != (uint)SimDef.Pmdg737Vars) return;
 
         _vars = (Pmdg737VarsStruct)data.dwData[0];
+        if (_vars.Gpu > 0) _gpuIsConnecting = false;
+        if (_vars.Gpu == 0) _gpuRemoving = false;
+        if (_vars.WheelChocks > 0) _chocksAreSetting = false;
+        if (_vars.WheelChocks == 0) _chocksAreRemoving = false;
         UpdateDoorStates();
+        NotifyGroundEquipmentStateChanged();
     }
 
     public async Task CloseOpenDoors()
@@ -156,9 +165,9 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClo
 
     private async Task PlaceGroundEquipment()
     {
-        if (_vars.WheelChocks >= 0.5)
+        if (_vars.WheelChocks >= 0.5 && _vars.Gpu > 0.5)
         {
-            Logger.Debug("Pmdg737Adapter: Chocks already Set - skipping CDU Sequence");
+            Logger.Debug("Pmdg737Adapter: Chocks and GPU already Set - skipping CDU Sequence");
             return;
         }
 
@@ -167,13 +176,23 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClo
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_MENU, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
-        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1); await Task.Delay(1000);
-        SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
+        if (_vars.WheelChocks == 0.0)
+        {
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
+            _chocksAreSetting = true;
+            await Task.Delay(1000);
+        }
+
+        if (_vars.Gpu == 0.0)
+        {
+            SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_L2, 1);
+            _gpuIsConnecting = true;
+        }
     }
 
     private async Task RemoveGroundEquipment()
     {
-        if (_vars.WheelChocks <= 0.5)
+        if (_vars.WheelChocks <= 0.5 || _chocksAreRemoving)
         {
             Logger.Debug("Pmdg737Adapter: Chocks already Removed - skipping CDU Sequence");
             return;
@@ -185,6 +204,8 @@ public sealed class Pmdg737Adapter : AircraftAdapterBase, IGroundEquipment, IClo
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R5, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R1, 1); await Task.Delay(500);
         SendPmdgEventNow(Pmdg737Constants.EVT_CDU_R_R6, 1);
+        _chocksAreRemoving = true;
+        _gpuRemoving = true;
     }
 
     public override void Dispose()

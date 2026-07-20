@@ -7,6 +7,7 @@
     beacon: null,
     engines: null,
     brake: null,
+    chocks: null,
     enginesEverRan: null,
     hasMoved: null,
     hotkeyActivation: '',
@@ -57,7 +58,9 @@ function handleMessage(msg) {
             setUpdateProgress(msg.value);
             break;
         case 'groundEquip':
+            state.chocks = msg.chocks;
             renderGroundEquip(msg);
+            renderServices();
             break;
         case 'showPicker':
             showPickerModal(msg);
@@ -133,13 +136,16 @@ function setChip(id, known, valueText, isGood) {
 }
 
 function renderServices() {
-    const { beacon, engines, brake, enginesEverRan, hasMoved } = state;
+    const { beacon, engines, brake, chocks, enginesEverRan, hasMoved } = state;
     const u = beacon === null;
+
+    // Chocks aren't readable on every aircraft - fall back to parking brake alone when unsupported.
+    const chocksOrBrakeMet = chocks === null || chocks === undefined ? !!brake : (!!chocks || !!brake);
 
     renderCard('card-boarding', [
         { key: 'ENGINES', current: 'OFF', met: u ? null : !engines },
         { key: 'BEACON', current: 'OFF', met: u ? null : !beacon },
-        { key: 'PARKING BRAKE', current: 'SET', met: u ? null : !!brake },
+        { key: 'CHOCKS OR PARKING BRAKE', current: 'SET', met: u ? null : chocksOrBrakeMet },
         { key: 'HAS MOVED', current: 'NO', met: u ? null : !hasMoved },
         { key: 'ENGINES RAN', current: 'NO', met: u ? null : !enginesEverRan },
     ], state.services.boarding);

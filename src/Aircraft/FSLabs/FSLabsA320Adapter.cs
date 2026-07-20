@@ -14,6 +14,7 @@ internal sealed class FSLabsA320Adapter : AircraftAdapterBase, IGroundEquipment,
     private readonly IEfbCommandRunner _efb;
     private readonly GsxMenuController _gsxMenu;
     private readonly string _efbUrl;
+    private bool _efbLoaded = false;
 
     private static readonly TimeSpan RequestCooldown = TimeSpan.FromSeconds(4);
     private bool? _lastChocksRequest;
@@ -63,6 +64,8 @@ internal sealed class FSLabsA320Adapter : AircraftAdapterBase, IGroundEquipment,
 
     public async Task PreloadEfb()
     {
+        _efbLoaded = true;
+
         await _efb.RunAsync(_efbUrl, new EfbCommand[]
         {
             new ClickElement(FSLabsA320Constants.ZeroKey),
@@ -74,14 +77,16 @@ internal sealed class FSLabsA320Adapter : AircraftAdapterBase, IGroundEquipment,
 
     public async Task DisposeEfb()
     {
+        _efbLoaded = false;
         if (_efb is IAsyncDisposable disposable)
             await disposable.DisposeAsync();
     }
 
-    public Task SetChocks(bool placed)
+    public async Task SetChocks(bool placed)
     {
-        if (_chocksSet == placed) return Task.CompletedTask;
-        if (_lastChocksRequest == placed && DateTime.UtcNow - _lastChocksRequestTime < RequestCooldown) return Task.CompletedTask;
+        if (!_efbLoaded) _ = PreloadEfb();
+        if (_chocksSet == placed) return;
+        if (_lastChocksRequest == placed && DateTime.UtcNow - _lastChocksRequestTime < RequestCooldown) return;
         _lastChocksRequest = placed;
         _lastChocksRequestTime = DateTime.UtcNow;
 
@@ -89,7 +94,7 @@ internal sealed class FSLabsA320Adapter : AircraftAdapterBase, IGroundEquipment,
 
         if (!placed)
         {
-            return _efb.RunAsync(_efbUrl, new EfbCommand[]
+            await _efb.RunAsync(_efbUrl, new EfbCommand[]
             {
                 new NavigateTo(FSLabsA320Constants.GroundServicesSelector),
                 new ClickElement(FSLabsA320Constants.ChocksSelector),
@@ -99,17 +104,24 @@ internal sealed class FSLabsA320Adapter : AircraftAdapterBase, IGroundEquipment,
         }
         else
         {
-            return _efb.RunAsync(_efbUrl, new EfbCommand[]
+            await _efb.RunAsync(_efbUrl, new EfbCommand[]
             {
                 new NavigateTo(FSLabsA320Constants.GroundServicesSelector),
                 new ClickElement(FSLabsA320Constants.ChocksSelector),
                 new NavigateTo(FSLabsA320Constants.HomeButtonSelector),
             });
         }
+
+        // The chocks button toggles rather than sets explicitly - wait for the L:var to confirm
+        // this click before allowing another, or a re-click before confirmation would undo it.
+        var deadline = DateTime.UtcNow.AddSeconds(8);
+        while (DateTime.UtcNow < deadline && _chocksSet != placed)
+            await Task.Delay(500);
     }
 
     public async Task SetGpu(bool connected)
     {
+        if (!_efbLoaded) _ = PreloadEfb();
         if (_gpuConnected == connected) return;
         if (_lastGpuRequest == connected && DateTime.UtcNow - _lastGpuRequestTime < RequestCooldown) return;
         _lastGpuRequest = connected;
