@@ -19,6 +19,7 @@ using SimpleGsxIntegrator.Core;
 using SimpleGsxIntegrator.Efb;
 using SimpleGsxIntegrator.Gsx;
 using SimpleGsxIntegrator.Infrastructure;
+using SimpleGsxIntegrator.Aircraft.Synaptic;
 
 namespace SimpleGsxIntegrator;
 
@@ -240,6 +241,7 @@ internal static class Program
         ((path, title) => path.Contains("FNX_320", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_321", StringComparison.OrdinalIgnoreCase) || path.Contains("FNX_319", StringComparison.OrdinalIgnoreCase), () => new FenixA320Adapter()),
         ((path, title) => path.Contains("Just Flight Fokker", StringComparison.OrdinalIgnoreCase), () => new JustFlightF100Adapter()),
         ((path, title) => path.Contains("iFly 737", StringComparison.OrdinalIgnoreCase), () => new IFly737Adapter(_efbRunner)),
+        ((path, title) => path.Contains("Synaptic_A220", StringComparison.OrdinalIgnoreCase), () => new SynapticA220Adapter()),
 
         ((path, title) => title.Contains("FSS Embraer", StringComparison.OrdinalIgnoreCase), () => new FSSEJetsAdapter()),
     };

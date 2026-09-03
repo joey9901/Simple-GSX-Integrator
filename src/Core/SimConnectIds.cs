@@ -41,6 +41,10 @@ internal enum SimDef : uint
     IFly737Vars = 700,
 
     FSLabsA320Vars = 800,
+
+    A220Chocks = 810,       // L:INI_CHOCKS_ENABLED (write)
+    A220Gpu = 811,          // L:INI_GPU_AVAIL (write)
+    A220GroundState = 812,  // combined read: chocks + gpu
 }
 
 internal enum SimReq : uint
@@ -67,6 +71,8 @@ internal enum SimReq : uint
     IFly737Vars = 700,
 
     FSLabsA320Vars = 800,
+
+    SynapticA220GroundState = 810,
 }
 
 internal enum Pmdg777DataId : uint
